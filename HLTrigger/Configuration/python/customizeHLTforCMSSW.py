@@ -1,21 +1,14 @@
 import FWCore.ParameterSet.Config as cms
 
-#
-# reusable functions
-def producers_by_type(process, *types):
-    return (module for module in process._Process__producers.values() if module._TypedParameterizable__type in types)
-def filters_by_type(process, *types):
-    return (filter for filter in process._Process__filters.values() if filter._TypedParameterizable__type in types)
-def analyzers_by_type(process, *types):
-    return (analyzer for analyzer in process._Process__analyzers.values() if analyzer._TypedParameterizable__type in types)
+# helper fuctions
+from HLTrigger.Configuration.common import *
 
-def esproducers_by_type(process, *types):
-    return (module for module in process._Process__esproducers.values() if module._TypedParameterizable__type in types)
+# add one customisation function per PR
+# - put the PR number into the name of the function
+# - add a short comment
+# for example:
 
-#
-# one action function per PR - put the PR number into the name of the function
-
-# example:
+# CCCTF tuning
 # def customiseFor12718(process):
 #     for pset in process._Process__psets.values():
 #         if hasattr(pset,'ComponentType'):
@@ -24,306 +17,208 @@ def esproducers_by_type(process, *types):
 #                     pset.minGoodStripCharge = cms.PSet(refToPSet_ = cms.string('HLTSiStripClusterChargeCutNone'))
 #     return process
 
-# Module restructuring for PR #15440
-def customiseFor15440(process):
-    for producer in producers_by_type(process, "EgammaHLTBcHcalIsolationProducersRegional", "EgammaHLTEcalPFClusterIsolationProducer", "EgammaHLTHcalPFClusterIsolationProducer", "MuonHLTEcalPFClusterIsolationProducer", "MuonHLTHcalPFClusterIsolationProducer"):
-        if hasattr(producer, "effectiveAreaBarrel") and hasattr(producer, "effectiveAreaEndcap"):
-            if not hasattr(producer, "effectiveAreas") and not hasattr(producer, "absEtaLowEdges"):
-                producer.absEtaLowEdges = cms.vdouble( 0.0, 1.479 )
-                producer.effectiveAreas = cms.vdouble( producer.effectiveAreaBarrel.value(), producer.effectiveAreaEndcap.value() )
-                del producer.effectiveAreaBarrel
-                del producer.effectiveAreaEndcap
+
+from RecoParticleFlow.PFClusterProducer.particleFlowClusterHBHE_cfi import _seedingThresholdsHEphase1, _thresholdsHEphase1
+from RecoParticleFlow.PFClusterProducer.particleFlowClusterHCAL_cfi import _thresholdsHEphase1 as _thresholdsHEphase1HCAL
+from RecoParticleFlow.PFClusterProducer.particleFlowRecHitHBHE_cfi import _thresholdsHEphase1 as _thresholdsHEphase1Rec
+
+def customiseForUncollapsed(process):
+    for producer in producers_by_type(process, "PFClusterProducer"):
+        if producer.seedFinder.thresholdsByDetector[1].detector.value() == 'HCAL_ENDCAP':
+            producer.seedFinder.thresholdsByDetector[1].seedingThreshold              = _seedingThresholdsHEphase1
+            producer.initialClusteringStep.thresholdsByDetector[1].gatheringThreshold = _thresholdsHEphase1
+            producer.pfClusterBuilder.recHitEnergyNorms[1].recHitEnergyNorm           = _thresholdsHEphase1
+            producer.pfClusterBuilder.positionCalc.logWeightDenominatorByDetector[1].logWeightDenominator = _thresholdsHEphase1
+            producer.pfClusterBuilder.allCellsPositionCalc.logWeightDenominatorByDetector[1].logWeightDenominator = _thresholdsHEphase1
+
+    for producer in producers_by_type(process, "PFMultiDepthClusterProducer"):
+        producer.pfClusterBuilder.allCellsPositionCalc.logWeightDenominatorByDetector[1].logWeightDenominator = _thresholdsHEphase1HCAL
+    
+    for producer in producers_by_type(process, "PFRecHitProducer"):
+        if producer.producers[0].name.value() == 'PFHBHERecHitCreator':
+            producer.producers[0].qualityTests[0].cuts[1].threshold = _thresholdsHEphase1Rec
+    
+    for producer in producers_by_type(process, "CaloTowersCreator"):
+        producer.HcalPhase     = cms.int32(1)
+        producer.HESThreshold1 = cms.double(0.1)
+        producer.HESThreshold  = cms.double(0.2)
+        producer.HEDThreshold1 = cms.double(0.1)
+        producer.HEDThreshold  = cms.double(0.2)
+
+
+    #remove collapser from sequence
+    process.hltHbhereco = process.hltHbhePhase1Reco.clone()
+    process.HLTDoLocalHcalSequence      = cms.Sequence( process.hltHcalDigis + process.hltHbhereco + process.hltHfprereco + process.hltHfreco + process.hltHoreco )
+    process.HLTStoppedHSCPLocalHcalReco = cms.Sequence( process.hltHcalDigis + process.hltHbhereco )
+
+
+    return process    
+
+
+def customiseFor21664_forMahiOn(process):
+    for producer in producers_by_type(process, "HBHEPhase1Reconstructor"):
+        producer.algorithm.useMahi   = cms.bool(True)
+        producer.algorithm.useM2     = cms.bool(False)
+        producer.algorithm.useM3     = cms.bool(False)
     return process
 
-# Add quadruplet-specific pixel track duplicate cleaning mode (PR #13753)
-def customiseFor13753(process):
-    for producer in producers_by_type(process, "PixelTrackProducer"):
-        if producer.CleanerPSet.ComponentName.value() == "PixelTrackCleanerBySharedHits" and not hasattr(producer.CleanerPSet, "useQuadrupletAlgo"):
-            producer.CleanerPSet.useQuadrupletAlgo = cms.bool(False)
-    return process
+def customiseFor2017DtUnpacking(process):
+    """Adapt the HLT to run the legacy DT unpacking
+    for pre2018 data/MC workflows as the default"""
 
-# Add pixel seed extension (PR #14356)
-def customiseFor14356(process):
-    for name, pset in process.psets_().iteritems():
-        if hasattr(pset, "ComponentType") and pset.ComponentType.value() == "CkfBaseTrajectoryFilter" and not hasattr(pset, "pixelSeedExtension"):
-            pset.pixelSeedExtension = cms.bool(False)
-    return process
-
-def customiseFor14833(process):
-    for producer in esproducers_by_type(process, "DetIdAssociatorESProducer"):
-        if (producer.ComponentName.value() == 'MuonDetIdAssociator'):
-            if not hasattr(producer,'includeGEM'):
-                producer.includeGEM = cms.bool(False)
-            if not hasattr(producer,'includeME0'):
-                producer.includeME0 = cms.bool(False)
-    return process
-
-def customiseFor16670(process):
-    for producer in esproducers_by_type(process, "DetIdAssociatorESProducer"):
-        if (producer.ComponentName.value() == 'HcalDetIdAssociator'):
-            if not hasattr(producer,'hcalRegion'):
-                producer.hcalRegion = cms.int32(2)
-    return process
-
-def customiseFor15499(process):
-    for producer in producers_by_type(process,"HcalHitReconstructor"):
-        producer.ts4Max = cms.vdouble(100.0,70000.0)
-        if (producer.puCorrMethod.value() == 2):
-            producer.timeSigmaHPD = cms.double(5.0)
-            producer.timeSigmaSiPM = cms.double(3.5)
-            producer.pedSigmaHPD = cms.double(0.5)
-            producer.pedSigmaSiPM = cms.double(1.5)
-            producer.noiseHPD = cms.double(1.0)
-            producer.noiseSiPM = cms.double(2.)
-    return process
-
-def customiseFor16569(process):
-    for mod in ['hltHbhereco','hltHbherecoMethod2L1EGSeeded','hltHbherecoMethod2L1EGUnseeded','hltHfreco','hltHoreco']:
-        if hasattr(process,mod):
-            getattr(process,mod).ts4chi2 = cms.vdouble(15.,5000.)
-
-    return process
-
-# Move pixel track fitter, filter, and cleaner to ED/ESProducts (PR #16792)
-def customiseFor16792(process):
-    def _copy(old, new, skip=[]):
-        skipSet = set(skip)
-        for key in old.parameterNames_():
-            if key not in skipSet:
-                setattr(new, key, getattr(old, key))
-
-    from RecoPixelVertexing.PixelTrackFitting.pixelTrackCleanerBySharedHits_cfi import pixelTrackCleanerBySharedHits as _pixelTrackCleanerBySharedHits
-    from RecoPixelVertexing.PixelLowPtUtilities.trackCleaner_cfi import trackCleaner as _trackCleaner
-
-    for producer in producers_by_type(process, "PixelTrackProducer"):
-        label = producer.label()
-        fitterName = producer.FitterPSet.ComponentName.value()
-        filterName = producer.FilterPSet.ComponentName.value()
-
-        fitterProducerLabel = label+"Fitter"
-        fitterProducerName = fitterName+"Producer"
-        fitterProducer = cms.EDProducer(fitterProducerName)
-        skip = ["ComponentName"]
-        if fitterName == "PixelFitterByHelixProjections":
-            skip.extend(["TTRHBuilder", "fixImpactParameter"]) # some HLT producers use these parameters even if they have no effect
-        _copy(producer.FitterPSet, fitterProducer, skip=skip)
-        setattr(process, fitterProducerLabel, fitterProducer)
-        del producer.FitterPSet
-        producer.Fitter = cms.InputTag(fitterProducerLabel)
-
-        filterProducerLabel = label+"Filter"
-        filterProducerName = filterName+"Producer"
-        filterProducer = cms.EDProducer(filterProducerName)
-        _copy(producer.FilterPSet, filterProducer, skip=["ComponentName"])
-        setattr(process, filterProducerLabel, filterProducer)
-
-        del producer.FilterPSet
-        producer.Filter = cms.InputTag(filterProducerLabel)
-        if hasattr(producer, "useFilterWithES"): # useFilterWithES has no effect anymore
-            del producer.useFilterWithES
-
-        cleanerPSet = producer.CleanerPSet
-        del producer.CleanerPSet
-        producer.Cleaner = cms.string("")
-        if cleanerPSet.ComponentName.value() == "PixelTrackCleanerBySharedHits":
-            if cleanerPSet.useQuadrupletAlgo:
-                producer.cleaner = "hltPixelTracksCleanerBySharedHitsQuad"
-                if not hasattr(process, "hltPixelTracksCleanerBySharedHitsQuad"):
-                    process.hltPixelTracksCleanerBySharedHitsQuad = _pixelTrackCleanerBySharedHits.clone(
-                        ComponentName = "hltPixelTracksCleanerBySharedHitsQuad",
-                        useQuadrupletAlgo=True
-                    )
-            else:
-                producer.Cleaner = "hltPixelTracksCleanerBySharedHits"
-                if not hasattr(process, "hltPixelTracksCleanerBySharedHits"):
-                    process.hltPixelTracksCleanerBySharedHits = _pixelTrackCleanerBySharedHits.clone(
-                        ComponentName = "hltPixelTracksCleanerBySharedHits",
-                        useQuadrupletAlgo=False
-                    )
-        elif cleanerPSet.ComponentName.value() == "TrackCleaner":
-            producer.Cleaner = "hltTrackCleaner"
-            if not hasattr(process, "hltTrackCleaner"):
-                process.hltTrackCleaner = _trackCleaner.clone(
-                    ComponentName = "hltTrackCleaner"
-                )
-
-        # Modify sequences (also paths to be sure, altough in practice
-        # the seeding modules should be only in sequences in HLT?)
-        for seqs in [process.sequences_(), process.paths_()]:
-            for seqName, seq in seqs.iteritems():
-                # cms.Sequence.replace() would look simpler, but it expands
-                # the contained sequences if a replacement occurs there.
-                try:
-                    index = seq.index(producer)
-                except:
-                    continue
-                seq.insert(index, fitterProducer)
-                seq.insert(index, filterProducer)
+    if hasattr(process,'hltMuonDTDigis'):
+        process.hltMuonDTDigis = cms.EDProducer( "DTUnpackingModule",
+            useStandardFEDid = cms.bool( True ),
+            maxFEDid = cms.untracked.int32( 779 ),
+            inputLabel = cms.InputTag( "rawDataCollector" ),
+            minFEDid = cms.untracked.int32( 770 ),
+            dataType = cms.string( "DDU" ),
+            readOutParameters = cms.PSet(
+                localDAQ = cms.untracked.bool( False ),
+                debug = cms.untracked.bool( False ),
+                rosParameters = cms.PSet(
+                    localDAQ = cms.untracked.bool( False ),
+                    debug = cms.untracked.bool( False ),
+                    writeSC = cms.untracked.bool( True ),
+                    readDDUIDfromDDU = cms.untracked.bool( True ),
+                    readingDDU = cms.untracked.bool( True ),
+                    performDataIntegrityMonitor = cms.untracked.bool( False )
+                    ),
+                performDataIntegrityMonitor = cms.untracked.bool( False )
+                ),
+            dqmOnly = cms.bool( False )
+        )
 
     return process
 
+
+
+# particleFlowRechitECAL new default value "false" flag to be added
+def customiseForEcalTestPR22254Default(process):
+
+    for hltParticleFlowRecHitECAL in ['hltParticleFlowRecHitECALUnseeded', 'hltParticleFlowRecHitECALL1Seeded', 'hltParticleFlowRecHitECALForMuonsMF', 'hltParticleFlowRecHitECALForTkMuonsMF']: 
+        if hasattr(process,hltParticleFlowRecHitECAL):                                                 
+            module = getattr(process,hltParticleFlowRecHitECAL)
+
+            for producer in module.producers: 
+                if hasattr(producer,'srFlags'):
+                    producer.srFlags = cms.InputTag("")
+                if hasattr(producer,'qualityTests'):
+                    for qualityTest in producer.qualityTests:
+                        if hasattr(qualityTest,'thresholds'):
+                            qualityTest.applySelectionsToAllCrystals = cms.bool(True)
+                        
+    return process
+
+
+
+# 
+# The three different set of thresholds will be used to study
+# possible new thresholds of pfrechits and effects on high level objects
+# The values proposed (A, B, C) are driven by expected noise levels
 #
+
+# Test thresholds for particleFlowRechitECAL   ~ 0.5 sigma
+def customiseForEcalTestPR22254thresholdA(process):
+    from Configuration.Eras.Modifier_run2_ECAL_2017_cff import run2_ECAL_2017
+    from RecoParticleFlow.PFClusterProducer.particleFlowZeroSuppressionECAL_cff import _particle_flow_zero_suppression_ECAL_2018_A
+
+    for hltParticleFlowRecHitECAL in ['hltParticleFlowRecHitECALUnseeded', 'hltParticleFlowRecHitECALL1Seeded', 'hltParticleFlowRecHitECALForMuonsMF', 'hltParticleFlowRecHitECALForTkMuonsMF']: 
+        if hasattr(process,hltParticleFlowRecHitECAL):                                                 
+            module = getattr(process,hltParticleFlowRecHitECAL)
+
+            for producer in module.producers: 
+                if hasattr(producer,'srFlags'):
+                    producer.srFlags = cms.InputTag("")
+                if hasattr(producer,'qualityTests'):
+                    for qualityTest in producer.qualityTests:
+                        if hasattr(qualityTest,'thresholds'):
+                            qualityTest.thresholds = _particle_flow_zero_suppression_ECAL_2018_A.thresholds 
+                            qualityTest.applySelectionsToAllCrystals = cms.bool(True)
+                        
+    return process
+
+                   
+
+
+
+# Test thresholds for particleFlowRechitECAL   ~ 1 sigma
+def customiseForEcalTestPR22254thresholdB(process):
+    from Configuration.Eras.Modifier_run2_ECAL_2017_cff import run2_ECAL_2017
+    from RecoParticleFlow.PFClusterProducer.particleFlowZeroSuppressionECAL_cff import _particle_flow_zero_suppression_ECAL_2018_B
+
+    for hltParticleFlowRecHitECAL in ['hltParticleFlowRecHitECALUnseeded', 'hltParticleFlowRecHitECALL1Seeded', 'hltParticleFlowRecHitECALForMuonsMF', 'hltParticleFlowRecHitECALForTkMuonsMF']: 
+        if hasattr(process,hltParticleFlowRecHitECAL):                                                 
+            module = getattr(process,hltParticleFlowRecHitECAL)
+
+            for producer in module.producers: 
+                if hasattr(producer,'srFlags'):
+                    producer.srFlags = cms.InputTag("")
+                if hasattr(producer,'qualityTests'):
+                    for qualityTest in producer.qualityTests:
+                        if hasattr(qualityTest,'thresholds'):
+                            qualityTest.thresholds = _particle_flow_zero_suppression_ECAL_2018_B.thresholds 
+                            qualityTest.applySelectionsToAllCrystals = cms.bool(True)
+                        
+    return process
+
+
+
+
+# Test thresholds for particleFlowRechitECAL   ~ 2 sigma
+def customiseForEcalTestPR22254thresholdC(process):
+    from Configuration.Eras.Modifier_run2_ECAL_2017_cff import run2_ECAL_2017
+    from RecoParticleFlow.PFClusterProducer.particleFlowZeroSuppressionECAL_cff import _particle_flow_zero_suppression_ECAL_2018_C
+
+    for hltParticleFlowRecHitECAL in ['hltParticleFlowRecHitECALUnseeded', 'hltParticleFlowRecHitECALL1Seeded', 'hltParticleFlowRecHitECALForMuonsMF', 'hltParticleFlowRecHitECALForTkMuonsMF']: 
+        if hasattr(process,hltParticleFlowRecHitECAL):                                                 
+            module = getattr(process,hltParticleFlowRecHitECAL)
+
+            for producer in module.producers: 
+                if hasattr(producer,'srFlags'):
+                    producer.srFlags = cms.InputTag("")
+                if hasattr(producer,'qualityTests'):
+                    for qualityTest in producer.qualityTests:
+                        if hasattr(qualityTest,'thresholds'):
+                            qualityTest.thresholds = _particle_flow_zero_suppression_ECAL_2018_C.thresholds 
+                            qualityTest.applySelectionsToAllCrystals = cms.bool(True)
+                        
+    return process
+
+
+def customiseFor24212(process):
+    for pfName in "hltParticleFlow", "hltParticleFlowForTaus", "hltParticleFlowReg":
+        pf = getattr(process,pfName,None)
+        if pf: # Treatment of tracks in region of bad HCal
+            pf.goodTrackDeadHcal_ptErrRel = cms.double(0.2) # trackRef->ptError()/trackRef->pt() < X
+            pf.goodTrackDeadHcal_chi2n = cms.double(5)      # trackRef->normalizedChi2() < X
+            pf.goodTrackDeadHcal_layers = cms.uint32(4)     # trackRef->hitPattern().trackerLayersWithMeasurement() >= X
+            pf.goodTrackDeadHcal_validFr = cms.double(0.5)  # trackRef->validFraction() > X
+            pf.goodTrackDeadHcal_dxy = cms.double(0.5)      # [cm] abs(trackRef->dxy(primaryVertex_.position())) < X
+            pf.goodPixelTrackDeadHcal_minEta = cms.double(2.3)   # abs(trackRef->eta()) > X
+            pf.goodPixelTrackDeadHcal_maxPt  = cms.double(50.)   # trackRef->ptError()/trackRef->pt() < X
+            pf.goodPixelTrackDeadHcal_ptErrRel = cms.double(1.0) # trackRef->ptError()/trackRef->pt() < X
+            pf.goodPixelTrackDeadHcal_chi2n = cms.double(2)      # trackRef->normalizedChi2() < X
+            pf.goodPixelTrackDeadHcal_maxLost3Hit = cms.int32(0) # max missing outer hits for a track with 3 valid pixel layers (can set to -1 to reject all these tracks)
+            pf.goodPixelTrackDeadHcal_maxLost4Hit = cms.int32(1) # max missing outer hits for a track with >= 4 valid pixel layers
+            pf.goodPixelTrackDeadHcal_dxy = cms.double(0.02)     # [cm] abs(trackRef->dxy(primaryVertex_.position())) < X
+            pf.goodPixelTrackDeadHcal_dz  = cms.double(0.05)     # [cm] abs(trackRef->dz(primaryVertex_.position())) < X
+    return process
+
+###For parameter changes in SiStripClusterizerFromRaw for PbPb 2018 data-taking
+def customiseForPR24339HybridFormatSiStripZS(process):
+    for producer in producers_by_type(process, "SiStripClusterizerFromRaw"): 
+        producer.Algorithms.Use10bitsTruncation  = cms.bool( False )
+        producer.HybridZeroSuppressed = cms.bool( False )
+    return process  
+
+
 # CMSSW version specific customizations
 def customizeHLTforCMSSW(process, menuType="GRun"):
 
-    import os
-    cmsswVersion = os.environ['CMSSW_VERSION']
+    # add call to action function in proper order: newest last!
+    # process = customiseFor12718(process)
+    process = customiseFor24212(process)
 
-    if cmsswVersion >= "CMSSW_8_1":
-        process = customiseFor14356(process)
-        process = customiseFor13753(process)
-        process = customiseFor14833(process)
-        process = customiseFor15440(process)
-        process = customiseFor15499(process)
-        process = customiseFor16569(process)
-#       process = customiseFor12718(process)
-        process = customiseFor16670(process)
-        pass
-
-    if cmsswVersion >= "CMSSW_9_0":
-        process = customiseFor16792(process)
-        pass
-
-#   stage-2 changes only if needed
-    if ("Fake" in menuType):
-        return process
-
-    
-
-#    if ( menuType in ("FULL","GRun","PIon")):
-#        from HLTrigger.Configuration.CustomConfigs import L1XML
-#        process = L1XML(process,"L1Menu_Collisions2016_dev_v3.xml")
-#        from HLTrigger.Configuration.CustomConfigs import L1REPACK
-#        process = L1REPACK(process)
-#
-#    _debug = False
-#
-#   special case
-#    for module in filters_by_type(process,"HLTL1TSeed"):
-#        label = module._Labelable__label
-#        if hasattr(getattr(process,label),'SaveTags'):
-#            delattr(getattr(process,label),'SaveTags')
-#
-#   replace converted l1extra=>l1t plugins which are not yet in ConfDB
-#    replaceList = {
-#        'EDAnalyzer' : { },
-#        'EDFilter'   : {
-#            'HLTMuonL1Filter' : 'HLTMuonL1TFilter',
-#            'HLTMuonL1RegionalFilter' : 'HLTMuonL1TRegionalFilter',
-#            'HLTMuonTrkFilter' : 'HLTMuonTrkL1TFilter',
-#            'HLTMuonL1toL3TkPreFilter' : 'HLTMuonL1TtoL3TkPreFilter',
-#            'HLTMuonDimuonL2Filter' : 'HLTMuonDimuonL2FromL1TFilter',
-#            'HLTEgammaL1MatchFilterRegional' : 'HLTEgammaL1TMatchFilterRegional',
-#            'HLTMuonL2PreFilter' : 'HLTMuonL2FromL1TPreFilter',
-#            'HLTPixelIsolTrackFilter' : 'HLTPixelIsolTrackL1TFilter',
-#            },
-#        'EDProducer' : {
-#            'CaloTowerCreatorForTauHLT' : 'CaloTowerFromL1TCreatorForTauHLT',
-#            'L1HLTTauMatching' : 'L1THLTTauMatching',
-#            'HLTCaloJetL1MatchProducer' : 'HLTCaloJetL1TMatchProducer',
-#            'HLTPFJetL1MatchProducer' : 'HLTPFJetL1TMatchProducer',
-#            'HLTL1MuonSelector' : 'HLTL1TMuonSelector',
-#            'L2MuonSeedGenerator' : 'L2MuonSeedGeneratorFromL1T',
-#            'IsolatedPixelTrackCandidateProducer' : 'IsolatedPixelTrackCandidateL1TProducer',
-#            }
-#        }
-#    for type,list in replaceList.iteritems():
-#        if (type=="EDAnalyzer"):
-#            if _debug:
-#                print "# Replacing EDAnalyzers:"
-#            for old,new in list.iteritems():
-#                if _debug:
-#                    print '## EDAnalyzer plugin type: ',old,' -> ',new
-#                for module in analyzers_by_type(process,old):
-#                    label = module._Labelable__label
-#                    if _debug:
-#                        print '### Instance: ',label
-#                    setattr(process,label,cms.EDAnalyzer(new,**module.parameters_()))
-#        elif (type=="EDFilter"):
-#            if _debug:
-#                print "# Replacing EDFilters  :"
-#            for old,new in list.iteritems():
-#                if _debug:
-#                    print '## EDFilter plugin type  : ',old,' -> ',new
-#                for module in filters_by_type(process,old):
-#                    label = module._Labelable__label
-#                    if _debug:
-#                        print '### Instance: ',label
-#                    setattr(process,label,cms.EDFilter(new,**module.parameters_()))
-#        elif (type=="EDProducer"):
-#            if _debug:
-#                print "# Replacing EDProducers:"
-#            for old,new in list.iteritems():
-#                if _debug:
-#                    print '## EDProducer plugin type: ',old,' -> ',new
-#                for module in producers_by_type(process,old):
-#                    label = module._Labelable__label
-#                    if _debug:
-#                        print '### Instance: ',label
-#                    setattr(process,label,cms.EDProducer(new,**module.parameters_()))
-#                    if (new == 'CaloTowerFromL1TCreatorForTauHLT'):
-#                        setattr(getattr(process,label),'TauTrigger',cms.InputTag('hltCaloStage2Digis:Tau'))
-#                    if ((new == 'HLTCaloJetL1TMatchProducer') or (new == 'HLTPFJetL1TMatchProducer')):
-#                        setattr(getattr(process,label),'L1Jets',cms.InputTag('hltCaloStage2Digis:Jet'))
-#                        if hasattr(getattr(process,label),'L1CenJets'):
-#                            delattr(getattr(process,label),'L1CenJets')
-#                        if hasattr(getattr(process,label),'L1ForJets'):
-#                            delattr(getattr(process,label),'L1ForJets')
-#                        if hasattr(getattr(process,label),'L1TauJets'):
-#                            delattr(getattr(process,label),'L1TauJets')
-#                    if (new == 'HLTL1TMuonSelector'):
-#                        setattr(getattr(process,label),'InputObjects',cms.InputTag('hltGmtStage2Digis:Muon'))
-#                    if (new == 'L2MuonSeedGeneratorFromL1T'):
-#                        setattr(getattr(process,label),'GMTReadoutCollection',cms.InputTag(''))            
-#                        setattr(getattr(process,label),'InputObjects',cms.InputTag('hltGmtStage2Digis:Muon'))
-#                    if (new == 'IsolatedPixelTrackCandidateL1TProducer'):
-#                        setattr(getattr(process,label),'L1eTauJetsSource',cms.InputTag('hltCaloStage2Digis:Tau'))
-#
-#        else:
-#            if _debug:
-#                print "# Error - Type ',type,' not recognised!"
-#
-#   Both of the HLTEcalRecHitInAllL1RegionsProducer instances need InputTag fixes
-#    for module in producers_by_type(process,'HLTEcalRecHitInAllL1RegionsProducer'):
-#        label = module._Labelable__label
-#        setattr(getattr(process,label).l1InputRegions[0],'inputColl',cms.InputTag('hltCaloStage2Digis:EGamma'))
-#        setattr(getattr(process,label).l1InputRegions[0],'type',cms.string("EGamma"))
-#        setattr(getattr(process,label).l1InputRegions[1],'inputColl',cms.InputTag('hltCaloStage2Digis:EGamma'))
-#        setattr(getattr(process,label).l1InputRegions[1],'type',cms.string("EGamma"))
-#        setattr(getattr(process,label).l1InputRegions[2],'inputColl',cms.InputTag('hltCaloStage2Digis:Jet'))
-#        setattr(getattr(process,label).l1InputRegions[2],'type',cms.string("Jet"))
-#
-#   One of the EgammaHLTCaloTowerProducer instances need InputTag fixes
-#    if hasattr(process,'hltRegionalTowerForEgamma'):
-#        setattr(getattr(process,'hltRegionalTowerForEgamma'),'L1NonIsoCand',cms.InputTag('hltCaloStage2Digis:EGamma'))
-#        setattr(getattr(process,'hltRegionalTowerForEgamma'),'L1IsoCand'   ,cms.InputTag('hltCaloStage2Digis:EGamma'))
-#
-#   replace remaining l1extra modules with filter returning 'false'
-#    badTypes = (
-#        'HLTLevel1Activity',
-#        )
-#    if _debug:
-#        print "# Unconverted module types: ",badTypes
-#    badModules = [ ]
-#    for badType in badTypes:
-#        if _debug:
-#            print '## Unconverted module type: ',badType
-#        for module in analyzers_by_type(process,badType):
-#            label = module._Labelable__label
-#            badModules += [label]
-#            if _debug:
-#                print '### analyzer label: ',label
-#        for module in filters_by_type(process,badType):
-#            label = module._Labelable__label
-#            badModules += [label]
-#            if _debug:
-#                print '### filter   label: ',label
-#        for module in producers_by_type(process,badType):
-#            label = module._Labelable__label
-#            badModules += [label]
-#            if _debug:
-#                print '### producer label: ',label
-#    for label in badModules:
-#        setattr(process,label,cms.EDFilter("HLTBool",result=cms.bool(False)))
-
+    process = customiseForPR24339HybridFormatSiStripZS(process)
     return process

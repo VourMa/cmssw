@@ -2,7 +2,7 @@
 #include "EventFilter/CSCTFRawToDigi/src/CSCTFEvent.h"
 
 #include <strings.h>
-#include <errno.h>
+#include <cerrno>
 #include <iostream>
 #include <cstdio>
 
@@ -20,7 +20,7 @@
 #include "FWCore/Utilities/interface/CRC16.h"
 
 
-CSCTFPacker::CSCTFPacker(const edm::ParameterSet &conf):edm::EDProducer(){
+CSCTFPacker::CSCTFPacker(const edm::ParameterSet &conf):edm::one::EDProducer<>(){
 	// "Readout" configuration
 	zeroSuppression = conf.getParameter<bool>("zeroSuppression");
 	nTBINs          = conf.getParameter<int> ("nTBINs");
@@ -36,8 +36,8 @@ CSCTFPacker::CSCTFPacker(const edm::ParameterSet &conf):edm::EDProducer(){
 	// Swap: if(swapME1strips && me1b && !zplus) strip = 65 - strip; // 1-64 -> 64-1 :
 	swapME1strips = conf.getParameter<bool>("swapME1strips");
 
-	file = 0;
-	if( outputFile.length() && (file = fopen(outputFile.c_str(),"wt"))==NULL )
+	file = nullptr;
+	if( outputFile.length() && (file = fopen(outputFile.c_str(),"wt"))==nullptr )
 		throw cms::Exception("OutputFile ")<<"CSCTFPacker: cannot open output file (errno="<<errno<<"). Try outputFile=\"\"";
 
 	// BX window bounds in CMSSW:

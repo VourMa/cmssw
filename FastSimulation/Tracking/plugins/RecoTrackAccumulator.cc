@@ -1,12 +1,12 @@
 #include "FastSimulation/Tracking/plugins/RecoTrackAccumulator.h"
 #include "FWCore/Framework/interface/ConsumesCollector.h"
-#include "FWCore/Framework/interface/stream/EDProducer.h"
+#include "FWCore/Framework/interface/ProducerBase.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "DataFormats/Common/interface/ValueMap.h"
 #include "DataFormats/TrackReco/interface/Track.h"
 
 
-RecoTrackAccumulator::RecoTrackAccumulator(const edm::ParameterSet& conf, edm::stream::EDProducerBase& mixMod, edm::ConsumesCollector& iC) :
+RecoTrackAccumulator::RecoTrackAccumulator(const edm::ParameterSet& conf, edm::ProducerBase& mixMod, edm::ConsumesCollector& iC) :
   signalTracksTag(conf.getParameter<edm::InputTag>("signalTracks")),
   pileUpTracksTag(conf.getParameter<edm::InputTag>("pileUpTracks")),
   outputLabel(conf.getParameter<std::string>("outputLabel"))
@@ -101,6 +101,8 @@ template<class T> void RecoTrackAccumulator::accumulateEvent(const T& e, edm::Ev
       newHits_->push_back( (*hits)[extra.recHit(i).key()] );
     }
     newExtra.setHits( rNewHits, firstTrackIndex, newHits_->size() - firstTrackIndex);
+    newExtra.setTrajParams(extra.trajParams(),extra.chi2sX5());
+    assert(newExtra.recHitsSize()==newExtra.trajParams().size());
   }
 }
 

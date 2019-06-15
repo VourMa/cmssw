@@ -72,7 +72,12 @@ L1TriggerFEVTDEBUG = cms.PSet(
         'keep *_simCaloStage2Layer1Digis_*_*', 
         'keep *_simCaloStage2Digis_*_*', 
         'keep *_simGmtDigis_*_*', 
+        "keep *_simBmtfDigis_*_*",
+        "keep *_simOmtfDigis_*_*",
+        "keep *_simEmtfDigis_*_*",
+        "keep *_simGmtStage2Digis_*_*",
         'keep *_simGtDigis_*_*', 
+        "keep *_simGtStage2Digis_*_*",
         'keep *_cscTriggerPrimitiveDigis_*_*', 
         'keep *_dtTriggerPrimitiveDigis_*_*', 
         'keep *_rpcTriggerDigis_*_*', 
@@ -96,12 +101,9 @@ L1TriggerFEVTDEBUG = cms.PSet(
 
 def _appendStage2Digis(obj):
     l1Stage2Digis = [
-        'keep *_gtStage2Digis__*', 
-        'keep *_gmtStage2Digis_Muon_*',
-        'keep *_caloStage2Digis_Jet_*',
-        'keep *_caloStage2Digis_Tau_*',
-        'keep *_caloStage2Digis_EGamma_*',
-        'keep *_caloStage2Digis_EtSum_*',
+        'keep *_gtStage2Digis_*_*', 
+        'keep *_gmtStage2Digis_*_*',
+        'keep *_caloStage2Digis_*_*',
         ]
     obj.outputCommands += l1Stage2Digis
 
@@ -115,9 +117,25 @@ stage2L1Trigger.toModify(L1TriggerFEVTDEBUG, func=_appendStage2Digis)
 # adding HGCal L1 trigger digis
 def _appendHGCalDigis(obj):
     l1HGCalDigis = [
-        'keep *_hgcalTriggerPrimitiveDigiProducer__*',
+        'keep *_hgcalTriggerPrimitiveDigiProducer_calibratedTriggerCells_*',
+        'keep *_hgcalTriggerPrimitiveDigiProducer_cluster2D_*',
+        'keep *_hgcalTriggerPrimitiveDigiProducer_cluster3D_*',
+        'keep *_hgcalTriggerPrimitiveDigiProducer_towerMap_*',
+        'keep *_hgcalTriggerPrimitiveDigiProducer_tower_*',
         ]
     obj.outputCommands += l1HGCalDigis
 
 from Configuration.Eras.Modifier_phase2_hgcal_cff import phase2_hgcal
 phase2_hgcal.toModify(L1TriggerFEVTDEBUG, func=_appendHGCalDigis)
+
+# adding ME0 pseudo trigger stubs
+def _appendME0PseudoStubs(obj):
+    l1ME0PseudoStubs = [
+        'keep *_simMuonME0PseudoReDigisCoarse__*',
+        'keep *_me0RecHitsCoarse__*',
+        'keep *_me0TriggerPseudoDigis__*',
+        ]
+    obj.outputCommands += l1ME0PseudoStubs
+
+from Configuration.Eras.Modifier_phase2_muon_cff import phase2_muon
+phase2_muon.toModify(L1TriggerFEVTDEBUG, func=_appendME0PseudoStubs)

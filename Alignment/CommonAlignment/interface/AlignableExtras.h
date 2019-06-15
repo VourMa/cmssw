@@ -33,7 +33,7 @@ class AlignableExtras
   /// Return beam spot alignable as a vector with one element
   Alignables& beamSpot() { return this->subStructures("BeamSpot");}
 
-  Alignables components() const { return components_; }
+  const Alignables& components() const { return components_; }
 
   /// Return alignments, sorted by DetId
   Alignments* alignments() const;
@@ -46,6 +46,9 @@ class AlignableExtras
   /// Initialize the alignable beam spot with the given parameters
   void initializeBeamSpot(double x, double y, double z,
 			  double dxdz, double dydz);
+
+  /// Initialize the alignable beam spot with the given parameters
+  void resetBeamSpot();
 
  private:
   

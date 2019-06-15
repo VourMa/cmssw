@@ -5,7 +5,7 @@
 //
 // -------------------------------------------------------------------
 //
-#include "SimG4Core/CustomPhysics/interface/CMSDarkPairProduction.hh"
+#include "SimG4Core/CustomPhysics/interface/CMSDarkPairProduction.h"
 #include "G4PhysicalConstants.hh"
 #include "G4SystemOfUnits.hh"
 #include "G4PairProductionRelModel.hh"
@@ -13,14 +13,10 @@
 using namespace std;
 
 static const G4double xsfactor =
-  4*fine_structure_const*classic_electr_radius*classic_electr_radius;
+  4*CLHEP::fine_structure_const*CLHEP::classic_electr_radius*CLHEP::classic_electr_radius;
 
-static G4double dark_factor;
-
-CMSDarkPairProduction::CMSDarkPairProduction(const G4ParticleDefinition* p,G4double df,const G4String& nam) : G4PairProductionRelModel(p,nam){
-  dark_factor = df;
-
-}
+CMSDarkPairProduction::CMSDarkPairProduction(const G4ParticleDefinition* p,G4double df,
+   const G4String& nam) : G4PairProductionRelModel(p,nam), dark_factor(df) {}
 
 CMSDarkPairProduction::~CMSDarkPairProduction(){}
 
@@ -41,14 +37,3 @@ G4double CMSDarkPairProduction::ComputeCrossSectionPerAtom(const G4ParticleDefin
   crossSection *= dark_factor * xsfactor*Z*(Z+xi);
   return crossSection;
 }
-void
-CMSDarkPairProduction::SampleSecondaries(std::vector<G4DynamicParticle*>* fvect,
-               const G4MaterialCutsCouple* couple,
-               const G4DynamicParticle* aDynamicGamma,
-               G4double e1,
-               G4double e2)
-{
-G4PairProductionRelModel::SampleSecondaries(fvect, couple, aDynamicGamma, e1, e2);
-        
-}
-

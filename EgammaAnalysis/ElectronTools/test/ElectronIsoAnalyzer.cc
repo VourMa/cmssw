@@ -52,9 +52,9 @@ class ElectronIsoAnalyzer : public edm::EDAnalyzer {
   //
 
    private:
-      virtual void beginJob(const edm::EventSetup&) ;
-      virtual void analyze(const edm::Event&, const edm::EventSetup&);
-      virtual void endJob() ;
+      virtual void beginJob() override;
+      virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
+      virtual void endJob() override;
 
 
   edm::ParameterSet conf_;
@@ -228,7 +228,7 @@ ElectronIsoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       neutralBarrel_->Fill(neutral/myElectronRef->pt());
       sumBarrel_->Fill((charged+photon+neutral)/myElectronRef->pt());
       sumCorrBarrel_->Fill(myPfIsoPuCorr/myElectronRef->pt());
-      missHitsBarrel_->Fill(myElectronRef->gsfTrack()->hitPattern().numberOfHits(reco::HitPattern::MISSING_INNER_HITS));
+      missHitsBarrel_->Fill(myElectronRef->gsfTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS));
 
     } else {
       chargedEndcaps_ ->Fill(charged/myElectronRef->pt());
@@ -236,14 +236,14 @@ ElectronIsoAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& iS
       neutralEndcaps_->Fill(neutral/myElectronRef->pt());
       sumEndcaps_->Fill((charged+photon+neutral)/myElectronRef->pt());
       sumCorrEndcaps_->Fill(myPfIsoPuCorr/myElectronRef->pt());
-      missHitsEndcap_->Fill(myElectronRef->gsfTrack()->hitPattern().numberOfHits(reco::HitPattern::MISSING_INNER_HITS));
+      missHitsEndcap_->Fill(myElectronRef->gsfTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS));
     }
   }
 
 }
 // ------------ method called once each job just before starting event loop  ------------
 void
-ElectronIsoAnalyzer::beginJob(const edm::EventSetup&)
+ElectronIsoAnalyzer::beginJob()
 {
 
   ev = 0;

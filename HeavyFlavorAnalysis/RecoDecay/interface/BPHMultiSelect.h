@@ -20,6 +20,7 @@
 #include "HeavyFlavorAnalysis/RecoDecay/interface/BPHRecoSelect.h"
 #include "HeavyFlavorAnalysis/RecoDecay/interface/BPHMomentumSelect.h"
 #include "HeavyFlavorAnalysis/RecoDecay/interface/BPHVertexSelect.h"
+#include "HeavyFlavorAnalysis/RecoDecay/interface/BPHFitSelect.h"
 class BPHRecoBuilder;
 class BPHDecayMomentum;
 class BPHDecayVertex;
@@ -64,7 +65,7 @@ class BPHMultiSelect: public T {
 
   /** Destructor
    */
-  virtual ~BPHMultiSelect() {}
+  ~BPHMultiSelect() override {}
 
   /** Operations
    */
@@ -78,17 +79,18 @@ class BPHMultiSelect: public T {
   }
 
   /// accept function
-  virtual bool accept( const reco::Candidate & cand,
-                       const BPHRecoBuilder*  build ) const { return false; }
-  virtual bool accept( const reco::Candidate & cand ) const { return false; }
-  virtual bool accept( const BPHDecayMomentum& cand ) const { return false; }
-  virtual bool accept( const BPHDecayVertex  & cand ) const { return false; }
+  bool accept( const reco::Candidate & cand, //NOLINT
+	       const BPHRecoBuilder*  build ) const  { return false; } //NOLINT
+  bool accept( const reco::Candidate & cand ) const  { return false; } //NOLINT
+  bool accept( const BPHDecayMomentum& cand ) const { return false; } //NOLINT
+  bool accept( const BPHDecayVertex  & cand ) const { return false; } //NOLINT
+  bool accept( const BPHKinematicFit & cand ) const { return false; } //NOLINT
 
  private:
 
   // private copy and assigment constructors
-  BPHMultiSelect           ( const BPHMultiSelect<T>& x );
-  BPHMultiSelect& operator=( const BPHMultiSelect<T>& x );
+  BPHMultiSelect           ( const BPHMultiSelect<T>& x ) = delete;
+  BPHMultiSelect& operator=( const BPHMultiSelect<T>& x ) = delete;
 
   struct SelectElement {
     T* selector;
@@ -124,18 +126,21 @@ class BPHMultiSelect: public T {
 };
 
 template<>
-bool BPHMultiSelect<BPHRecoSelect>::accept(
-                                      const reco::Candidate& cand,
-                                      const BPHRecoBuilder* build ) const;
+bool BPHMultiSelect<BPHRecoSelect    >::accept(
+                                        const reco::Candidate & cand,
+                                        const BPHRecoBuilder* build ) const;
 template<>
-bool BPHMultiSelect<BPHRecoSelect>::accept(
-                                      const reco::Candidate& cand ) const;
+bool BPHMultiSelect<BPHRecoSelect    >::accept(
+                                        const reco::Candidate & cand ) const;
 template<>
 bool BPHMultiSelect<BPHMomentumSelect>::accept(
-                                          const BPHDecayMomentum& cand ) const;
+                                        const BPHDecayMomentum& cand ) const;
 template<>
-bool BPHMultiSelect<BPHVertexSelect>::accept(
-                                        const BPHDecayVertex& cand ) const;
+bool BPHMultiSelect<BPHVertexSelect  >::accept(
+                                        const BPHDecayVertex  & cand ) const;
+template<>
+bool BPHMultiSelect<BPHFitSelect     >::accept(
+                                        const BPHKinematicFit & cand ) const;
 
 #endif
 

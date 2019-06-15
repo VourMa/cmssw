@@ -26,7 +26,7 @@ class HcalTopologyIdealEP : public edm::ESProducer {
 
 public:
   HcalTopologyIdealEP(const edm::ParameterSet&);
-  ~HcalTopologyIdealEP();
+  ~HcalTopologyIdealEP() override;
 
   typedef std::shared_ptr<HcalTopology> ReturnType;
 
@@ -39,6 +39,7 @@ public:
 private:
   // ----------member data ---------------------------
   std::string m_restrictions;
+  bool        m_mergePosition;
   const edm::ParameterSet m_pSet;
 };
 #endif

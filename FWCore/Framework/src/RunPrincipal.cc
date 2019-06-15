@@ -13,13 +13,11 @@ namespace edm {
     unsigned int iRunIndex,
     bool isForPrimaryProcess) :
     Base(reg, reg->productLookup(InRun), pc, InRun, historyAppender, isForPrimaryProcess),
-      aux_(aux), index_(iRunIndex), complete_(false) {
+      aux_(aux), index_(iRunIndex) {
   }
 
   void
   RunPrincipal::fillRunPrincipal(ProcessHistoryRegistry const& processHistoryRegistry, DelayedReader* reader) {
-    complete_ = false;
-
     m_reducedHistoryID = processHistoryRegistry.reducedProcessHistoryID(aux_->processHistoryID());
     fillPrincipal(aux_->processHistoryID(), processHistoryRegistry, reader);
 
@@ -35,6 +33,13 @@ namespace edm {
     putOrMerge(bd,std::move(edp));
   }
 
+  void
+  RunPrincipal::put(ProductResolverIndex index,
+                    std::unique_ptr<WrapperBase> edp) const {
+    auto phb = getProductResolverByIndex(index);
+    phb->putOrMergeProduct(std::move(edp));
+  }
+  
   unsigned int
   RunPrincipal::transitionIndex_() const {
     return index().value();

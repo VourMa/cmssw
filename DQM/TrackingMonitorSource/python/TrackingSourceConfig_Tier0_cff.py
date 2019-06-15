@@ -1,5 +1,7 @@
 import FWCore.ParameterSet.Config as cms
 import RecoTracker.IterativeTracking.iterativeTkConfig as _cfg
+import RecoTracker.IterativeTracking.iterativeTkUtils as _utils
+import six
 
 ### load which are the tracks collection 2 be monitored
 from DQM.TrackingMonitorSource.TrackCollections2monitor_cff import *
@@ -15,6 +17,7 @@ for tracks in selectedTracks :
     label = 'TrackerCollisionSelectedTrackMonCommon' + str(tracks)
     locals()[label] = TrackerCollisionTrackMonCommon.clone()
     locals()[label].TrackProducer    = cms.InputTag(tracks)
+    locals()[label].allTrackProducer = cms.InputTag(allTrackProducer[tracks])
     locals()[label].FolderName       = cms.string(mainfolderName[tracks])
     locals()[label].PVFolderName     = cms.string(vertexfolderName[tracks])
     locals()[label].TrackPtMin       = trackPtMin[tracks]
@@ -44,6 +47,7 @@ for tracks in selectedTracks :
     locals()[label].doPlotsVsBXlumi                     = doPlotsVsBXlumi                     [tracks]
     locals()[label].doPlotsVsGoodPVtx                   = doPlotsVsGoodPVtx                   [tracks]
     locals()[label].doEffFromHitPatternVsPU             = doEffFromHitPatternVsPU             [tracks]
+    locals()[label].doEffFromHitPatternVsLUMI           = doEffFromHitPatternVsLumi           [tracks]
     if tracks == 'generalTracks':
         locals()[label].doEffFromHitPatternVsBX = False
     else:
@@ -127,7 +131,7 @@ for tracks in selectedTracks :
     locals()[label].doPlotsVsBX                         = cms.bool(True)
     locals()[label].doEffFromHitPatternVsPU             = doEffFromHitPatternVsPU             [tracks]
     locals()[label].doEffFromHitPatternVsBX             = doEffFromHitPatternVsBX             [tracks]
-    locals()[label].doEffFromHitPatternVsLUMI           = cms.bool(True)
+    locals()[label].doEffFromHitPatternVsLUMI           = False
     locals()[label].doStopSource                        = doStopSource                        [tracks]    
     locals()[label].setLabel(label)
 
@@ -167,7 +171,7 @@ for tracks in selectedTracks :
     locals()[label].doPlotsVsBX                         = cms.bool(True)
     locals()[label].doEffFromHitPatternVsPU             = doEffFromHitPatternVsPU             [tracks]
     locals()[label].doEffFromHitPatternVsBX             = doEffFromHitPatternVsBX             [tracks]
-    locals()[label].doEffFromHitPatternVsLUMI           = cms.bool(True)
+    locals()[label].doEffFromHitPatternVsLUMI           = False
     locals()[label].doStopSource                        = doStopSource                        [tracks]    
     locals()[label].setLabel(label)
 
@@ -208,7 +212,7 @@ for tracks in selectedTracks :
     locals()[label].doPlotsVsBX                         = cms.bool(True)
     locals()[label].doEffFromHitPatternVsPU             = doEffFromHitPatternVsPU             [tracks]
     locals()[label].doEffFromHitPatternVsBX             = doEffFromHitPatternVsBX             [tracks]
-    locals()[label].doEffFromHitPatternVsLUMI           = cms.bool(True)
+    locals()[label].doEffFromHitPatternVsLUMI           = False
     locals()[label].doStopSource                        = doStopSource                        [tracks]    
     locals()[label].setLabel(label)
 
@@ -221,29 +225,45 @@ import DQM.TrackingMonitor.TrackingMonitorSeed_cfi
 from DQM.TrackingMonitorSource.IterTrackingModules4seedMonitoring_cfi import *
 # Create first modules for all possible iterations, select later which
 # ones to actually use based on era
-for step in seedInputTag.iterkeys():
-    label = 'TrackSeedMon'+str(step)
-    locals()[label] = DQM.TrackingMonitor.TrackingMonitorSeed_cfi.TrackMonSeed.clone(
+def _copyIfExists(mod, pset, name):
+    if hasattr(pset, name):
+        setattr(mod, name, getattr(pset, name))
+for _step, _pset in six.iteritems(seedMonitoring):
+    _mod = DQM.TrackingMonitor.TrackingMonitorSeed_cfi.TrackMonSeed.clone(
         doTrackCandHistos = cms.bool(True)
     )
-    locals()[label].TrackProducer = cms.InputTag("generalTracks")
-    locals()[label].FolderName    = cms.string("Tracking/TrackParameters/generalTracks")
-    locals()[label].SeedProducer  = seedInputTag[step]
-    locals()[label].TCProducer    = trackCandInputTag[step]
-    locals()[label].AlgoName      = cms.string( str(step) )
-    locals()[label].TkSeedSizeBin = trackSeedSizeBin[step]
-    locals()[label].TkSeedSizeMin = trackSeedSizeMin[step]
-    locals()[label].TkSeedSizeMax = trackSeedSizeMax[step]
-    locals()[label].ClusterLabels = clusterLabel[step]
-    if clusterLabel[step] == cms.vstring('Pix') :
-        locals()[label].NClusPxBin = clusterBin[step]
-        locals()[label].NClusPxMax = clusterMax[step]
-    elif clusterLabel[step] == cms.vstring('Strip') or clusterLabel[step] == cms.vstring('Tot') :
-        locals()[label].NClusStrBin = clusterBin[step]
-        locals()[label].NClusStrMax = clusterMax[step]
+    locals()['TrackSeedMon'+str(_step)] = _mod
+    _mod.TrackProducer = cms.InputTag("generalTracks")
+    _mod.FolderName    = cms.string("Tracking/TrackParameters/generalTracks")
+    _mod.SeedProducer  = _pset.seedInputTag
+    _mod.TCProducer    = _pset.trackCandInputTag
+    _mod.AlgoName      = cms.string( str(_step) )
+    _mod.TkSeedSizeBin = _pset.trackSeedSizeBin
+    _mod.TkSeedSizeMin = _pset.trackSeedSizeMin
+    _mod.TkSeedSizeMax = _pset.trackSeedSizeMax
+    _mod.ClusterLabels = _pset.clusterLabel
+    if _pset.clusterLabel == cms.vstring('Pix') :
+        _mod.NClusPxBin = _pset.clusterBin
+        _mod.NClusPxMax = _pset.clusterMax
+    elif _pset.clusterLabel == cms.vstring('Strip') or _pset.clusterLabel == cms.vstring('Tot') :
+        _mod.NClusStrBin = _pset.clusterBin
+        _mod.NClusStrMax = _pset.clusterMax
+    if hasattr(_pset, "RegionProducer") or hasattr(_pset, "RegionSeedingLayersProducer"):
+        _mod.doRegionPlots = True
+        _copyIfExists(_mod, _pset, "RegionProducer")
+        _copyIfExists(_mod, _pset, "RegionSeedingLayersProducer")
+        _copyIfExists(_mod, _pset, "RegionSizeBin")
+        _copyIfExists(_mod, _pset, "RegionSizeMax")
+        if hasattr(_pset, "RegionCandidates"):
+            _mod.doRegionCandidatePlots = True
+            _mod.RegionCandidates = _pset.RegionCandidates
+    if hasattr(_pset, "trajCandPerSeedBin"):
+        _mod.SeedCandBin = _pset.trajCandPerSeedBin
+        _mod.SeedCandMax = _pset.trajCandPerSeedMax
 
 # DQM Services
-dqmInfoTracking = cms.EDAnalyzer("DQMEventInfo",
+from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
+dqmInfoTracking = DQMEDAnalyzer('DQMEventInfo',
     subSystemFolder = cms.untracked.string('Tracking')
 )
 
@@ -284,23 +304,17 @@ from RecoLuminosity.LumiProducer.lumiProducer_cff import *
 # import v0 monitoring
 from DQM.TrackingMonitor.V0Monitor_cff import *
 
-# temporary test in order to temporary produce the "goodPrimaryVertexCollection"
-# define with a new name if changes are necessary, otherwise simply include
-# it from CommonTools/ParticleFlow/python/goodOfflinePrimaryVertices_cfi.py
-# uncomment when necessary
-from PhysicsTools.SelectorUtils.pvSelector_cfi import pvSelector
+# better clone for now because goodOfflinePrimaryVertices is used also
+# within the reco sequence, and without cloning framework will throw
+# "unrunnable schedule" exception for workflows without --runUnscheduled
 from CommonTools.ParticleFlow.goodOfflinePrimaryVertices_cfi import goodOfflinePrimaryVertices
 trackingDQMgoodOfflinePrimaryVertices = goodOfflinePrimaryVertices.clone()
-trackingDQMgoodOfflinePrimaryVertices.filterParams = pvSelector.clone( minNdof = cms.double(4.0), maxZ = cms.double(24.0) )
-trackingDQMgoodOfflinePrimaryVertices.src=cms.InputTag('offlinePrimaryVertices')
-trackingDQMgoodOfflinePrimaryVertices.filter = cms.bool(False)
 
 
-# import v0 monitoring
-from DQM.TrackingMonitor.V0Monitor_cff import *
-
+# import PV resolution
+from DQM.TrackingMonitor.primaryVertexResolution_cfi import *
 # Sequence
-TrackingDQMSourceTier0 = cms.Sequence()
+TrackingDQMSourceTier0 = cms.Sequence(cms.ignore(trackingDQMgoodOfflinePrimaryVertices))
 # dEdx monitoring
 TrackingDQMSourceTier0 += dedxHarmonicSequence * dEdxMonCommon * dEdxHitMonCommon   
 #    # temporary patch in order to have BXlumi
@@ -308,13 +322,19 @@ TrackingDQMSourceTier0 += dedxHarmonicSequence * dEdxMonCommon * dEdxHitMonCommo
 # track collections
 for tracks in selectedTracks :
     if tracks != 'generalTracks':
-        TrackingDQMSourceTier0 += sequenceName[tracks]
+        TrackingDQMSourceTier0 += cms.ignore(sequenceName[tracks])
     label = 'TrackerCollisionSelectedTrackMonCommon' + str(tracks)
-    TrackingDQMSourceTier0 += locals()[label]
+    TrackingDQMSourceTier0 += cms.ignore(locals()[label])
 # seeding monitoring
 for _eraName, _postfix, _era in _cfg.allEras():
+    mvaSel = _utils.getMVASelectors(_postfix)
     _seq = cms.Sequence()
     for step in locals()["selectedIterTrackingStep"+_postfix]:
+        if step in mvaSel:
+            locals()["TrackSeedMon"+step].doMVAPlots = True
+            locals()["TrackSeedMon"+step].TrackProducerForMVA = mvaSel[step][0]
+            locals()["TrackSeedMon"+step].MVAProducers = mvaSel[step][1]
+
         _seq += locals()["TrackSeedMon"+step]
     if _eraName == "":
         locals()["TrackSeedMonSequence"] = _seq
@@ -326,18 +346,20 @@ for module in selectedModules :
     label = str(module)+'LogMessageMonCommon'
     TrackingDQMSourceTier0 += locals()[label]
 TrackingDQMSourceTier0 += voMonitoringSequence
+TrackingDQMSourceTier0 += voWcutMonitoringSequence
+TrackingDQMSourceTier0 += primaryVertexResolution
 TrackingDQMSourceTier0 += dqmInfoTracking
 
 
-TrackingDQMSourceTier0Common = cms.Sequence()
+TrackingDQMSourceTier0Common = cms.Sequence(cms.ignore(trackingDQMgoodOfflinePrimaryVertices))
 # dEdx monitoring
 TrackingDQMSourceTier0Common += (dedxHarmonicSequence * dEdxMonCommon * dEdxHitMonCommon)    
 ## monitor track collections
 for tracks in selectedTracks :
     if tracks != 'generalTracks':
-        TrackingDQMSourceTier0Common+=sequenceName[tracks]
+        TrackingDQMSourceTier0Common+=cms.ignore(sequenceName[tracks])
     label = 'TrackerCollisionSelectedTrackMonCommon' + str(tracks)
-    TrackingDQMSourceTier0Common += locals()[label]
+    TrackingDQMSourceTier0Common += cms.ignore(locals()[label])
 # seeding monitoring
 TrackingDQMSourceTier0Common += TrackSeedMonSequence
 # MessageLog
@@ -345,21 +367,22 @@ for module in selectedModules :
     label = str(module)+'LogMessageMonCommon'
     TrackingDQMSourceTier0Common += locals()[label]
 TrackingDQMSourceTier0Common += voMonitoringCommonSequence
+TrackingDQMSourceTier0Common += voWcutMonitoringCommonSequence
+TrackingDQMSourceTier0Common += primaryVertexResolution
 TrackingDQMSourceTier0Common += dqmInfoTracking
 
-TrackingDQMSourceTier0MinBias = cms.Sequence()
+TrackingDQMSourceTier0MinBias = cms.Sequence(cms.ignore(trackingDQMgoodOfflinePrimaryVertices))
 # dEdx monitoring
 TrackingDQMSourceTier0MinBias += dedxHarmonicSequence * dEdxMonCommon * dEdxHitMonCommon    
 #    * lumiProducer
-#    * trackingDQMgoodOfflinePrimaryVertices
 # monitor track collections
 for tracks in selectedTracks :
     if tracks != 'generalTracks':
-        TrackingDQMSourceTier0MinBias += sequenceName[tracks]
+        TrackingDQMSourceTier0MinBias += cms.ignore(sequenceName[tracks])
 
     for topology in [ 'MB', 'ZBnoHIPnoOOT', 'ZBHIPnoOOT', 'ZBHIPOOT']:
         label = 'TrackerCollisionSelectedTrackMon' + str(topology) + str(tracks)
-        TrackingDQMSourceTier0MinBias += locals()[label]
+        TrackingDQMSourceTier0MinBias += cms.ignore(locals()[label])
 # seeding monitoring
 TrackingDQMSourceTier0MinBias += TrackSeedMonSequence
 # MessageLog
@@ -371,6 +394,12 @@ TrackingDQMSourceTier0MinBias += voMonitoringMBSequence
 TrackingDQMSourceTier0MinBias += voMonitoringZBnoHIPnoOOTSequence
 TrackingDQMSourceTier0MinBias += voMonitoringZBHIPnoOOTSequence
 TrackingDQMSourceTier0MinBias += voMonitoringZBHIPOOTSequence
+TrackingDQMSourceTier0MinBias += voWcutMonitoringMBSequence
+TrackingDQMSourceTier0MinBias += voWcutMonitoringZBnoHIPnoOOTSequence
+TrackingDQMSourceTier0MinBias += voWcutMonitoringZBHIPnoOOTSequence
+TrackingDQMSourceTier0MinBias += voWcutMonitoringZBHIPOOTSequence
+# PV resolution
+TrackingDQMSourceTier0MinBias += primaryVertexResolution
 
 TrackingDQMSourceTier0MinBias += dqmInfoTracking
 

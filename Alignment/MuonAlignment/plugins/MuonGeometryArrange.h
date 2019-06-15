@@ -41,7 +41,6 @@ public edm::EDAnalyzer
 public:
 	typedef AlignTransform SurveyValue;
 	typedef Alignments SurveyValues;
-	typedef std::vector<Alignable*> Alignables;
 		
   /// Do nothing. Required by framework.
   MuonGeometryArrange(
@@ -49,12 +48,12 @@ public:
 		);
 	
   /// Read from DB and print survey info.
-	virtual void beginJob();
+	void beginJob() override;
 
-	virtual void analyze(
+	void analyze(
 		const edm::Event&,
 		const edm::EventSetup&
-		);
+		) override;
 //        virtual void endJob(void);
 	
 private:
@@ -98,6 +97,7 @@ private:
 	const SurveyErrors* theSurveyErrors;
 	
 	// configurables
+        const std::vector<std::string> _levelStrings;
 	std::string _inputFilename1;
 	std::string _inputFilename2;
 	std::string _inputTreename;

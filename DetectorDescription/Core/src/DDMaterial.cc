@@ -4,7 +4,7 @@
 
 #include "CLHEP/Units/GlobalSystemOfUnits.h"
 #include "CLHEP/Units/SystemOfUnits.h"
-#include "DetectorDescription/Base/interface/Store.h"
+#include "DetectorDescription/Core/interface/Store.h"
 #include "DetectorDescription/Core/interface/DDBase.h"
 #include "DetectorDescription/Core/interface/DDMaterial.h"
 #include "DetectorDescription/Core/interface/DDName.h"
@@ -14,7 +14,6 @@
 using DDI::Material;
 
 DDMaterial::DDMaterial() : DDBase<DDName,Material*>() { }
-
 
 /**
    If a DDMaterial with \a name was already defined, this constructor creates a

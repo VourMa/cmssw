@@ -25,24 +25,24 @@ class FWSiPixelClusterProxyBuilder : public FWProxyBuilderBase
 {
 public:
   FWSiPixelClusterProxyBuilder( void ) {}
-  virtual ~FWSiPixelClusterProxyBuilder( void ) {}
+  ~FWSiPixelClusterProxyBuilder( void ) override {}
 
   REGISTER_PROXYBUILDER_METHODS();
 
 private:
   // Disable default copy constructor
-  FWSiPixelClusterProxyBuilder( const FWSiPixelClusterProxyBuilder& );
+  FWSiPixelClusterProxyBuilder( const FWSiPixelClusterProxyBuilder& ) = delete;
   // Disable default assignment operator
-  const FWSiPixelClusterProxyBuilder& operator=( const FWSiPixelClusterProxyBuilder& );
+  const FWSiPixelClusterProxyBuilder& operator=( const FWSiPixelClusterProxyBuilder& ) = delete;
 
   using FWProxyBuilderBase::build;
-  virtual void build( const FWEventItem* iItem, TEveElementList* product, const FWViewContext* ) override;
+  void build( const FWEventItem* iItem, TEveElementList* product, const FWViewContext* ) override;
 };
 
 void
 FWSiPixelClusterProxyBuilder::build( const FWEventItem* iItem, TEveElementList* product , const FWViewContext* )
 {
-   const SiPixelClusterCollectionNew* pixels = 0;
+   const SiPixelClusterCollectionNew* pixels = nullptr;
   
    iItem->get( pixels );
   
@@ -80,8 +80,8 @@ FWSiPixelClusterProxyBuilder::build( const FWEventItem* iItem, TEveElementList* 
 
          float localPoint[3] = 
             {     
-               fireworks::pixelLocalX(( *itc ).minPixelRow(), ( int )pars[0] ),
-               fireworks::pixelLocalY(( *itc ).minPixelCol(), ( int )pars[1] ),
+               fireworks::pixelLocalX(( *itc ).minPixelRow(), pars ),
+               fireworks::pixelLocalY(( *itc ).minPixelCol(), pars ),
                0.0
             };
 
@@ -106,9 +106,9 @@ FWSiPixelClusterProxyBuilder::build( const FWEventItem* iItem, TEveElementList* 
             for(int of=0;of<8;of++) {
                float lp[3]= {
                   fireworks::pixelLocalX(
-                                         (*itc).pixel(j).x+offsetx[of%4],( int )pars[0]) ,
+                                         (*itc).pixel(j).x+offsetx[of%4], pars) ,
                   fireworks::pixelLocalY(
-                                         (*itc).pixel(j).y+offsety[of%4], ( int )pars[1] ),
+                                         (*itc).pixel(j).y+offsety[of%4], pars ),
                   (of<4)?(0.0f):(adc)
                };
 

@@ -1,7 +1,8 @@
 import FWCore.ParameterSet.Config as cms
+from DQMServices.Core.DQMEDHarvester import DQMEDHarvester
 
-postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
-    subDirs = cms.untracked.vstring("Tracking/Track/*", "Tracking/TrackFromPV/*", "Tracking/TrackFromPVAllTP/*", "Tracking/TrackAllTPEffic/*", "Tracking/TrackConversion/*", "Tracking/TrackGsf/*"),
+postProcessorTrack = DQMEDHarvester("DQMGenericClient",
+    subDirs = cms.untracked.vstring("Tracking/Track/*", "Tracking/TrackTPPtLess09/*", "Tracking/TrackFromPV/*", "Tracking/TrackFromPVAllTP/*", "Tracking/TrackAllTPEffic/*", "Tracking/TrackBuilding/*", "Tracking/TrackConversion/*", "Tracking/TrackGsf/*", "Tracking/TrackBHadron/*"),
     efficiency = cms.vstring(
     "effic 'Efficiency vs #eta' num_assoc(simToReco)_eta num_simul_eta",
     "efficPt 'Efficiency vs p_{T}' num_assoc(simToReco)_pT num_simul_pT",
@@ -15,6 +16,8 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
     "effic_vs_dz 'Efficiency vs Dz' num_assoc(simToReco)_dz num_simul_dz",
     "effic_vs_dxypv 'Efficiency vs Dxy(PV)' num_assoc(simToReco)_dxypv num_simul_dxypv",
     "effic_vs_dzpv 'Efficiency vs Dz(PV)' num_assoc(simToReco)_dzpv num_simul_dzpv",
+    "effic_vs_dxypv_zoomed 'Efficiency vs Dxy(PV)' num_assoc(simToReco)_dxypv_zoomed num_simul_dxypv_zoomed",
+    "effic_vs_dzpv_zoomed 'Efficiency vs Dz(PV)' num_assoc(simToReco)_dzpv_zoomed num_simul_dzpv_zoomed",
     "duplicatesRate 'Duplicates Rate vs #eta' num_duplicate_eta num_reco_eta",
     "duplicatesRate_Pt 'Duplicates Rate vs p_{T}' num_duplicate_pT num_reco_pT",
     "duplicatesRate_hit 'Duplicates Rate vs hit' num_duplicate_hit num_reco_hit",
@@ -27,6 +30,8 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
     "duplicatesRate_dz 'Duplicates Rate vs Dz' num_duplicate_dz num_reco_dz",
     "duplicatesRate_dxypv 'Duplicates Rate vs Dxy(PV)' num_duplicate_dxypv num_reco_dxypv",
     "duplicatesRate_dzpv 'Duplicates Rate vs Dz(PV)' num_duplicate_dzpv num_reco_dzpv",
+    "duplicatesRate_dxypv_zoomed 'Duplicates Rate vs Dxy(PV)' num_duplicate_dxypv_zoomed num_reco_dxypv_zoomed",
+    "duplicatesRate_dzpv_zoomed 'Duplicates Rate vs Dz(PV)' num_duplicate_dzpv_zoomed num_reco_dzpv_zoomed",
     "duplicatesRate_vertpos 'Duplicates Rate vs vertpos' num_duplicate_vertpos num_reco_vertpos",
     "duplicatesRate_zpos 'Duplicates Rate vs zpos' num_duplicate_zpos num_reco_zpos",
     "duplicatesRate_dr 'Duplicates Rate vs dr' num_duplicate_dr num_reco_dr",
@@ -44,6 +49,8 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
     "chargeMisIdRate_dz 'Charge MisID Rate vs Dz' num_chargemisid_versus_dz num_reco_dz",
     "chargeMisIdRate_dxypv 'Charge MisID Rate vs Dxy(PV)' num_chargemisid_dxypv num_reco_dxypv",
     "chargeMisIdRate_dzpv 'Charge MisID Rate vs Dz(PV)' num_chargemisid_versus_dzpv num_reco_dzpv",
+    "chargeMisIdRate_dxypv_zoomed 'Charge MisID Rate vs Dxy(PV)' num_chargemisid_dxypv_zoomed num_reco_dxypv_zoomed",
+    "chargeMisIdRate_dzpv_zoomed 'Charge MisID Rate vs Dz(PV)' num_chargemisid_versus_dzpv_zoomed num_reco_dzpv_zoomed",
     "chargeMisIdRate_chi2 'Charge MisID Rate vs normalized #chi^{2}' num_chargemisid_chi2 num_reco_chi2",
     "effic_vs_vertpos 'Efficiency vs vertpos' num_assoc(simToReco)_vertpos num_simul_vertpos",
     "effic_vs_zpos 'Efficiency vs zpos' num_assoc(simToReco)_zpos num_simul_zpos",
@@ -66,6 +73,8 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
     "pileuprate_dz 'Pileup rate vs dz' num_pileup_dz num_reco_dz",
     "pileuprate_dxypv 'Pileup rate vs dxy(PV)' num_pileup_dxypv num_reco_dxypv",
     "pileuprate_dzpv 'Pileup rate vs dz(PV)' num_pileup_dzpv num_reco_dzpv",
+    "pileuprate_dxypv_zoomed 'Pileup rate vs dxy(PV)' num_pileup_dxypv_zoomed num_reco_dxypv_zoomed",
+    "pileuprate_dzpv_zoomed 'Pileup rate vs dz(PV)' num_pileup_dzpv_zoomed num_reco_dzpv_zoomed",
     "pileuprate_vertpos 'Pileup rate vs vertpos' num_pileup_vertpos num_reco_vertpos",
     "pileuprate_zpos 'Pileup rate vs zpos' num_pileup_zpos num_reco_zpos",
     "pileuprate_dr 'Pileup rate vs dr' num_pileup_dr num_reco_dr",
@@ -83,6 +92,8 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
     "fakerate_vs_dz 'Fake rate vs dz' num_assoc(recoToSim)_dz num_reco_dz fake",
     "fakerate_vs_dxypv 'Fake rate vs dxypv' num_assoc(recoToSim)_dxypv num_reco_dxypv fake",
     "fakerate_vs_dzpv 'Fake rate vs dzpv' num_assoc(recoToSim)_dzpv num_reco_dzpv fake",
+    "fakerate_vs_dxypv_zoomed 'Fake rate vs dxypv' num_assoc(recoToSim)_dxypv_zoomed num_reco_dxypv_zoomed fake",
+    "fakerate_vs_dzpv_zoomed 'Fake rate vs dzpv' num_assoc(recoToSim)_dzpv_zoomed num_reco_dzpv_zoomed fake",
     "fakerate_vs_vertpos 'Fake rate vs vertpos' num_assoc(recoToSim)_vertpos num_reco_vertpos fake",
     "fakerate_vs_zpos 'Fake rate vs vertpos' num_assoc(recoToSim)_zpos num_reco_zpos fake",
     "fakerate_vs_dr 'Fake rate vs dr' num_assoc(recoToSim)_dr num_reco_dr fake",
@@ -118,6 +129,7 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
 
     "effic_vs_simpvz 'Efficiency vs. sim PV z' num_assoc(simToReco)_simpvz num_simul_simpvz",
     "fakerate_vs_simpvz 'Fake rate vs. sim PV z' num_assoc(recoToSim)_simpvz num_reco_simpvz fake",
+    "duplicatesRate_simpvz 'Duplicates Rate vs sim PV z' num_duplicate_simpvz num_reco_simpvz",
     "pileuprate_simpvz 'Pileup rate vs. sim PV z' num_pileup_simpvz num_reco_simpvz",
 
     "fakerate_vs_mva1 'Fake rate vs. MVA1' num_assoc(recoToSim)_mva1 num_reco_mva1 fake",
@@ -204,11 +216,41 @@ postProcessorTrack = cms.EDAnalyzer("DQMGenericClient",
         "num_simul2_mva3cut descending",
         "num_simul2_mva3cut_hp descending",
     ),
+    noFlowDists = cms.untracked.vstring(),
     outputFileName = cms.untracked.string("")
 )
+def _addNoFlow(module):
+    _noflowSeen = set()
+    for eff in module.efficiency.value():
+        tmp = eff.split(" ")
+        if "cut" in tmp[0]:
+            continue
+        ind = -1
+        if tmp[ind] == "fake" or tmp[ind] == "simpleratio":
+            ind = -2
+        if not tmp[ind] in _noflowSeen:
+            module.noFlowDists.append(tmp[ind])
+        if not tmp[ind-1] in _noflowSeen:
+            module.noFlowDists.append(tmp[ind-1])
+_addNoFlow(postProcessorTrack)
 
-postProcessorTrackSummary = cms.EDAnalyzer("DQMGenericClient",
-    subDirs = cms.untracked.vstring("Tracking/Track", "Tracking/TrackFromPV", "Tracking/TrackFromPVAllTP", "Tracking/TrackAllTPEffic", "Tracking/TrackConversion", "Tracking/TrackGsf"),
+# nrec/nsim makes sense only for
+# - all tracks vs. all in-time TrackingParticles
+# - PV tracks vs. signal TrackingParticles
+postProcessorTrackNrecVsNsim = DQMEDHarvester("DQMGenericClient",
+    subDirs = cms.untracked.vstring("Tracking/TrackFromPV/*", "Tracking/TrackAllTPEffic/*"),
+    efficiency = cms.vstring(
+        "nrecPerNsim 'Tracks/TrackingParticles vs #eta' num_reco2_eta num_simul_eta simpleratio",
+        "nrecPerNsimPt 'Tracks/TrackingParticles vs p_{T}' num_reco2_pT num_simul_pT simpleratio",
+        "nrecPerNsim_vs_pu 'Tracks/TrackingParticles vs pu' num_reco2_pu num_simul_pu simpleratio",
+    ),
+    resolution = cms.vstring(),
+    noFlowDists = cms.untracked.vstring(),
+)
+_addNoFlow(postProcessorTrackNrecVsNsim)
+
+postProcessorTrackSummary = DQMEDHarvester("DQMGenericClient",
+    subDirs = cms.untracked.vstring("Tracking/Track", "Tracking/TrackTPPtLess09", "Tracking/TrackFromPV", "Tracking/TrackFromPVAllTP", "Tracking/TrackAllTPEffic", "Tracking/TrackBuilding", "Tracking/TrackConversion", "Tracking/TrackGsf", "Tracking/TrackBHadron"),
     efficiency = cms.vstring(
     "effic_vs_coll 'Efficiency vs track collection' num_assoc(simToReco)_coll num_simul_coll",
     "effic_vs_coll_allPt 'Efficiency vs track collection' num_assoc(simToReco)_coll_allPt num_simul_coll_allPt",
@@ -216,14 +258,24 @@ postProcessorTrackSummary = cms.EDAnalyzer("DQMGenericClient",
     "pileuprate_coll 'Pileup rate vs track collection' num_pileup_coll num_reco_coll",
     "fakerate_vs_coll 'Fake rate vs track collection' num_assoc(recoToSim)_coll num_reco_coll fake",
     ),
-    resolution = cms.vstring()
+    resolution = cms.vstring(),
+    noFlowDists = cms.untracked.vstring(),
+)
+_addNoFlow(postProcessorTrackSummary)
+
+postProcessorTrackSequence = cms.Sequence(
+    postProcessorTrack+
+    postProcessorTrackNrecVsNsim+
+    postProcessorTrackSummary
 )
 
-postProcessorTrackSequence = cms.Sequence(postProcessorTrack+postProcessorTrackSummary)
-
 postProcessorTrackTrackingOnly = postProcessorTrack.clone()
-postProcessorTrackTrackingOnly.subDirs.extend(["Tracking/TrackSeeding/*", "Tracking/TrackBuilding/*"])
+postProcessorTrackTrackingOnly.subDirs.extend(["Tracking/TrackSeeding/*", "Tracking/PixelTrack/*"])
 postProcessorTrackSummaryTrackingOnly = postProcessorTrackSummary.clone()
-postProcessorTrackSummaryTrackingOnly.subDirs.extend(["Tracking/TrackSeeding", "Tracking/TrackBuilding"])
+postProcessorTrackSummaryTrackingOnly.subDirs.extend(["Tracking/TrackSeeding", "Tracking/PixelTrack"])
 
-postProcessorTrackSequenceTrackingOnly = cms.Sequence(postProcessorTrackTrackingOnly+postProcessorTrackSummaryTrackingOnly)
+postProcessorTrackSequenceTrackingOnly = cms.Sequence(
+    postProcessorTrackTrackingOnly+
+    postProcessorTrackNrecVsNsim+
+    postProcessorTrackSummaryTrackingOnly
+)

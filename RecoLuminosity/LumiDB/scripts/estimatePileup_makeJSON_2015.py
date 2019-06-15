@@ -9,7 +9,9 @@ import re
 from math import sqrt
 
 from pprint import pprint
+import six
 
+selBXs=[]
 def CalcPileup (deadTable, parameters, luminometer, mode='deadtable'):
     '''Given a deadtable, will calculate parameters of pileup distribution. Return formatted
     string with LumiSection, LS integrated lumi, RMS of bunch to bunch lumi and pileup.'''
@@ -17,7 +19,7 @@ def CalcPileup (deadTable, parameters, luminometer, mode='deadtable'):
     LumiString = ""
     LumiArray = []
 
-    for lumiSection, deadArray in sorted (deadTable.iteritems()):
+    for lumiSection, deadArray in sorted (six.iteritems(deadTable)):
         numerator = 0
 	if luminometer == "HFOC":
 		threshold = 8.
@@ -49,7 +51,8 @@ def CalcPileup (deadTable, parameters, luminometer, mode='deadtable'):
              TotalWeight2 = 0
              FilledXings = 0
              for xing, xingInstLumi, xingDelvLumi in instLumiArray:
-                 #print "Inputs: lum %d: idx %d IntL %f DelivL %f" % (lumiSection, xing, xingInstLumi, xingDelvLumi)
+                 if selBXs and xing not in selBXs:
+                    continue
                  xingIntLumi = xingInstLumi * livetime  # * parameters.lumiSectionLen
                  mean = xingInstLumi * parameters.rotationTime / parameters.lumiSectionLen
                  if mean > 100:
@@ -73,6 +76,8 @@ def CalcPileup (deadTable, parameters, luminometer, mode='deadtable'):
              if TotalLumi >0:
                  MeanInt = TotalInt/TotalLumi
              for xing, xingInstLumi, xingDelvlumi in instLumiArray:
+                 if selBXs and xing not in selBXs:
+                    continue
                  if xingInstLumi > threshold:
                      xingIntLumi = xingInstLumi * livetime # * parameters.lumiSectionLen
                      mean = xingInstLumi * parameters.rotationTime / parameters.lumiSectionLen
@@ -134,6 +139,8 @@ if __name__ == '__main__':
     pileupGroup = optparse.OptionGroup (parser, "Pileup Options")
     inputGroup.add_option  ('--csvInput', dest = 'csvInput', type='string', default='',
                             help = 'Use CSV file from lumiCalc.py instead of lumiDB')
+    inputGroup.add_option  ('--selBXs', dest = 'selBXs', type='string', default='',
+                            help = 'CSV of BXs to use; if empty, select all')
     parser.add_option_group (inputGroup)
     parser.add_option_group (pileupGroup)
     # parse arguments
@@ -150,6 +157,17 @@ if __name__ == '__main__':
     ## Let's start the fun
     if not options.csvInput:
         raise "you must specify an input CSV file with (--csvInput)"
+
+    if options.selBXs != "":
+        for iBX in options.selBXs.split(","):
+            try:
+                BX=int(iBX)
+                if BX not in selBXs:
+                    selBXs.append(BX)
+            except:
+                print iBX,"is not an int"
+        selBXs.sort()
+    print "selBXs",selBXs
 
     OUTPUTLINE = ""
     if options.csvInput:
@@ -213,7 +231,7 @@ if __name__ == '__main__':
                 if OldRun>0:
                     if InGap == 1:  # We have some LS's at the end with no data
                         lastLumiS = 0
-                        for lumiS, lumiInfo in sorted ( GapDict.iteritems() ):
+                        for lumiS, lumiInfo in sorted ( six.iteritems(GapDict) ):
                             record = lumiInfo[1]
                             lastLumiS = lumiS
                             if record > 0.01:
@@ -250,7 +268,7 @@ if __name__ == '__main__':
                 if lumi == 2:  # there is a missing LS=1 for this run
                     OUTPUTLINE+= '[1,0.0,0.0,0.0],'
 
-            for runNumber, lumiDict in sorted( csvDict.iteritems() ):
+            for runNumber, lumiDict in sorted( six.iteritems(csvDict) ):
 	#	print runNumber
                 LumiArray = CalcPileup (lumiDict, parameters, luminometer,
                                      mode='csv')
@@ -259,7 +277,7 @@ if __name__ == '__main__':
                 LastDelivered = lumiDict[LumiArray[0]][0] 
 
                 if InGap == 1:  # We have some gap before this in entry in this run
-                    for lumiS, lumiInfo in sorted ( GapDict.iteritems() ):
+                    for lumiS, lumiInfo in sorted ( six.iteritems(GapDict) ):
                         peakratio = lumiInfo[0]/LastDelivered # roughly, ratio of inst lumi
                         pileup = LumiArray[3]*peakratio     # scale for this LS
                         aveLumi = 0

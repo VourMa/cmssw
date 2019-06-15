@@ -3,6 +3,7 @@
 import sys
 import argparse
 import Alignment.MillePedeAlignmentAlgorithm.mpslib.tools as mps_tools
+import six
 
 ################################################################################
 def main(argv = None):
@@ -28,9 +29,13 @@ def main(argv = None):
                         help="name of the output file (default: '%(default)s')")
     args = parser.parse_args(argv)
 
-    mps_tools.create_single_iov_db(args.global_tag,
-                                   args.run_number,
-                                   args.output_db)
+    inputs = mps_tools.get_tags(args.global_tag,
+                                ["TrackerAlignmentRcd",
+                                 "TrackerSurfaceDeformationRcd",
+                                 "TrackerAlignmentErrorExtendedRcd"])
+    for inp in six.itervalues(inputs):
+        inp["iovs"] = mps_tools.get_iovs(inp["connect"], inp["tag"])
+    mps_tools.create_single_iov_db(inputs, args.run_number, args.output_db)
 
 
 ################################################################################

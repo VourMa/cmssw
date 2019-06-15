@@ -18,7 +18,7 @@ SiStripMonitorDigi.TkHistoMapMedianChargeApvShots_On= False
 SiStripMonitorDigi.TH1NApvShots.subdetswitchon = True
 SiStripMonitorDigi.TH1NApvShots.globalswitchon = True
 SiStripMonitorDigi.TH1ChargeMedianApvShots.subdetswitchon = False
-SiStripMonitorDigi.TH1ChargeMedianApvShots.globalswitchon = False
+SiStripMonitorDigi.TH1ChargeMedianApvShots.globalswitchon = True
 SiStripMonitorDigi.TH1NStripsApvShots.subdetswitchon = False
 SiStripMonitorDigi.TH1NStripsApvShots.globalswitchon = False
 SiStripMonitorDigi.TH1ApvNumApvShots.subdetswitchon = False
@@ -123,5 +123,4 @@ MonitorTrackResiduals_gentk.Mod_On                 = False
 #MonitorTrackResiduals_hi.Mod_On                 = False
 
 # Services needed for TkHistoMap
-TkDetMap = cms.Service("TkDetMap")
-SiStripDetInfoFileReade = cms.Service("SiStripDetInfoFileReader")
+from CalibTracker.SiStripCommon.TkDetMap_cff import *

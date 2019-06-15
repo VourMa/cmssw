@@ -117,7 +117,7 @@
 -->
  <LogicalPart name="PixelBarrelCFStripFull" category="unspecified">
   <rSolid name="pixbarladderfull2:PixelBarrelCFStripFull"/>
-  <rMaterial name="materials:CFK"/>
+  <rMaterial name="pixbarmaterial:CFK_Layer3"/>
  </LogicalPart>
  <LogicalPart name="PixelBarrelCableBoxFull" category="unspecified">
   <rSolid name="pixbarladderfull2:PixelBarrelCableBoxFull"/>
@@ -231,6 +231,7 @@
    <rParent name="pixbarladderfull2:PixelBarrelModuleFullMinus"/>
    <rChild name="pixbarladderfull2:PixelBarrelSensorFull"/>
   <Translation x="[zero]" y="[SensorY]" z="[zero]" />
+  <rRotation name="pixbarladder:Y180D"/>
  </PosPart>
  <PosPart copyNumber="1">
    <rParent name="pixbarladderfull2:PixelBarrelModuleFullMinus"/>
@@ -256,6 +257,7 @@
    <rParent name="pixbarladderfull2:PixelBarrelModuleFullPlus"/>
    <rChild name="pixbarladderfull2:PixelBarrelSensorFull"/>
   <Translation x="[zero]" y="[SensorY]" z="[zero]" />
+  <rRotation name="pixbarladder:Y180D"/>
  </PosPart>
  <PosPart copyNumber="1">
    <rParent name="pixbarladderfull2:PixelBarrelModuleFullPlus"/>

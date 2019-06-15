@@ -13,6 +13,7 @@
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/CaloGeometry/interface/CaloCellGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
+#include "Geometry/Records/interface/HcalRecNumberingRecord.h"
 #include "Geometry/CaloTopology/interface/HcalTopology.h"
 
 #include "RecoCaloTools/Navigation/interface/CaloNavigator.h"
@@ -27,7 +28,7 @@ template <typename Digi, typename Geometry,PFLayer::Layer Layer,int Detector>
       recHitToken_ = iC.consumes<edm::SortedCollection<Digi>  >(iConfig.getParameter<edm::InputTag>("src"));
     }
 
-    void importRecHits(std::unique_ptr<reco::PFRecHitCollection>&out,std::unique_ptr<reco::PFRecHitCollection>& cleaned ,const edm::Event& iEvent,const edm::EventSetup& iSetup) {
+    void importRecHits(std::unique_ptr<reco::PFRecHitCollection>&out,std::unique_ptr<reco::PFRecHitCollection>& cleaned ,const edm::Event& iEvent,const edm::EventSetup& iSetup) override {
 
 
       beginEvent(iEvent,iSetup);
@@ -36,29 +37,34 @@ template <typename Digi, typename Geometry,PFLayer::Layer Layer,int Detector>
 
       edm::ESHandle<CaloGeometry> geoHandle;
       iSetup.get<CaloGeometryRecord>().get(geoHandle);
+      edm::ESHandle<HcalTopology> hcalTopology;
+      iSetup.get<HcalRecNumberingRecord>().get( hcalTopology );
   
-      // get the ecal geometry
+      // get the hcal geometry and topology
       const CaloSubdetectorGeometry *gTmp = 
 	geoHandle->getSubdetectorGeometry(DetId::Hcal, Detector);
-
       const Geometry *hcalGeo =dynamic_cast< const Geometry* > (gTmp);
+      const HcalTopology *theHcalTopology = hcalTopology.product();
 
       iEvent.getByToken(recHitToken_,recHitHandle);
       for( const auto& erh : *recHitHandle ) {      
-	const HcalDetId& detid = (HcalDetId)erh.detid();
+	HcalDetId detid = (HcalDetId)erh.detid();
 	HcalSubdetector esd=(HcalSubdetector)detid.subdetId();
 	
 	//since hbhe are together kill other detector
 	if (esd !=Detector && Detector != HcalOther  ) 
 	  continue;
 
+        if (theHcalTopology->getMergePositionFlag() && esd == HcalEndcap) {
+          detid = theHcalTopology->idFront(detid);
+	}
 
 	auto energy = erh.energy();
 	auto time = erh.time();
 	auto depth =detid.depth();
 	  
 	
-	const CaloCellGeometry * thisCell= hcalGeo->getGeometry(detid);
+	auto thisCell= hcalGeo->getGeometry(detid);
   
 	// find rechit geometry
 	if(!thisCell) {

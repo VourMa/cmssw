@@ -10,6 +10,7 @@
 #include <string>
 
 #include "EventFilter/SiStripRawToDigi/interface/SiStripFEDBufferGenerator.h"
+#include "WarningSummary.h"
 
 class SiStripFedCabling;
 class FEDRawDataCollection;
@@ -29,7 +30,7 @@ namespace sistrip {
     
   public: // ----- public interface -----
     
-    DigiToRaw( FEDReadoutMode, bool use_fed_key );
+    DigiToRaw(FEDReadoutMode mode, uint8_t packetCode, bool use_fed_key);
     ~DigiToRaw();
     
     //digi to raw with default headers
@@ -56,6 +57,8 @@ namespace sistrip {
     
     inline void fedReadoutMode( FEDReadoutMode mode ) { mode_ = mode; }
 
+    void printWarningSummary() const { warnings_.printSummary(); }
+
   private: // ----- private data members -----
     
     template<class Digi_t>
@@ -79,9 +82,11 @@ namespace sistrip {
     uint16_t STRIP(const edm::DetSet<SiStripRawDigi>::const_iterator& it, const edm::DetSet<SiStripRawDigi>::const_iterator& begin) const;
     
     FEDReadoutMode mode_;
+    uint8_t packetCode_;
     bool useFedKey_;
     FEDBufferGenerator bufferGenerator_;
-    
+
+    WarningSummary warnings_;
   };
   
 }

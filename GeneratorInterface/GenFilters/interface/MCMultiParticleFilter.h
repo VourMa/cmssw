@@ -30,6 +30,9 @@
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
+namespace edm {
+  class HepMCProduct;
+}
 
 //
 // class declaration
@@ -38,15 +41,16 @@
 class MCMultiParticleFilter : public edm::EDFilter {
  public:
   explicit MCMultiParticleFilter(const edm::ParameterSet&);
-  ~MCMultiParticleFilter();
+  ~MCMultiParticleFilter() override;
   
  private:
-  virtual bool filter(edm::Event&, const edm::EventSetup&);
-  virtual void endJob();
+  bool filter(edm::Event&, const edm::EventSetup&) override;
+  void endJob() override;
   
   // ----------member data ---------------------------
   
   edm::InputTag src_;              // input tag
+  edm::EDGetTokenT<edm::HepMCProduct> token_;
   int numRequired_;                // number of particles required to pass filter
   bool acceptMore_;                // if true (default), accept numRequired or more.
                                    // if false, accept events with exactly equal to numRequired.

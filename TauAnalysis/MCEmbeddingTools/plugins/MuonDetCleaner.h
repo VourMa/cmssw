@@ -5,37 +5,42 @@
  * 
  * \author Christian Veelken, LLR
  *
- * \version $Revision: 1.2 $
+ * 
  *
- * $Id: MuonDetCleaner.h,v 1.2 2012/12/13 09:52:06 veelken Exp $
+ * 
  *
  * Clean Up from STefan Wayand, KIT
  * 
  */
+#ifndef TauAnalysis_MCEmbeddingTools_MuonDetCleaner_H
+#define TauAnalysis_MCEmbeddingTools_MuonDetCleaner_H
 
-#include "FWCore/Framework/interface/EDProducer.h"
+
+#include "FWCore/Framework/interface/stream/EDProducer.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "DataFormats/Common/interface/Handle.h"
+#include "FWCore/Framework/interface/MakerMacros.h"
 
 #include "DataFormats/Common/interface/RangeMap.h"
 #include "DataFormats/Common/interface/OwnVector.h"
 
 #include "DataFormats/PatCandidates/interface/Muon.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include <string>
 #include <vector>
 #include <map>
 
 template <typename T1, typename T2>
-class MuonDetCleaner : public edm::EDProducer 
+class MuonDetCleaner : public edm::stream::EDProducer<>
 {
  public:
   explicit MuonDetCleaner(const edm::ParameterSet&);
-  ~MuonDetCleaner();
+  ~MuonDetCleaner() override;
 
  private:
-  virtual void produce(edm::Event&, const edm::EventSetup&);
+  void produce(edm::Event&, const edm::EventSetup&) override;
 
   typedef edm::RangeMap<T1, edm::OwnVector<T2> > RecHitCollection;
   void fillVetoHits(const TrackingRecHit& , std::vector<uint32_t>* );
@@ -78,13 +83,13 @@ void MuonDetCleaner<T1,T2>::produce(edm::Event& iEvent, const edm::EventSetup& e
    iEvent.getByToken(mu_input_, muonHandle);
    edm::View<pat::Muon> muons = *muonHandle;
    for (edm::View<pat::Muon>::const_iterator iMuon = muons.begin(); iMuon != muons.end(); ++iMuon) {     
-      const reco::Track* track = 0;
+      const reco::Track* track = nullptr;
       if( iMuon->isGlobalMuon() ) track = iMuon->outerTrack().get();
       else if  ( iMuon->isStandAloneMuon() ) track =   iMuon->outerTrack().get();
       else if  ( iMuon->isRPCMuon() ) track =   iMuon->innerTrack().get(); // To add, try to access the rpc track 
       else if  ( iMuon->isTrackerMuon() ) track = iMuon->innerTrack().get();
       else {
-	std::cout<<"The imput muon: "<<(*iMuon)<<" must be either global or does or be tracker muon"<<std::endl; //todo fill this tho cmssw error logger
+	edm::LogError("TauEmbedding")<<"The imput muon: "<<(*iMuon)<<" must be either global or does or be tracker muon";
 	assert(0);
       }
       
@@ -128,7 +133,7 @@ template <typename T1, typename T2>
 void MuonDetCleaner<T1,T2>::fillVetoHits(const TrackingRecHit& rh, std::vector<uint32_t>* HitsList)
 {
     std::vector<const TrackingRecHit*> rh_components = rh.recHits();
-    if ( rh_components.size() == 0 ) {
+    if ( rh_components.empty() ) {
       HitsList->push_back(rh.rawId());
     } 
     else {
@@ -141,7 +146,7 @@ void MuonDetCleaner<T1,T2>::fillVetoHits(const TrackingRecHit& rh, std::vector<u
 
 
 
-
+#endif
 
 
 

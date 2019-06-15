@@ -16,7 +16,7 @@
 #include "FWCore/Framework/interface/ConsumesCollector.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include <numeric>
-#include <math.h>
+#include <cmath>
 #include <TMath.h>
 #include <iostream>
 #include <TStyle.h>
@@ -229,7 +229,7 @@ void BeamMonitorBx::BookTrendHistos(bool plotPV,int nBx,map<string,string> & vMa
       string tmpDir_ = subDir_ + "/All_" + varName->first;
       dbe_->cd(monitorName_+tmpDir_);
       TString histTitle(varName->first);
-      string tmpName;
+      TString tmpName;
       if (prefix_ != "") tmpName = prefix_ + "_" + varName->first;
       if (suffix_ != "") tmpName = tmpName + "_" + suffix_;
       tmpName = tmpName + "_" + ss.str();
@@ -286,7 +286,7 @@ void BeamMonitorBx::BookTrendHistos(bool plotPV,int nBx,map<string,string> & vMa
 	break;
       }
       // check if already exist
-      if (dbe_->get(monitorName_+tmpDir_+"/"+string(histName))) continue;
+      if (dbe_->get(monitorName_+tmpDir_+"/"+string(histName.Data()))) continue;
 
       if (createHisto) {
 	edm::LogInfo("BX|BeamMonitorBx") << "histName = " << histName << "; histTitle = " << histTitle << std::endl;
@@ -363,7 +363,7 @@ void BeamMonitorBx::FitAndFill(const LuminosityBlock& lumiSeg,
     BeamSpotMapBx bsmap = theBeamFitter->getBeamSpotMap();
     std::map<int,int> npvsmap = theBeamFitter->getNPVsperBX();
     edm::LogInfo("BX|BeamMonitorBx") << "Number of bx = " << bsmap.size() << endl;
-    if (bsmap.size() == 0) return;
+    if (bsmap.empty()) return;
     if (countBx_ < bsmap.size()) {
       countBx_ = bsmap.size();
       BookTables(countBx_,varMap,"");
@@ -388,11 +388,11 @@ void BeamMonitorBx::FitAndFill(const LuminosityBlock& lumiSeg,
       firstlumi_ = LSRange.first;
 
     if (resetFitNLumi_ > 0 ) {
-      char tmpTitle1[50];
+      char tmpTitle1[60];
       if ( countGoodFit_ > 1)
-	sprintf(tmpTitle1,"%s %i %s %i %s"," [cm] (LS: ",firstlumi_," to ",LSRange.second,") [weighted average]");
+	snprintf(tmpTitle1,sizeof(tmpTitle1),"%s %i %s %i %s"," [cm] (LS: ",firstlumi_," to ",LSRange.second,") [weighted average]");
       else
-	sprintf(tmpTitle1,"%s","Need at least two fits to calculate weighted average");
+	snprintf(tmpTitle1,sizeof(tmpTitle1),"%s","Need at least two fits to calculate weighted average");
       for (std::map<std::string,std::string>::const_iterator varName = varMap.begin();
 	   varName != varMap.end(); ++varName) {
 	TString tmpName = varName->first + "_all";

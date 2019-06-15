@@ -25,9 +25,9 @@
 #include "CondFormats/L1TObjects/interface/L1TriggerLutFile.h"
 #include "CondFormats/L1TObjects/interface/DTTFBitArray.h"
 
-#include "L1Trigger/L1TCommon/interface/XmlConfigReader.h"
-#include "L1Trigger/L1TCommon/interface/TrigSystem.h"
-#include "L1Trigger/L1TCommon/interface/Setting.h"
+#include "L1Trigger/L1TCommon/interface/XmlConfigParser.h"
+#include "L1Trigger/L1TCommon/interface/TriggerSystem.h"
+#include "L1Trigger/L1TCommon/interface/Parameter.h"
 #include "L1Trigger/L1TCommon/interface/Mask.h"
 
 #include "L1Trigger/L1TMuonBarrel/interface/L1TMuonBarrelParamsHelper.h"
@@ -39,7 +39,7 @@ typedef std::map<short, short, std::less<short> > LUT;
 class L1TMuonBarrelParamsESProducer : public edm::ESProducer {
    public:
       L1TMuonBarrelParamsESProducer(const edm::ParameterSet&);
-      ~L1TMuonBarrelParamsESProducer();
+      ~L1TMuonBarrelParamsESProducer() override;
       int load_pt(std::vector<LUT>& , std::vector<int>&, unsigned short int, std::string);
       int load_phi(std::vector<LUT>& , unsigned short int, unsigned short int, std::string);
       int load_ext(std::vector<L1TMuonBarrelParams::LUTParams::extLUT>&, unsigned short int, unsigned short int );
@@ -66,7 +66,6 @@ class L1TMuonBarrelParamsESProducer : public edm::ESProducer {
 //
 L1TMuonBarrelParamsESProducer::L1TMuonBarrelParamsESProducer(const edm::ParameterSet& iConfig)
 {
-	l1t::XmlConfigReader ttt;
    //the following line is needed to tell the framework what
    // data is being produced
    setWhatProduced(this);
@@ -238,8 +237,8 @@ L1TMuonBarrelParamsESProducer::L1TMuonBarrelParamsESProducer(const edm::Paramete
       edm::FileInPath topCfgXmlFile(iConfig.getParameter<std::string>("topCfgXmlFile"));
       std::string xmlCfgKey = iConfig.getParameter<std::string>("xmlCfgKey");
 
-      l1t::TrigSystem trgSys;
-      trgSys.configureSystemFromFiles(hwXmlFile.fullPath(),topCfgXmlFile.fullPath(),xmlCfgKey);
+      l1t::TriggerSystem trgSys;
+      trgSys.configureSystemFromFiles(hwXmlFile.fullPath().c_str(),topCfgXmlFile.fullPath().c_str(),xmlCfgKey.c_str());
 
      /* std::map<std::string, std::string> procRole = trgSys.getProcRole();
 

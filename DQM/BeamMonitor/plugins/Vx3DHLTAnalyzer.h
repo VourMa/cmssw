@@ -1,19 +1,14 @@
 #ifndef Vx3DHLTAnalyzer_H
 #define Vx3DHLTAnalyzer_H
 
-// -*- C++ -*-
-// Package: Vx3DHLTAnalyzer
-// Class:   Vx3DHLTAnalyzer
-
-/* 
-   Class Vx3DHLTAnalyzer Vx3DHLTAnalyzer.cc plugins/Vx3DHLTAnalyzer.cc
-
-   Description:    beam-spot monitor entirely based on pixel detector information
-   Implementation: the monitoring is based on a 3D fit to the vertex cloud
+/*
+  \File Vx3DHLTAnalyzer.h
+  \Display Beam-spot monitor entirely based on pixel detector information
+           the monitoring is based on a 3D fit to the vertex cloud
+  \Author Mauro Dinardo
+  \Version $ Revision: 3.5 $
+  \Date $ Date: 2010/23/02 13:15:00 $
 */
-
-// Original Author: Mauro Dinardo, 28 S-012, +41-22-767-8302
-//         Created: Tue Feb 23 13:15:31 CET 2010
 
 
 #include <memory>
@@ -56,7 +51,7 @@ class Vx3DHLTAnalyzer : public DQMEDAnalyzer
 
  public:
   Vx3DHLTAnalyzer  (const edm::ParameterSet&);
-  ~Vx3DHLTAnalyzer ();
+  ~Vx3DHLTAnalyzer () override;
 
  protected:
   double Gauss3DFunc(const double* par);
@@ -124,6 +119,10 @@ class Vx3DHLTAnalyzer : public DQMEDAnalyzer
   MonitorElement* Vx_ZX;
   MonitorElement* Vx_ZY;
   MonitorElement* Vx_XY;
+
+  MonitorElement* Vx_X_Fit;
+  MonitorElement* Vx_Y_Fit;
+  MonitorElement* Vx_Z_Fit;
 
   MonitorElement* Vx_X_Cum;
   MonitorElement* Vx_Y_Cum;

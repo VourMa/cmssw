@@ -38,7 +38,7 @@ class PATTauDiscriminantCutMultiplexer : public PATTauDiscriminationProducerBase
   public:
     explicit PATTauDiscriminantCutMultiplexer(const edm::ParameterSet& pset);
 
-    ~PATTauDiscriminantCutMultiplexer();
+    ~PATTauDiscriminantCutMultiplexer() override;
     double discriminate(const pat::TauRef&) const override;
     void beginEvent(const edm::Event& event, const edm::EventSetup& eventSetup) override;
 	
@@ -147,6 +147,9 @@ PATTauDiscriminantCutMultiplexer::PATTauDiscriminantCutMultiplexer(const edm::Pa
   key_ = cfg.getParameter<edm::InputTag>("key");
   key_token = consumes<pat::PATTauDiscriminator>(key_);
 
+  verbosity_ = ( cfg.exists("verbosity") ) ?
+    cfg.getParameter<int>("verbosity") : 0;
+
   loadMVAfromDB_ = cfg.exists("loadMVAfromDB") ? cfg.getParameter<bool>("loadMVAfromDB") : false;
   if ( !loadMVAfromDB_ ) {
     if(cfg.exists("inputFileName")){
@@ -171,7 +174,7 @@ PATTauDiscriminantCutMultiplexer::PATTauDiscriminantCutMultiplexer(const edm::Pa
     } else if ( mappingEntry->existsAs<std::string>("cut") ) {
       cut->cutName_ = mappingEntry->getParameter<std::string>("cut");
       std::string cutVariable_string = mappingEntry->getParameter<std::string>("variable");
-      cut->cutVariable_.reset( new StringObjectFunction<pat::Tau>(cutVariable_string.data()) );
+      cut->cutVariable_.reset( new StringObjectFunction<pat::Tau>(cutVariable_string) );
       cut->mode_ = DiscriminantCutEntry::kVariableCut;
     } else {
       throw cms::Exception("PATTauDiscriminantCutMultiplexer") 
@@ -179,7 +182,7 @@ PATTauDiscriminantCutMultiplexer::PATTauDiscriminantCutMultiplexer(const edm::Pa
     }
     cuts_[category] = std::move(cut);
   }
-  verbosity_ = ( cfg.exists("verbosity") ) ? cfg.getParameter<int>("verbosity") : 0;
+
   if(verbosity_) std::cout << "constructed " << moduleLabel_ << std::endl;
 }
 
@@ -194,13 +197,13 @@ void PATTauDiscriminantCutMultiplexer::beginEvent(const edm::Event& evt, const e
     //Only open the file once and we can close it when this routine is done
     // since all objects gotten from the file will have been copied
     std::unique_ptr<TFile> inputFile;
-    if ( mvaOutputNormalizationName_ != "" ) {
+    if ( !mvaOutputNormalizationName_.empty() ) {
       if ( !loadMVAfromDB_ ) {
 	inputFile = openInputFile(inputFileName_);
 	mvaOutput_normalization_ = loadObjectFromFile<TFormula>(*inputFile, mvaOutputNormalizationName_);
       } else {
 	auto temp = loadTFormulaFromDB(es, mvaOutputNormalizationName_, Form("%s_mvaOutput_normalization", moduleLabel_.data()), verbosity_);
-	mvaOutput_normalization_.reset(temp.release());
+	mvaOutput_normalization_ = std::move(temp);
       }
     }
     for ( DiscriminantCutMap::iterator cut = cuts_.begin();

@@ -22,7 +22,7 @@
 #include "DataFormats/CTPPSReco/interface/TotemRPLocalTrack.h"
 
 #include "Geometry/Records/interface/VeryForwardRealGeometryRecord.h"
-#include "Geometry/VeryForwardGeometryBuilder/interface/TotemRPGeometry.h"
+#include "Geometry/VeryForwardGeometryBuilder/interface/CTPPSGeometry.h"
 
 #include "RecoCTPPS/TotemRPLocal/interface/TotemRPLocalTrackFitterAlgorithm.h"
 
@@ -36,9 +36,10 @@ class TotemRPLocalTrackFitter : public edm::stream::EDProducer<>
   public:
     explicit TotemRPLocalTrackFitter(const edm::ParameterSet& conf);
 
-    virtual ~TotemRPLocalTrackFitter() {}
+    ~TotemRPLocalTrackFitter() override {}
 
-    virtual void produce(edm::Event& e, const edm::EventSetup& c) override;
+    void produce(edm::Event& e, const edm::EventSetup& c) override;
+    static void fillDescriptions( edm::ConfigurationDescriptions& );
 
   private:
     int verbosity_;
@@ -80,7 +81,7 @@ void TotemRPLocalTrackFitter::produce(edm::Event& e, const edm::EventSetup& setu
     LogVerbatim("TotemRPLocalTrackFitter") << ">> TotemRPLocalTrackFitter::produce";
 
   // get geometry
-  edm::ESHandle<TotemRPGeometry> geometry;
+  edm::ESHandle<CTPPSGeometry> geometry;
   setup.get<VeryForwardRealGeometryRecord>().get(geometry);
 
   if (geometryWatcher.check(setup))
@@ -92,10 +93,10 @@ void TotemRPLocalTrackFitter::produce(edm::Event& e, const edm::EventSetup& setu
 
   // run fit for each RP
   DetSetVector<TotemRPLocalTrack> output;
-  
+
   for (const auto &rpv : *input)
   {
-    unsigned int rpDecId =  rpv.detId();
+    CTPPSDetId rpId(rpv.detId());
 
     // is U-V association unique?
     unsigned int n_U=0, n_V=0;
@@ -132,7 +133,7 @@ void TotemRPLocalTrackFitter::produce(edm::Event& e, const edm::EventSetup& setu
     {
       if (verbosity_)
         LogVerbatim("TotemRPLocalTrackFitter")
-          << ">> TotemRPLocalTrackFitter::produce > Impossible to combine U and V patterns in RP " << rpDecId
+          << ">> TotemRPLocalTrackFitter::produce > Impossible to combine U and V patterns in RP " << rpId
           << " (n_U=" << n_U << ", n_V=" << n_V << ").";
 
       continue;
@@ -159,17 +160,12 @@ void TotemRPLocalTrackFitter::produce(edm::Event& e, const edm::EventSetup& setu
     }
 
     // run fit
-    const unsigned int armIdx = rpDecId / 100;
-    const unsigned int stIdx = (rpDecId / 10) % 10;
-    const unsigned int rpIdx = rpDecId % 10;
-    TotemRPDetId rpId(armIdx, stIdx, rpIdx);
-
-    double z0 = geometry->GetRPGlobalTranslation(rpId).z();
+    double z0 = geometry->getRPTranslation(rpId).z();
 
     TotemRPLocalTrack track;
     fitter_.fitTrack(hits, z0, *geometry, track);
     
-    DetSet<TotemRPLocalTrack> &ds = output.find_or_insert(rpDecId);
+    DetSet<TotemRPLocalTrack> &ds = output.find_or_insert(rpId);
     ds.push_back(track);
 
     if (verbosity_ > 5)
@@ -179,12 +175,26 @@ void TotemRPLocalTrackFitter::produce(edm::Event& e, const edm::EventSetup& setu
         n_hits += hds.size();
 
       LogVerbatim("TotemRPLocalTrackFitter")
-        << "    track in RP " << rpDecId << ": valid = " << track.isValid() << ", hits = " << n_hits;
+        << "    track in RP " << rpId << ": valid = " << track.isValid() << ", hits = " << n_hits;
     }
   }
 
   // save results
   e.put(make_unique<DetSetVector<TotemRPLocalTrack>>(output));
+}
+
+//----------------------------------------------------------------------------------------------------
+
+void
+TotemRPLocalTrackFitter::fillDescriptions( edm::ConfigurationDescriptions& descr )
+{
+  edm::ParameterSetDescription desc;
+
+  desc.add<edm::InputTag>( "tagUVPattern", edm::InputTag( "totemRPUVPatternFinder" ) )
+    ->setComment( "input U-V patterns collection to retrieve" );
+  desc.add<int>( "verbosity", 0 );
+
+  descr.add( "totemRPLocalTrackFitter", desc );
 }
 
 //----------------------------------------------------------------------------------------------------

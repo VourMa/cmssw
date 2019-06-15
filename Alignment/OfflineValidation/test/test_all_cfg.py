@@ -1,12 +1,18 @@
 import FWCore.ParameterSet.Config as cms
 import sys
+from enum import Enum
 from PhysicsTools.PatAlgos.patInputFiles_cff import filesRelValTTbarPileUpGENSIMRECO
+
+class RefitType(Enum):
+     STANDARD = 1
+     COMMON   = 2
  
 isDA = True
 isMC = True
 allFromGT = True
 applyBows = True
 applyExtraConditions = True
+theRefitter = RefitType.COMMON
 
 process = cms.Process("Demo") 
 
@@ -17,10 +23,6 @@ process.source = cms.Source("PoolSource",
                             fileNames = filesRelValTTbarPileUpGENSIMRECO,
                             duplicateCheckMode = cms.untracked.string('checkAllFilesOpened')
                             )
-
-process.load("FWCore.MessageService.MessageLogger_cfi")
-process.MessageLogger.destinations = ['cout', 'cerr']
-process.MessageLogger.cerr.FwkReport.reportEvery = 1000
 
 runboundary = 1
 process.source.firstRun = cms.untracked.uint32(int(runboundary))
@@ -40,9 +42,20 @@ else:
 ###################################################################
 # Messages
 ###################################################################
-process.load("FWCore.MessageService.MessageLogger_cfi")
-process.MessageLogger.destinations = ['cout', 'cerr']
-process.MessageLogger.cerr.FwkReport.reportEvery = 1000
+process.load('FWCore.MessageService.MessageLogger_cfi')   
+process.MessageLogger.categories.append("PrimaryVertexValidation")  
+process.MessageLogger.categories.append("FilterOutLowPt")  
+process.MessageLogger.destinations = cms.untracked.vstring("cout")
+process.MessageLogger.cout = cms.untracked.PSet(
+    threshold = cms.untracked.string("INFO"),
+    default   = cms.untracked.PSet(limit = cms.untracked.int32(0)),                       
+    FwkReport = cms.untracked.PSet(limit = cms.untracked.int32(-1),
+                                   reportEvery = cms.untracked.int32(1000)
+                                   ),                                                      
+    PrimaryVertexValidation = cms.untracked.PSet( limit = cms.untracked.int32(-1)),
+    FilterOutLowPt          = cms.untracked.PSet( limit = cms.untracked.int32(-1))
+    )
+process.MessageLogger.statistics.append('cout') 
 
 ####################################################################
 # Produce the Transient Track Record in the event
@@ -69,7 +82,7 @@ process.load("RecoVertex.BeamSpotProducer.BeamSpot_cff")
 ####################################################################
 process.load("Configuration.StandardSequences.FrontierConditions_GlobalTag_cff")
 from Configuration.AlCa.GlobalTag import GlobalTag
-process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:run2_mc', '')
+process.GlobalTag = GlobalTag(process.GlobalTag, 'auto:phase1_2017_realistic', '')
 
 if allFromGT:
      print ">>>>>>>>>> testPVValidation_cfg.py: msg%-i: All is taken from GT"
@@ -82,7 +95,7 @@ else:
                                              connect = cms.string('frontier://FrontierProd/CMS_CONDITIONS'),
                                              timetype = cms.string("runnumber"),
                                              toGet = cms.VPSet(cms.PSet(record = cms.string('TrackerAlignmentRcd'),
-                                                                        tag = cms.string('TrackerAlignment_2015StartupPessimisticScenario_mc')
+                                                                        tag = cms.string('TrackerAlignment_Upgrade2017_design_v4')
                                                                         )
                                                                )
                                              )
@@ -95,7 +108,7 @@ else:
                                    connect = cms.string('frontier://FrontierProd/CMS_CONDITIONS'),
                                    timetype = cms.string("runnumber"),
                                    toGet = cms.VPSet(cms.PSet(record = cms.string('TrackerAlignmentErrorExtendedRcd'),
-                                                              tag = cms.string('TrackerAlignmentExtendedErrors_2015StartupPessimisticScenario_mc')
+                                                              tag = cms.string('TrackerAlignmentErrorsExtended_Upgrade2017_design_v0')
                                                               )
                                                      )
                                    )
@@ -109,7 +122,7 @@ else:
           process.trackerBows = cms.ESSource("PoolDBESSource",CondDBSetup,
                                              connect = cms.string('frontier://FrontierProd/CMS_CONDITIONS'),
                                              toGet = cms.VPSet(cms.PSet(record = cms.string('TrackerSurfaceDeformationRcd'),
-                                                                        tag = cms.string('TrackerSurfaceDeformations_2011Realistic_v2_mc')
+                                                                        tag = cms.string('TrackerSurfaceDeformations_zero')
                                                                         )
                                                                )
                                              )
@@ -161,30 +174,57 @@ if isMC:
 else:
      process.goodvertexSkim = cms.Sequence(process.primaryVertexFilter + process.noscraping + process.noslowpt)
 
-####################################################################
-# Load and Configure Measurement Tracker Event
-# (needed in case NavigationSchool is set != '')
-####################################################################
-# process.load("RecoTracker.MeasurementDet.MeasurementTrackerEventProducer_cfi") 
-# process.MeasurementTrackerEvent.pixelClusterProducer = 'generalTracks'
-# process.MeasurementTrackerEvent.stripClusterProducer = 'generalTracks'
-# process.MeasurementTrackerEvent.inactivePixelDetectorLabels = cms.VInputTag()
-# process.MeasurementTrackerEvent.inactiveStripDetectorLabels = cms.VInputTag()
 
-####################################################################
-# Load and Configure TrackRefitter
-####################################################################
-#import Alignment.CommonAlignment.tools.trackselectionRefitting as trackselRefit
-#process.seqTrackselRefit = trackselRefit.getSequence(process,'generalTracks')
-#process.seqTrackselRefit.TrackSelector.ptMin = cms.double(3)
+if(theRefitter == RefitType.COMMON):
 
-process.load("RecoTracker.TrackProducer.TrackRefitters_cff")
-import RecoTracker.TrackProducer.TrackRefitters_cff
-process.FinalTrackRefitter = RecoTracker.TrackProducer.TrackRefitter_cfi.TrackRefitter.clone()
-process.FinalTrackRefitter.src = "generalTracks"
-process.FinalTrackRefitter.TrajectoryInEvent = True
-process.FinalTrackRefitter.NavigationSchool = ''
-process.FinalTrackRefitter.TTRHBuilder = "WithAngleAndTemplate"
+     print ">>>>>>>>>> testPVValidation_cfg.py: msg%-i: using the common track selection and refit sequence!"          
+     ####################################################################
+     # Load and Configure Common Track Selection and refitting sequence
+     ####################################################################
+     import Alignment.CommonAlignment.tools.trackselectionRefitting as trackselRefit
+     process.seqTrackselRefit = trackselRefit.getSequence(process, 'generalTracks',
+                                                          isPVValidation=True, 
+                                                          TTRHBuilder='WithAngleAndTemplate',
+                                                          usePixelQualityFlag=True,
+                                                          openMassWindow=False,
+                                                          cosmicsDecoMode=True,
+                                                          cosmicsZeroTesla=False,
+                                                          momentumConstraint=None,
+                                                          cosmicTrackSplitting=False,
+                                                          use_d0cut=False,
+                                                          )
+     
+elif (theRefitter == RefitType.STANDARD):
+
+     print ">>>>>>>>>> testPVValidation_cfg.py: msg%-i: using the standard single refit sequence!"          
+     ####################################################################
+     # Load and Configure Measurement Tracker Event
+     # (needed in case NavigationSchool is set != '')
+     ####################################################################
+     # process.load("RecoTracker.MeasurementDet.MeasurementTrackerEventProducer_cfi") 
+     # process.MeasurementTrackerEvent.pixelClusterProducer = 'generalTracks'
+     # process.MeasurementTrackerEvent.stripClusterProducer = 'generalTracks'
+     # process.MeasurementTrackerEvent.inactivePixelDetectorLabels = cms.VInputTag()
+     # process.MeasurementTrackerEvent.inactiveStripDetectorLabels = cms.VInputTag()
+
+     ####################################################################
+     # Load and Configure TrackRefitter
+     ####################################################################
+     process.load("RecoTracker.TrackProducer.TrackRefitters_cff")
+     import RecoTracker.TrackProducer.TrackRefitters_cff
+     process.FinalTrackRefitter = RecoTracker.TrackProducer.TrackRefitter_cfi.TrackRefitter.clone()
+     process.FinalTrackRefitter.src = "generalTracks"
+     process.FinalTrackRefitter.TrajectoryInEvent = True
+     process.FinalTrackRefitter.NavigationSchool = ''
+     process.FinalTrackRefitter.TTRHBuilder = "WithAngleAndTemplate"
+
+     ####################################################################
+     # Sequence
+     ####################################################################
+     process.seqTrackselRefit = cms.Sequence(process.offlineBeamSpot*
+                                             # in case NavigatioSchool is set !='' 
+                                             #process.MeasurementTrackerEvent*
+                                             process.FinalTrackRefitter)     
 
 ####################################################################
 # Output file
@@ -206,7 +246,10 @@ if isDA:
                                            useTracksFromRecoVtx = cms.bool(False),
                                            isLightNtuple = cms.bool(True),
                                            askFirstLayerHit = cms.bool(False),
+                                           forceBeamSpot = cms.untracked.bool(False),
                                            probePt = cms.untracked.double(3.),
+                                           minPt   = cms.untracked.double(1.),
+                                           maxPt   = cms.untracked.double(30.),
                                            runControl = cms.untracked.bool(True),
                                            runControlNumber = cms.untracked.vuint32(int(runboundary)),
                                            
@@ -215,16 +258,22 @@ if isDA:
                                                                          minPixelLayersWithHits = cms.int32(2),                      # PX hits > 2                       
                                                                          minSiliconLayersWithHits = cms.int32(5),                    # TK hits > 5  
                                                                          maxD0Significance = cms.double(5.0),                        # fake cut (requiring 1 PXB hit)     
-                                                                         minPt = cms.double(0.0),                                    # better for softish events                        
+                                                                         minPt = cms.double(0.0),                                    # better for softish events
+                                                                         maxEta = cms.double(5.0),                                   # as per recommendation in PR #18330
                                                                          trackQuality = cms.string("any")
                                                                          ),
                                            
-                                           TkClusParameters=cms.PSet(algorithm=cms.string('DA'),
-                                                                     TkDAClusParameters = cms.PSet(coolingFactor = cms.double(0.8),  # moderate annealing speed
-                                                                                                   Tmin = cms.double(4.),            # end of annealing
-                                                                                                   vertexSize = cms.double(0.05),    # ~ resolution / sqrt(Tmin)
+                                           ## MM 04.05.2017 (use settings as in: https://github.com/cms-sw/cmssw/pull/18330)
+                                           TkClusParameters=cms.PSet(algorithm=cms.string('DA_vect'),
+                                                                     TkDAClusParameters = cms.PSet(coolingFactor = cms.double(0.6),  # moderate annealing speed
+                                                                                                   Tmin = cms.double(2.0),           # end of vertex splitting
+                                                                                                   Tpurge = cms.double(2.0),         # cleaning 
+                                                                                                   Tstop = cms.double(0.5),          # end of annealing
+                                                                                                   vertexSize = cms.double(0.006),   # added in quadrature to track-z resolutions
                                                                                                    d0CutOff = cms.double(3.),        # downweight high IP tracks
-                                                                                                   dzCutOff = cms.double(4.)         # outlier rejection after freeze-out (T<Tmin)
+                                                                                                   dzCutOff = cms.double(3.),        # outlier rejection after freeze-out (T<Tmin)   
+                                                                                                   zmerge = cms.double(1e-2),        # merge intermediat clusters separated by less than zmerge
+                                                                                                   uniquetrkweight = cms.double(0.8) # require at least two tracks with this weight at T=Tpurge
                                                                                                    )
                                                                      )
                                            )
@@ -242,7 +291,10 @@ else:
                                            storeNtuple = cms.bool(False),
                                            useTracksFromRecoVtx = cms.bool(False),
                                            askFirstLayerHit = cms.bool(False),
+                                           forceBeamSpot = cms.untracked.bool(False),
                                            probePt = cms.untracked.double(3.),
+                                           minPt   = cms.untracked.double(1.),
+                                           maxPt   = cms.untracked.double(30.),
                                            runControl = cms.untracked.bool(True),
                                            runControlNumber = cms.untracked.vuint32(int(runboundary)),
                                            
@@ -251,7 +303,8 @@ else:
                                                                          minPixelLayersWithHits=cms.int32(2),                        # PX hits > 2                   
                                                                          minSiliconLayersWithHits = cms.int32(5),                    # TK hits > 5                   
                                                                          maxD0Significance = cms.double(5.0),                        # fake cut (requiring 1 PXB hit)
-                                                                         minPt = cms.double(0.0),                                    # better for softish events     
+                                                                         minPt = cms.double(0.0),                                    # better for softish events    
+                                                                         maxEta = cms.double(5.0),                                   # as per recommendation in PR #18330 
                                                                          trackQuality = cms.string("any")
                                                                          ),
                                         
@@ -261,14 +314,11 @@ else:
                                                                        )
                                            )
 
+
+
 ####################################################################
 # Path
 ####################################################################
 process.p = cms.Path(process.goodvertexSkim*
-                     process.offlineBeamSpot*
-                     # in case common fit sequence is uses
-                     #process.seqTrackselRefit*
-                     # in case NavigatioSchool is set !='' 
-                     #process.MeasurementTrackerEvent*
-                     process.FinalTrackRefitter*
+                     process.seqTrackselRefit*
                      process.PVValidation)

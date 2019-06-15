@@ -9,7 +9,7 @@ hcalDigiSequence = cms.Sequence(simHcalTriggerPrimitiveDigis
                                 +simHcalDigis
                                 *simHcalTTPDigis)
 
-_phase2_hcalDigiSequence = hcalDigiSequence.copyAndExclude([simHcalTriggerPrimitiveDigis,simHcalTTPDigis])
-
-from Configuration.Eras.Modifier_phase2_hcal_cff import phase2_hcal
-phase2_hcal.toReplaceWith( hcalDigiSequence, _phase2_hcalDigiSequence )
+# remove HCAL TP sim for premixing stage1
+# not needed, sometimes breaks
+from Configuration.ProcessModifiers.premix_stage1_cff import premix_stage1
+premix_stage1.toReplaceWith(hcalDigiSequence, cms.Sequence(simHcalDigis))

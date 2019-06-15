@@ -45,8 +45,8 @@ class BPHKx0ToKPiBuilder {
   /** Constructor
    */
   BPHKx0ToKPiBuilder( const edm::EventSetup& es,
-       const BPHRecoBuilder::BPHGenericCollection* kaonCollection,
-       const BPHRecoBuilder::BPHGenericCollection* pionCollection );
+       const BPHRecoBuilder::BPHGenericCollection* posCollection,
+       const BPHRecoBuilder::BPHGenericCollection* negCollection );
 
   /** Destructor
    */
@@ -77,15 +77,15 @@ class BPHKx0ToKPiBuilder {
  private:
 
   // private copy and assigment constructors
-  BPHKx0ToKPiBuilder           ( const BPHKx0ToKPiBuilder& x );
-  BPHKx0ToKPiBuilder& operator=( const BPHKx0ToKPiBuilder& x );
+  BPHKx0ToKPiBuilder           ( const BPHKx0ToKPiBuilder& x ) = delete;
+  BPHKx0ToKPiBuilder& operator=( const BPHKx0ToKPiBuilder& x ) = delete;
 
   std::string kaonName;
   std::string pionName;
 
   const edm::EventSetup* evSetup;
-  const BPHRecoBuilder::BPHGenericCollection* kCollection;
   const BPHRecoBuilder::BPHGenericCollection* pCollection;
+  const BPHRecoBuilder::BPHGenericCollection* nCollection;
 
   BPHParticlePtSelect *  ptSel;
   BPHParticleEtaSelect* etaSel;

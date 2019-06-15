@@ -38,6 +38,7 @@ ConversionTrackProducer::ConversionTrackProducer(edm::ParameterSet const& conf) 
   trackProducer ( conf.getParameter<std::string>("TrackProducer") ),
   useTrajectory ( conf.getParameter<bool>("useTrajectory") ),
   setTrackerOnly ( conf.getParameter<bool>("setTrackerOnly") ),
+  setIsGsfTrackOpen ( conf.getParameter<bool>("setIsGsfTrackOpen") ),
   setArbitratedEcalSeeded ( conf.getParameter<bool>("setArbitratedEcalSeeded") ),    
   setArbitratedMerged ( conf.getParameter<bool>("setArbitratedMerged") ),
   setArbitratedMergedEcalGeneral ( conf.getParameter<bool>("setArbitratedMergedEcalGeneral") ),
@@ -75,7 +76,7 @@ ConversionTrackProducer::ConversionTrackProducer(edm::ParameterSet const& conf) 
     std::map<reco::GsfTrackRef,edm::Ref<std::vector<Trajectory> > > gsftracktrajmap;
                                           
     if (useTrajectory) {
-      if (hTrks->size()>0) {
+      if (!hTrks->empty()) {
         if (dynamic_cast<const reco::GsfTrack*>(&hTrks->at(0))) {
           //fill map for gsf tracks
           e.getByToken(gsfTrajectories, hTTAssGsf);     
@@ -144,13 +145,14 @@ ConversionTrackProducer::ConversionTrackProducer(edm::ParameterSet const& conf) 
 
       reco::ConversionTrack convTrack(trackBaseRef);
       convTrack.setIsTrackerOnly(setTrackerOnly);
+      convTrack.setIsGsfTrackOpen(setIsGsfTrackOpen);
       convTrack.setIsArbitratedEcalSeeded(setArbitratedEcalSeeded);
       convTrack.setIsArbitratedMerged(setArbitratedMerged);
       convTrack.setIsArbitratedMergedEcalGeneral(setArbitratedMergedEcalGeneral);
             
       //fill trajectory association if configured, using correct map depending on track type
       if (useTrajectory) {
-        if (gsftracktrajmap.size()) {
+        if (!gsftracktrajmap.empty()) {
           convTrack.setTrajRef(gsftracktrajmap.find(trackBaseRef.castTo<reco::GsfTrackRef>())->second);
         }
         else {

@@ -8,6 +8,7 @@
 #include "Validation/GlobalRecHits/interface/GlobalRecHitsAnalyzer.h"
 #include "DQMServices/Core/interface/DQMStore.h"
 #include "DQMServices/Core/interface/MonitorElement.h"
+#include "Geometry/HcalTowerAlgo/interface/HcalGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
@@ -128,9 +129,9 @@ void GlobalRecHitsAnalyzer::bookHistograms(DQMStore::IBooker &iBooker, edm::Run 
                               "TIBL3", "TIBL4", "TIDW1", "TIDW2", "TIDW3", 
                               "TOBL1", "TOBL2", "TOBL3", "TOBL4"};
   for(int i = 0; i<19; ++i) {
-    mehSiStripn[i]=0;
-    mehSiStripResX[i]=0;
-    mehSiStripResY[i]=0;
+    mehSiStripn[i]=nullptr;
+    mehSiStripResX[i]=nullptr;
+    mehSiStripResY[i]=nullptr;
   }
   string hcharname, hchartitle;
   iBooker.setCurrentFolder("GlobalRecHitsV/SiStrips");
@@ -162,8 +163,8 @@ void GlobalRecHitsAnalyzer::bookHistograms(DQMStore::IBooker &iBooker, edm::Run 
   float HCalnUpper[4]={3000.,3000.,3000.,3000.}; 
   float HCalnLower[4]={0.,0.,0.,0.};
   for(int j =0; j <4; ++j) {
-    mehHcaln[j]=0;
-    mehHcalRes[j]=0;
+    mehHcaln[j]=nullptr;
+    mehHcalRes[j]=nullptr;
   }
   
   iBooker.setCurrentFolder("GlobalRecHitsV/HCals");
@@ -191,8 +192,8 @@ void GlobalRecHitsAnalyzer::bookHistograms(DQMStore::IBooker &iBooker, edm::Run 
   float ECalResUpper[3] = {1., 0.3, .0002};
   float ECalResLower[3] = {-1., -0.3, -.0002};
   for(int i =0; i<3; ++i) {
-    mehEcaln[i]=0;
-    mehEcalRes[i]=0;
+    mehEcaln[i]=nullptr;
+    mehEcalRes[i]=nullptr;
   }
   iBooker.setCurrentFolder("GlobalRecHitsV/ECals");
   
@@ -216,9 +217,9 @@ void GlobalRecHitsAnalyzer::bookHistograms(DQMStore::IBooker &iBooker, edm::Run 
   string SiPixelString[7] = {"BRL1", "BRL2", "BRL3", "FWD1n", "FWD1p", 
                              "FWD2n", "FWD2p"};
   for(int j =0; j<7; ++j) {
-    mehSiPixeln[j]=0;
-    mehSiPixelResX[j]=0;
-    mehSiPixelResY[j]=0;
+    mehSiPixeln[j]=nullptr;
+    mehSiPixelResX[j]=nullptr;
+    mehSiPixelResY[j]=nullptr;
   }
   
   iBooker.setCurrentFolder("GlobalRecHitsV/SiPixels");
@@ -247,9 +248,9 @@ void GlobalRecHitsAnalyzer::bookHistograms(DQMStore::IBooker &iBooker, edm::Run 
   //Muons 
   iBooker.setCurrentFolder("GlobalRecHitsV/Muons");
   
-  mehDtMuonn = 0;
-  mehCSCn = 0;
-  mehRPCn = 0;
+  mehDtMuonn = nullptr;
+  mehCSCn = nullptr;
+  mehRPCn = nullptr;
   
   string n_List[3] = {"hDtMuonn", "hCSCn", "hRPCn"};
   string hist_string[3] = {"Dt", "CSC", "RPC"};
@@ -273,9 +274,9 @@ void GlobalRecHitsAnalyzer::bookHistograms(DQMStore::IBooker &iBooker, edm::Run 
     }
   }
   
-  mehDtMuonRes=0;
-  mehCSCResRDPhi=0;
-  mehRPCResX=0;
+  mehDtMuonRes=nullptr;
+  mehCSCResRDPhi=nullptr;
+  mehRPCResX=nullptr;
   
   hcharname = "hDtMuonRes";
   hchartitle = "DT wire distance resolution";
@@ -407,19 +408,14 @@ void GlobalRecHitsAnalyzer::fillECal(const edm::Event& iEvent,
 
   MapType ebSimMap;
   if (validXFrame) {
-    std::auto_ptr<MixCollection<PCaloHit> >
-      barrelHits(new MixCollection<PCaloHit>(crossingFrame.product()));  
-    
+    const MixCollection<PCaloHit> barrelHits(crossingFrame.product());
     // keep track of sum of simhit energy in each crystal
-    for (MixCollection<PCaloHit>::MixItr hitItr 
-	   = barrelHits->begin();
-	 hitItr != barrelHits->end();
-	 ++hitItr) {
+    for ( auto const & iHit : barrelHits ) {
       
-      EBDetId ebid = EBDetId(hitItr->id());
+      EBDetId ebid = EBDetId(iHit.id());
       
       uint32_t crystid = ebid.rawId();
-      ebSimMap[crystid] += hitItr->energy();
+      ebSimMap[crystid] += iHit.energy();
     }
   }  
 
@@ -484,19 +480,14 @@ void GlobalRecHitsAnalyzer::fillECal(const edm::Event& iEvent,
 
   MapType eeSimMap;
   if (validXFrame) {
-    std::auto_ptr<MixCollection<PCaloHit> >
-      endcapHits(new MixCollection<PCaloHit>(crossingFrame.product()));  
-    
+    const MixCollection<PCaloHit> endcapHits(crossingFrame.product());
     // keep track of sum of simhit energy in each crystal
-    for (MixCollection<PCaloHit>::MixItr hitItr 
-	   = endcapHits->begin();
-	 hitItr != endcapHits->end();
-	 ++hitItr) {
-      
-      EEDetId eeid = EEDetId(hitItr->id());
+    for ( auto const & iHit:  endcapHits ) {
+     
+      EEDetId eeid = EEDetId(iHit.id());
       
       uint32_t crystid = eeid.rawId();
-      eeSimMap[crystid] += hitItr->energy();
+      eeSimMap[crystid] += iHit.energy();
     }
   }    
 
@@ -552,19 +543,14 @@ void GlobalRecHitsAnalyzer::fillECal(const edm::Event& iEvent,
 
   MapType esSimMap;
   if (validXFrame) {
-    std::auto_ptr<MixCollection<PCaloHit> >
-      preshowerHits(new MixCollection<PCaloHit>(crossingFrame.product()));  
-    
+    const MixCollection<PCaloHit> preshowerHits(crossingFrame.product());
     // keep track of sum of simhit energy in each crystal
-    for (MixCollection<PCaloHit>::MixItr hitItr 
-	   = preshowerHits->begin();
-	 hitItr != preshowerHits->end();
-	 ++hitItr) {
+    for ( auto const & iHit : preshowerHits ) {
       
-      ESDetId esid = ESDetId(hitItr->id());
+      ESDetId esid = ESDetId(iHit.id());
       
       uint32_t crystid = esid.rawId();
-      esSimMap[crystid] += hitItr->energy();
+      esSimMap[crystid] += iHit.energy();
     }
   }
 
@@ -684,6 +670,7 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 
   if (validHBHE) {
     std::vector<edm::Handle<HBHERecHitCollection> >::iterator ihbhe;
+    const CaloGeometry* geo = geometry.product();
     
     int iHB = 0;
     int iHE = 0; 
@@ -697,9 +684,9 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 	
 	if (cell.subdet() == sdHcalBrl) {
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
-	  double fPhi = cellGeometry->getPosition().phi () ;
+	  const HcalGeometry* cellGeometry = 
+	    dynamic_cast<const HcalGeometry*>(geo->getSubdetectorGeometry(DetId::Hcal,cell.subdet()));
+	  double fPhi = cellGeometry->getPosition(cell).phi () ;
 	  if ( (jhbhe->energy()) > maxHBEnergy ) {
 	    maxHBEnergy = jhbhe->energy();
 	    maxHBPhi = fPhi;
@@ -709,9 +696,9 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
       
 	if (cell.subdet() == sdHcalEC) {
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
-	  double fPhi = cellGeometry->getPosition().phi () ;
+	  const HcalGeometry* cellGeometry = 
+	    dynamic_cast<const HcalGeometry*>(geo->getSubdetectorGeometry(DetId::Hcal,cell.subdet()));
+	  double fPhi = cellGeometry->getPosition(cell).phi () ;
 	  if ( (jhbhe->energy()) > maxHEEnergy ) {
 	    maxHEEnergy = jhbhe->energy();
 	    maxHEPhi = fPhi;
@@ -728,9 +715,9 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 	  
 	  ++iHB;
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
-	  double fPhi = cellGeometry->getPosition().phi () ;
+	  const HcalGeometry* cellGeometry = 
+	    dynamic_cast<const HcalGeometry*>(geo->getSubdetectorGeometry(DetId::Hcal,cell.subdet()));
+	  double fPhi = cellGeometry->getPosition(cell).phi () ;
 	  
 	  float deltaphi = maxHBPhi - fPhi;
 	  if (fPhi > maxHBPhi) { deltaphi = fPhi - maxHBPhi;}
@@ -744,9 +731,9 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 	  
 	  ++iHE;
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
-	  double fPhi = cellGeometry->getPosition().phi () ;
+	  const HcalGeometry* cellGeometry = 
+	    dynamic_cast<const HcalGeometry*>(geo->getSubdetectorGeometry(DetId::Hcal,cell.subdet()));
+	  double fPhi = cellGeometry->getPosition(cell).phi () ;
 	  
 	  float deltaphi = maxHEPhi - fPhi;
 	  if (fPhi > maxHEPhi) { deltaphi = fPhi - maxHEPhi;}
@@ -796,8 +783,7 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 	
 	if (cell.subdet() == sdHcalFwd) {
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
+	  auto cellGeometry = geometry->getSubdetectorGeometry(cell)->getGeometry(cell) ;
 	  double fPhi = cellGeometry->getPosition().phi () ;
 	  if ( (jhf->energy()) > maxHFEnergy ) {
 	    maxHFEnergy = jhf->energy();
@@ -815,8 +801,7 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 	  
 	  ++iHF;
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
+	  auto cellGeometry = geometry->getSubdetectorGeometry(cell)->getGeometry (cell) ;
 	  double fPhi = cellGeometry->getPosition().phi () ;
 	  
 	  float deltaphi = maxHBPhi - fPhi;
@@ -862,8 +847,7 @@ void GlobalRecHitsAnalyzer::fillHCal(const edm::Event& iEvent,
 	  
 	  ++iHO;
 	  
-	  const CaloCellGeometry* cellGeometry =
-	    geometry->getSubdetectorGeometry (cell)->getGeometry (cell) ;
+	  auto cellGeometry = geometry->getSubdetectorGeometry(cell)->getGeometry (cell) ;
 	  double fPhi = cellGeometry->getPosition().phi () ;
 	  
 	  float deltaphi = maxHOPhi - fPhi;
@@ -1343,12 +1327,11 @@ void GlobalRecHitsAnalyzer::fillMuon(const edm::Event& iEvent,
     validXFrame = false;
   }
   if (validXFrame) {
-    MixCollection<PSimHit> simHits(cf.product());
+    const MixCollection<PSimHit>  simHits(cf.product());
     
     // arrange the hits by detUnit
-    for(MixCollection<PSimHit>::MixItr hitItr = simHits.begin();
-	hitItr != simHits.end(); ++hitItr) {
-      theMap[hitItr->detUnitId()].push_back(*hitItr);
+    for ( auto const & iHit : simHits ) {
+      theMap[iHit.detUnitId()].push_back(iHit);
     }  
   }
 
@@ -1577,7 +1560,7 @@ GlobalRecHitsAnalyzer::findBestRecHit(const DTLayer* layer,
 				      const std::vector<type>& recHits,
 				      const float simHitDist) {
   float res = 99999;
-  const type* theBestRecHit = 0;
+  const type* theBestRecHit = nullptr;
   // Loop over RecHits within the cell
   for(typename std::vector<type>::const_iterator recHit = recHits.begin();
       recHit != recHits.end();
@@ -1633,7 +1616,7 @@ std::map<DTWireId, std::vector<type> > recHitsPerWire = _recHitsPerWire;
     
     // Look for a mu hit in the cell
     const PSimHit* muSimHit = DTHitQualityUtils::findMuSimHit(simHitsInCell);
-    if (muSimHit==0) {
+    if (muSimHit==nullptr) {
       continue; // Skip this cell
     }
 

@@ -84,17 +84,21 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         ConfGlobalMFM = cms.PSet(
             Volume = cms.string('OCMS'),
             OCMS = cms.PSet(
-                Stepper = cms.string('G4ClassicalRK4'),
+                Stepper = cms.string('G4DormandPrince745'),
                 Type = cms.string('CMSIMField'),
                 StepperParam = cms.PSet(
-                    MaximumEpsilonStep = cms.untracked.double(0.01), ## in mm
-                    DeltaOneStep = cms.double(0.001), ## in mm
+                    MaximumEpsilonStep = cms.untracked.double(0.01),   ## in mm
+                    DeltaOneStep = cms.double(0.001),      ## in mm
                     MaximumLoopCounts = cms.untracked.double(1000.0),
                     DeltaChord = cms.double(0.001), ## in mm
-                    MinStep = cms.double(0.1), ## in mm
+                    MinStep = cms.double(0.1),      ## in mm
                     DeltaIntersectionAndOneStep = cms.untracked.double(-1.0),
-                    DeltaIntersection = cms.double(0.0001), ## in mm
-                    MinimumEpsilonStep = cms.untracked.double(1e-05) ## in mm
+                    DeltaIntersection = cms.double(0.0001),## in mm
+                    MinimumEpsilonStep = cms.untracked.double(1e-05), ## in mm
+                    EnergyThSimple = cms.double(0.002),               ## in GeV
+                    DeltaChordSimple = cms.double(0.1),    ## in mm
+                    DeltaOneStepSimple = cms.double(0.1),  ## in mm
+                    DeltaIntersectionSimple = cms.double(0.01),       ## in mm
                 )
             )
         ),
@@ -120,6 +124,10 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         MonopoleMultiScatter = cms.untracked.bool(False),
         MonopoleTransport    = cms.untracked.bool(True),
         MonopoleMass         = cms.untracked.double(0),
+        ExoticaTransport     = cms.untracked.bool(False),
+        ExoticaPhysicsSS     = cms.untracked.bool(False),
+        RhadronPhysics       = cms.bool(False),
+        DarkMPFactor         = cms.double(1.0),
         Region      = cms.string(' '),
         TrackingCut = cms.bool(False),
         SRType      = cms.bool(True),
@@ -135,7 +143,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         bField        = cms.double(3.8),
         energyScaleEB = cms.double(1.032),
         energyScaleEE = cms.double(1.024),
-        ExoticaPhysicsSS = cms.untracked.bool(False),
+        ThermalNeutrons  = cms.untracked.bool(False),
         RusRoElectronEnergyLimit  = cms.double(0.0),
         RusRoEcalElectron         = cms.double(1.0),
         RusRoHcalElectron         = cms.double(1.0),
@@ -150,8 +158,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
     ),
     Generator = cms.PSet(
         HectorEtaCut,
-        # string HepMCProductLabel = "generatorSmeared"
-        HepMCProductLabel = cms.string('generatorSmeared'),
+        HepMCProductLabel = cms.InputTag('generatorSmeared'),
         ApplyPCuts = cms.bool(True),
         ApplyPtransCut = cms.bool(False),
         MinPCut = cms.double(0.04), ## the cut is in GeV 
@@ -163,9 +170,13 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         LDecLenCut = cms.double(30.0), ## (cm) decay volume length
         ApplyPhiCuts = cms.bool(False),
         MinPhiCut = cms.double(-3.14159265359), ## (radians)
-        MaxPhiCut = cms.double(3.14159265359), ## according to CMS conventions
+        MaxPhiCut = cms.double(3.14159265359),  ## according to CMS conventions
         ApplyLumiMonitorCuts = cms.bool(False), ## primary for lumi monitors
-        Verbosity = cms.untracked.int32(0)
+        Verbosity = cms.untracked.int32(0),
+        PDGselection = cms.PSet(
+            PDGfilterSel = cms.bool(False),        ## filter out unwanted particles
+            PDGfilter = cms.vint32(21,1,2,3,4,5,6) ## list of unwanted particles (gluons and quarks)
+        )
     ),
     RunAction = cms.PSet(
         StopFile = cms.string('StopRun')
@@ -273,8 +284,10 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         TestBeam        = cms.untracked.bool(False),
         NullNumbering   = cms.untracked.bool(False),
         StoreRadLength  = cms.untracked.bool(False),
-        AgeingWithSlopeLY  = cms.untracked.bool(False)
-    ),
+        ScaleRadLength  = cms.untracked.double(1.0),
+        StoreLayerTimeSim = cms.untracked.bool(False),
+        AgeingWithSlopeLY = cms.untracked.bool(False)
+        ),
     HCalSD = cms.PSet(
         common_UseLuminosity,
         UseBirkLaw                = cms.bool(True),
@@ -286,6 +299,7 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         UsePMTHits                = cms.bool(False),
         UseFibreBundleHits        = cms.bool(False),
         TestNumberingScheme       = cms.bool(False),
+        doNeutralDensityFilter    = cms.bool(False),
         EminHitHB                 = cms.double(0.0),
         EminHitHE                 = cms.double(0.0),
         EminHitHO                 = cms.double(0.0),
@@ -293,12 +307,14 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         BetaThreshold             = cms.double(0.7),
         TimeSliceUnit             = cms.double(1),
         IgnoreTrackID             = cms.bool(False),
+        HBDarkening               = cms.bool(False),
         HEDarkening               = cms.bool(False),
         HFDarkening               = cms.bool(False),
         UseHF                     = cms.untracked.bool(True),
         ForTBH2                   = cms.untracked.bool(False),
         UseLayerWt                = cms.untracked.bool(False),
         WtFile                    = cms.untracked.string('None'),
+        TestNS                    = cms.untracked.bool(False),
         HFDarkeningParameterBlock = HFDarkeningParameterBlock
     ),
     CaloTrkProcessing = cms.PSet(
@@ -395,12 +411,38 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         EminHit          = cms.double(0.0),
         CheckID          = cms.untracked.bool(True),
     ),
+    MtdSD = cms.PSet(
+        Verbosity = cms.untracked.int32(0),
+        TimeSliceUnit    = cms.double(0.001), #stepping = 1 ps (for timing)
+        IgnoreTrackID    = cms.bool(False),
+        EminHit          = cms.double(0.0),
+        CheckID          = cms.untracked.bool(True),
+    ),
     HGCSD = cms.PSet(
         Verbosity        = cms.untracked.int32(0),
         TimeSliceUnit    = cms.double(0.001), #stepping = 1 ps (for timing)
         IgnoreTrackID    = cms.bool(False),
         EminHit          = cms.double(0.0),
+        FiducialCut      = cms.bool(False),
+        DistanceFromEdge = cms.double(1.0),
+        StoreAllG4Hits   = cms.bool(False),
+        RejectMouseBite  = cms.bool(False),
+        RotatedWafer     = cms.bool(False),
+        WaferAngles      = cms.untracked.vdouble(90.0,30.0),
+        WaferSize        = cms.untracked.double(123.7),
+        MouseBite        = cms.untracked.double(2.5),
         CheckID          = cms.untracked.bool(True),
+    ),
+    HGCScintSD = cms.PSet(
+        Verbosity        = cms.untracked.int32(0),
+        EminHit          = cms.double(0.0),
+        UseBirkLaw       = cms.bool(True),
+        BirkC3           = cms.double(1.75),
+        BirkC2           = cms.double(0.142),
+        BirkC1           = cms.double(0.0052),
+        FiducialCut      = cms.bool(False),
+        DistanceFromEdge = cms.double(1.0),
+        StoreAllG4Hits   = cms.bool(False),
     ),
     TotemSD = cms.PSet(
         Verbosity = cms.untracked.int32(0)
@@ -453,7 +495,16 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
         BirkC1 = cms.double(0.013),
         BirkC3 = cms.double(1.75),
         BirkC2 = cms.double(0.0568)
-    )
+    ),
+    AHCalSD = cms.PSet(
+        UseBirkLaw      = cms.bool(True),
+        BirkC3          = cms.double(1.75),
+        BirkC2          = cms.double(0.142),
+        BirkC1          = cms.double(0.0052),
+        EminHit         = cms.double(0.0),
+        TimeSliceUnit   = cms.double(1),
+        IgnoreTrackID   = cms.bool(False),
+    ),
 )
 
 
@@ -462,3 +513,9 @@ g4SimHits = cms.EDProducer("OscarMTProducer",
 ##
 from Configuration.Eras.Modifier_run2_common_cff import run2_common
 run2_common.toModify( g4SimHits.HFShowerLibrary, FileName = 'SimG4CMS/Calo/data/HFShowerLibrary_npmt_noatt_eta4_16en_v4.root' )
+from Configuration.Eras.Modifier_run2_HCAL_2017_cff import run2_HCAL_2017
+run2_HCAL_2017.toModify( g4SimHits, HCalSD = dict( TestNumberingScheme = True ) )
+from Configuration.Eras.Modifier_phase2_timing_cff import phase2_timing
+phase2_timing.toModify( g4SimHits.ECalSD,
+                             StoreLayerTimeSim = cms.untracked.bool(True),
+                             TimeSliceUnit = cms.double(0.001) )

@@ -8,6 +8,7 @@
 <use   name="CondFormats/BeamSpotObjects"/>
 <use   name="CondFormats/DataRecord"/>
 <use   name="CondCore/DBOutputService"/>
+<use   name="CommonTools/UtilAlgos"/>
 <use   name="RecoVertex/BeamSpotProducer"/>
 <use   name="Calibration/TkAlCaRecoProducers"/>
 
@@ -27,9 +28,9 @@
 <library   file="AlcaBeamSpotFromDB.cc" name="AlcaBeamSpotFromDB">
   <flags   EDM_PLUGIN="1"/>
 </library>
-<library   file="AlcaBeamSpotFromDB.cc" name="AlcaBeamSpotFromDB">
+<library   file="PCLMetadataWriter.cc" name="PCLMetadataWriter">
   <flags   EDM_PLUGIN="1"/>
 </library>
-<library   file="PCLMetadataWriter.cc" name="PCLMetadataWriter">
+<library   file="CalibrationTrackSelectorFromDetIdList.cc" name="CalibrationTrackSelectorFromDetIdList">
   <flags   EDM_PLUGIN="1"/>
 </library>

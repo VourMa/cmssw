@@ -21,13 +21,12 @@
 #include <memory>
 #include <algorithm>
 
-
 using namespace pat;
 
 
 PATJetUpdater::PATJetUpdater(const edm::ParameterSet& iConfig) :
   useUserData_(iConfig.exists("userData")),
-  printWarning_(true)
+  printWarning_(iConfig.getParameter<bool>("printWarning"))
 {
   // initialize configurables
   jetsToken_ = consumes<edm::View<reco::Jet> >(iConfig.getParameter<edm::InputTag>( "jetSource" ));
@@ -50,6 +49,9 @@ PATJetUpdater::PATJetUpdater(const edm::ParameterSet& iConfig) :
         std::string::size_type pos = label.find("JetTags");
         if ((pos !=  std::string::npos) && (pos != label.length() - 7)) {
             label.erase(pos+7); // trim a tail after "JetTags"
+        }
+        if(!it->instance().empty()) {
+            label = (label+std::string(":")+it->instance());
         }
         discriminatorLabels_.push_back(label);
     }
@@ -185,7 +187,7 @@ void PATJetUpdater::produce(edm::Event & iEvent, const edm::EventSetup & iSetup)
 	      // set the "forward" ptr to the thinned collection
 	      edm::Ptr<reco::BaseTagInfo> tagInfoForwardPtr ( h_tagInfosOut.id(), &tagInfosOut->back(), tagInfosOut->size() - 1 );
 	      // set the "backward" ptr to the original collection for association
-	      edm::Ptr<reco::BaseTagInfo> tagInfoBackPtr ( match );
+	      const edm::Ptr<reco::BaseTagInfo>& tagInfoBackPtr ( match );
 	      // make FwdPtr
 	      TagInfoFwdPtrCollection::value_type tagInfoFwdPtr( tagInfoForwardPtr, tagInfoBackPtr ) ;
 	      ajet.addTagInfo(tagInfoLabels_[k], tagInfoFwdPtr );
@@ -237,6 +239,9 @@ void PATJetUpdater::fillDescriptions(edm::ConfigurationDescriptions & descriptio
   iDesc.add<bool>("addBTagInfo",true);
   iDesc.add<bool>("addDiscriminators", true);
   iDesc.add<std::vector<edm::InputTag> >("discriminatorSources", emptyVInputTags);
+
+  // silent warning if false
+  iDesc.add<bool>("printWarning",true);
 
   // Check to see if the user wants to add user data
   edm::ParameterSetDescription userDataPSet;

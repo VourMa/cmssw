@@ -1,6 +1,6 @@
 #include "DetectorDescription/Core/src/Polycone.h" 
 
-#include <assert.h>
+#include <cassert>
 #include <cmath>
 
 #include "CLHEP/Units/GlobalPhysicalConstants.h"
@@ -16,10 +16,10 @@ using DDI::Polycone;
 Polycone::Polycone (double startPhi, double deltaPhi,
                     const std::vector<double> & z,
                     const std::vector<double> & rmin,
-                    const std::vector<double> & rmax) : Solid (ddpolycone_rrz)	      
+                    const std::vector<double> & rmax) : Solid (DDSolidShape::ddpolycone_rrz)	      
 {
-   p_.push_back(startPhi);
-   p_.push_back(deltaPhi);
+   p_.emplace_back(startPhi);
+   p_.emplace_back(deltaPhi);
    if((z.size()!=rmin.size()) || (z.size()!=rmax.size()) )
    {
       throw cms::Exception("DDException") << "Polycone(..): std::vectors z,rmin,rmax not of same length";
@@ -28,9 +28,9 @@ Polycone::Polycone (double startPhi, double deltaPhi,
    {
       for(unsigned int i=0;i<z.size(); ++i)
       {
-         p_.push_back(z[i]);
-         p_.push_back(rmin[i]);
-         p_.push_back(rmax[i]);
+         p_.emplace_back(z[i]);
+         p_.emplace_back(rmin[i]);
+         p_.emplace_back(rmax[i]);
       }
    }
 }	      
@@ -38,10 +38,10 @@ Polycone::Polycone (double startPhi, double deltaPhi,
 
 Polycone::Polycone (double startPhi, double deltaPhi,
                     const std::vector<double> & z,
-                    const std::vector<double> & r) : Solid (ddpolycone_rz)	      
+                    const std::vector<double> & r) : Solid (DDSolidShape::ddpolycone_rz)	      
 {
-   p_.push_back(startPhi);
-   p_.push_back(deltaPhi);
+   p_.emplace_back(startPhi);
+   p_.emplace_back(deltaPhi);
    if(z.size()!=r.size())
    {
       throw cms::Exception("DDException") << "Polycone(..): std::vectors z,rmin,rmax not of same length";
@@ -50,8 +50,8 @@ Polycone::Polycone (double startPhi, double deltaPhi,
    {
       for( unsigned int i = 0; i < z.size(); ++i )
       {
-         p_.push_back(z[i]);
-         p_.push_back(r[i]);
+         p_.emplace_back(z[i]);
+         p_.emplace_back(r[i]);
       }
    }
 }	     
@@ -59,7 +59,7 @@ Polycone::Polycone (double startPhi, double deltaPhi,
 double Polycone::volume() const 
 {
    double result = -1.;
-   if (shape_==ddpolycone_rrz) 
+   if (shape_==DDSolidShape::ddpolycone_rrz) 
    {
       unsigned int loop = (p_.size()-2)/3 -1;
       assert(loop>0);
@@ -79,7 +79,7 @@ double Polycone::volume() const
       result = sec * std::fabs(p_[1])/rad/(2.*pi);
    }
    
-   if (shape_==ddpolycone_rz) 
+   if (shape_==DDSolidShape::ddpolycone_rz) 
    {
       double volume=0;
       double phiFrom=p_[0]/rad;

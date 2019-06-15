@@ -9,7 +9,7 @@
 #include <string>
 #include <iostream>
 #include <sstream>
-#include <stdlib.h>
+#include <cstdlib>
 
 // Framework
 #include "FWCore/Utilities/interface/Exception.h"
@@ -19,17 +19,25 @@
 #include "Alignment/CommonAlignment/interface/MisalignmentScenarioBuilder.h"
 #include "Alignment/CommonAlignment/interface/Alignable.h" 
 
+
+//______________________________________________________________________________
+MisalignmentScenarioBuilder::MisalignmentScenarioBuilder(AlignableObjectId::Geometry geometry) :
+  alignableObjectId_(geometry)
+{
+}
+
+
 //__________________________________________________________________________________________________
 // Call for each alignable the more general version with its appropriate level name. 
 void MisalignmentScenarioBuilder::decodeMovements_(const edm::ParameterSet &pSet, 
-                                                   const std::vector<Alignable*> &alignables)
+                                                   const align::Alignables &alignables)
 {
 
-  // first create a map with one std::vector<Alignable*> per type (=levelName)
-  typedef std::map<std::string, std::vector<Alignable*> > AlignablesMap;
+  // first create a map with one align::Alignables per type (=levelName)
+  using AlignablesMap = std::map<std::string, align::Alignables>;
   AlignablesMap alisMap;
-  for (std::vector<Alignable*>::const_iterator iA = alignables.begin(); iA != alignables.end(); ++iA) {
-    const std::string &levelName = AlignableObjectId::idToString((*iA)->alignableObjectId());
+  for (align::Alignables::const_iterator iA = alignables.begin(); iA != alignables.end(); ++iA) {
+    const std::string &levelName = alignableObjectId_.idToString((*iA)->alignableObjectId());
     alisMap[levelName].push_back(*iA); // either first entry of new level or add to an old one
   }
 
@@ -52,7 +60,7 @@ void MisalignmentScenarioBuilder::decodeMovements_(const edm::ParameterSet &pSet
 //__________________________________________________________________________________________________
 // Decode nested parameter sets: this is the tricky part... Recursively called on components
 void MisalignmentScenarioBuilder::decodeMovements_(const edm::ParameterSet &pSet, 
-                                                   const std::vector<Alignable*> &alignables,
+                                                   const align::Alignables &alignables,
 						   const std::string &levelName)
 {
 
@@ -75,7 +83,7 @@ void MisalignmentScenarioBuilder::decodeMovements_(const edm::ParameterSet &pSet
 
   // Loop on alignables
   int iComponent = 0; // physical numbering starts at 1...
-  for (std::vector<Alignable*>::const_iterator iter = alignables.begin();
+  for (align::Alignables::const_iterator iter = alignables.begin();
        iter != alignables.end(); ++iter) {
     iComponent++;
 
@@ -100,7 +108,7 @@ void MisalignmentScenarioBuilder::decodeMovements_(const edm::ParameterSet &pSet
     // Apply movements to components
     std::vector<std::string> parameterSetNames;
     localParameters.getParameterSetNames( parameterSetNames, true );
-    if ( (*iter)->size() > 0 && parameterSetNames.size() > 0 )
+    if ( (*iter)->size() > 0 && !parameterSetNames.empty() )
       // Has components and remaining parameter sets
       this->decodeMovements_( localParameters, (*iter)->components() );
   }
@@ -189,7 +197,7 @@ void MisalignmentScenarioBuilder::propagateParameters_( const edm::ParameterSet&
                                         << " - skipping PSet " << (*it) 
 					<< " not fitting into global " << globalName << std::endl;
 
-      } else if ( AlignableObjectId::stringToId( rootName ) == align::invalid ) {
+      } else if (alignableObjectId_.stringToId(rootName) == align::invalid) {
         // Parameter is not known!
         throw cms::Exception("BadConfig") << "Unknown parameter set name " << rootName;
       } else {

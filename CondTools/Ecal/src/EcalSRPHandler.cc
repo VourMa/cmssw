@@ -395,7 +395,7 @@ void popcon::EcalSRPHandler::getNewObjects() {
 	}  // weights got from FE
 
 	// check if we have found the weights
-	if(sr->dccNormalizedWeights_.size() == 0) {  // use the firmware default weights
+	if(sr->dccNormalizedWeights_.empty()) {  // use the firmware default weights
 	  //	      float opt[] = { -383, -383, -372, 279, 479, 380};
 	  float def[] = {-1215,   20,  297, 356, 308, 232};
 	  std::vector<float> dccw(def,def+6);
@@ -704,7 +704,7 @@ void popcon::EcalSRPHandler::getNewObjects() {
 		 << " now " << sr->automaticMasks_ << std::endl;
 	}
 
-	if(sref->automaticSrpSelect_ != sref->automaticSrpSelect_) {
+	if(sref->automaticSrpSelect_ != sr->automaticSrpSelect_) {
 	  nochange = false;
 	  if(m_debug)
 	    fout << " automaticSrpSelect ref " << sref->automaticSrpSelect_ 

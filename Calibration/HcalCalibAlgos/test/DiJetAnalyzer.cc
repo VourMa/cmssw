@@ -86,8 +86,8 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
   // Get geometry
   edm::ESHandle<CaloGeometry> geoHandle;
   evSetup.get<CaloGeometryRecord>().get(geoHandle);
-  const CaloSubdetectorGeometry *HBGeom = geoHandle->getSubdetectorGeometry(DetId::Hcal, 1);
-  const CaloSubdetectorGeometry *HEGeom = geoHandle->getSubdetectorGeometry(DetId::Hcal, 2);
+  const HcalGeometry *HBGeom = static_cast<const HcalGeometry*>(geoHandle->getSubdetectorGeometry(DetId::Hcal, 1));
+  const HcalGeometry *HEGeom = static_cast<const HcalGeometry*>(geoHandle->getSubdetectorGeometry(DetId::Hcal, 2));
   const CaloSubdetectorGeometry *HOGeom = geoHandle->getSubdetectorGeometry(DetId::Hcal, 3);
   const CaloSubdetectorGeometry *HFGeom = geoHandle->getSubdetectorGeometry(DetId::Hcal, 4);
   
@@ -486,8 +486,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 		    switch((*ith).id().subdet()){
 		    case HcalSubdetector::HcalBarrel:
 		      {
-			const CaloCellGeometry *thisCell = HBGeom->getGeometry((*ith).id().rawId());
-			const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
+			CaloCellGeometry::CornersVec cv = HBGeom->getCorners((*ith).id());
 			float avgeta = (cv[0].eta() + cv[2].eta())/2.0;
 			float avgphi = (static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
 			if(cv[0].phi() < cv[2].phi()) avgphi = (2.0*3.141592653 + static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
@@ -496,8 +495,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 		      }
 		    case HcalSubdetector::HcalEndcap:
 		      {
-			const CaloCellGeometry *thisCell = HEGeom->getGeometry((*ith).id().rawId());
-			const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
+			CaloCellGeometry::CornersVec cv = HEGeom->getCorners((*ith).id());
 			float avgeta = (cv[0].eta() + cv[2].eta())/2.0;
 			float avgphi = (static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
 			if(cv[0].phi() < cv[2].phi()) avgphi = (2.0*3.141592653 + static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
@@ -525,7 +523,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 	  else if(elements[iEle].type() == reco::PFBlockElement::HFHAD){ // Element is HF	
 	    for(edm::SortedCollection<HFRecHit,edm::StrictWeakOrdering<HFRecHit>>::const_iterator ith=hfreco->begin(); ith!=hfreco->end(); ++ith){
 	      if((*ith).id().depth() == 1) continue; // Remove long fibers
-	      const CaloCellGeometry *thisCell = HFGeom->getGeometry((*ith).id().rawId());
+	      auto thisCell = HFGeom->getGeometry((*ith).id().rawId());
 	      const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
 
 	      bool passMatch = false;
@@ -561,7 +559,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 	  else if(elements[iEle].type() == reco::PFBlockElement::HFEM){ // Element is HF
 	    for(edm::SortedCollection<HFRecHit,edm::StrictWeakOrdering<HFRecHit>>::const_iterator ith=hfreco->begin(); ith!=hfreco->end(); ++ith){
 	      if((*ith).id().depth() == 2) continue; // Remove short fibers
-	      const CaloCellGeometry *thisCell = HFGeom->getGeometry((*ith).id().rawId());
+	      auto thisCell = HFGeom->getGeometry((*ith).id().rawId());
 	      const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
 
 	      bool passMatch = false;
@@ -634,7 +632,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 		    else{
 		      tpfjet_twr_candtrackind_.push_back(-1);
 		    }
-		    const CaloCellGeometry *thisCell = HOGeom->getGeometry((*ith).id().rawId());
+		    auto thisCell = HOGeom->getGeometry((*ith).id().rawId());
 		    const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
 		    float avgeta = (cv[0].eta() + cv[2].eta())/2.0;
 		    float avgphi = (static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
@@ -889,8 +887,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 		    switch((*ith).id().subdet()){
 		    case HcalSubdetector::HcalBarrel:
 		      {
-			const CaloCellGeometry *thisCell = HBGeom->getGeometry((*ith).id().rawId());
-			const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
+			CaloCellGeometry::CornersVec cv = HBGeom->getCorners((*ith).id());
 			float avgeta = (cv[0].eta() + cv[2].eta())/2.0;
 			float avgphi = (static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
 			if(cv[0].phi() < cv[2].phi()) avgphi = (2.0*3.141592653 + static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
@@ -899,8 +896,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 		      }
 		    case HcalSubdetector::HcalEndcap:
 		      {
-			const CaloCellGeometry *thisCell = HEGeom->getGeometry((*ith).id().rawId());
-			const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
+			CaloCellGeometry::CornersVec cv = HEGeom->getCorners((*ith).id());
 			float avgeta = (cv[0].eta() + cv[2].eta())/2.0;
 			float avgphi = (static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
 			if(cv[0].phi() < cv[2].phi()) avgphi = (2.0*3.141592653 + static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;
@@ -928,7 +924,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 	  else if(elements[iEle].type() == reco::PFBlockElement::HFHAD){ // Element is HF
 	    for(edm::SortedCollection<HFRecHit,edm::StrictWeakOrdering<HFRecHit>>::const_iterator ith=hfreco->begin(); ith!=hfreco->end(); ++ith){
 	      if((*ith).id().depth() == 1) continue; // Remove long fibers
-	      const CaloCellGeometry *thisCell = HFGeom->getGeometry((*ith).id().rawId());
+	      auto thisCell = HFGeom->getGeometry((*ith).id().rawId());
 	      const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
 
 	      bool passMatch = false;
@@ -964,7 +960,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 	  else if(elements[iEle].type() == reco::PFBlockElement::HFEM){ // Element is HF
 	    for(edm::SortedCollection<HFRecHit,edm::StrictWeakOrdering<HFRecHit>>::const_iterator ith=hfreco->begin(); ith!=hfreco->end(); ++ith){
 	      if((*ith).id().depth() == 2) continue; // Remove short fibers
-	      const CaloCellGeometry *thisCell = HFGeom->getGeometry((*ith).id().rawId());
+	      auto thisCell = HFGeom->getGeometry((*ith).id().rawId());
 	      const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
 	      
 	      bool passMatch = false;
@@ -1036,7 +1032,7 @@ DiJetAnalyzer::analyze(const edm::Event& iEvent, const edm::EventSetup& evSetup)
 		    else{
 		      ppfjet_twr_candtrackind_.push_back(-1);
 		    }
-		    const CaloCellGeometry *thisCell = HOGeom->getGeometry((*ith).id().rawId());
+		    auto thisCell = HOGeom->getGeometry((*ith).id().rawId());
 		    const CaloCellGeometry::CornersVec& cv = thisCell->getCorners();
 		    float avgeta = (cv[0].eta() + cv[2].eta())/2.0;
 		    float avgphi = (static_cast<double>(cv[0].phi()) + static_cast<double>(cv[2].phi()))/2.0;

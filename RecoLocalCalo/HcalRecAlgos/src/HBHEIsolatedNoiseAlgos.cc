@@ -21,6 +21,8 @@ Original Author: John Paul Chou (Brown University)
 #include "DataFormats/METReco/interface/CaloMETCollection.h"
 #include "DataFormats/METReco/interface/CaloMET.h"
 #include "DataFormats/HcalRecHit/interface/HcalRecHitCollections.h"
+#include "DataFormats/HcalRecHit/interface/HBHERecHitAuxSetter.h"
+#include "DataFormats/HcalRecHit/interface/CaloRecHitAuxSetter.h"
 #include "DataFormats/EcalRecHit/interface/EcalRecHitCollections.h"
 #include "DataFormats/TrackReco/interface/TrackFwd.h"
 #include "DataFormats/TrackReco/interface/Track.h"
@@ -50,17 +52,18 @@ ObjectValidator::ObjectValidator(const edm::ParameterSet& iConfig)
   EcalAcceptSeverityLevel_ = iConfig.getParameter<uint32_t>("EcalAcceptSeverityLevel");
   UseHcalRecoveredHits_ = iConfig.getParameter<bool>("UseHcalRecoveredHits");
   UseEcalRecoveredHits_ = iConfig.getParameter<bool>("UseEcalRecoveredHits");
+  UseAllCombinedRechits_ = iConfig.getParameter<bool>("UseAllCombinedRechits");
 
   MinValidTrackPt_ = iConfig.getParameter<double>("MinValidTrackPt");
   MinValidTrackPtBarrel_ = iConfig.getParameter<double>("MinValidTrackPtBarrel");
   MinValidTrackNHits_ = iConfig.getParameter<int>("MinValidTrackNHits");
 
-  theHcalChStatus_=0;
-  theEcalChStatus_=0;
-  theHcalSevLvlComputer_=0;
-  theEcalSevLvlAlgo_=0;
-  theEBRecHitCollection_=0;
-  theEERecHitCollection_=0;
+  theHcalChStatus_=nullptr;
+  theEcalChStatus_=nullptr;
+  theHcalSevLvlComputer_=nullptr;
+  theEcalSevLvlAlgo_=nullptr;
+  theEBRecHitCollection_=nullptr;
+  theEERecHitCollection_=nullptr;
 
   return;
 }
@@ -71,7 +74,11 @@ ObjectValidator::~ObjectValidator()
 
 bool ObjectValidator::validHit(const HBHERecHit& hit) const
 {
-  assert(theHcalSevLvlComputer_!=0 && theHcalChStatus_!=0);
+  assert(theHcalSevLvlComputer_!=nullptr && theHcalChStatus_!=nullptr);
+
+  if (UseAllCombinedRechits_)
+      if (CaloRecHitAuxSetter::getBit(hit.auxPhase1(), HBHERecHitAuxSetter::OFF_COMBINED))
+          return true;
 
   // require the hit to pass a certain energy threshold
   if(hit.id().subdet()==HcalBarrel && hit.energy()<HBThreshold_) return false;
@@ -93,7 +100,7 @@ bool ObjectValidator::validHit(const HBHERecHit& hit) const
 
 bool ObjectValidator::validHit(const EcalRecHit& hit) const
 {
-  assert(theEcalSevLvlAlgo_!=0 && theEcalChStatus_!=0);
+  assert(theEcalSevLvlAlgo_!=nullptr && theEcalChStatus_!=nullptr);
 
   // require the hit to pass a certain energy threshold
   const DetId id = hit.detid();
@@ -102,8 +109,8 @@ bool ObjectValidator::validHit(const EcalRecHit& hit) const
 
   // determine if the hit is good, bad, or recovered
   int severityLevel = 999;
-  if     (id.subdetId() == EcalBarrel && theEBRecHitCollection_!=0) severityLevel = theEcalSevLvlAlgo_->severityLevel(hit);//id, *theEBRecHitCollection_, *theEcalChStatus_, 5., EcalSeverityLevelAlgo::kSwissCross, 0.95, 2., 15., 0.999);
-  else if(id.subdetId() == EcalEndcap && theEERecHitCollection_!=0) severityLevel = theEcalSevLvlAlgo_->severityLevel(hit);//id, *theEERecHitCollection_, *theEcalChStatus_, 5., EcalSeverityLevelAlgo::kSwissCross, 0.95, 2., 15., 0.999);
+  if     (id.subdetId() == EcalBarrel && theEBRecHitCollection_!=nullptr) severityLevel = theEcalSevLvlAlgo_->severityLevel(hit);//id, *theEBRecHitCollection_, *theEcalChStatus_, 5., EcalSeverityLevelAlgo::kSwissCross, 0.95, 2., 15., 0.999);
+  else if(id.subdetId() == EcalEndcap && theEERecHitCollection_!=nullptr) severityLevel = theEcalSevLvlAlgo_->severityLevel(hit);//id, *theEERecHitCollection_, *theEcalChStatus_, 5., EcalSeverityLevelAlgo::kSwissCross, 0.95, 2., 15., 0.999);
   else return false;
   
   if(severityLevel == EcalSeverityLevel::kGood) return true;
@@ -181,7 +188,7 @@ PhysicsTowerOrganizer::PhysicsTowerOrganizer(const edm::Event& iEvent,
     if(!objectvalidator.validTrack(*track)) continue;
     
     // get the point
-    if ( extrap->positions().size()==0 ) continue; 
+    if ( extrap->positions().empty() ) continue; 
     const GlobalPoint point(extrap->positions().front().x(),
 			    extrap->positions().front().y(),
  			    extrap->positions().front().z());
@@ -213,7 +220,7 @@ PhysicsTower* PhysicsTowerOrganizer::findTower(const CaloTowerDetId& id)
   // search on the dummy
   std::set<PhysicsTower, towercmp>::iterator it=towers_.find(dummy);
   
-  if(it==towers_.end()) return 0;
+  if(it==towers_.end()) return nullptr;
 
   // for whatever reason, I can't get a non-const out of the find method
   PhysicsTower &twr = const_cast<PhysicsTower&>(*it);
@@ -232,7 +239,7 @@ const PhysicsTower* PhysicsTowerOrganizer::findTower(const CaloTowerDetId& id) c
   // search on the dummy
   std::set<PhysicsTower, towercmp>::iterator it=towers_.find(dummy);
   
-  if(it==towers_.end()) return 0;
+  if(it==towers_.end()) return nullptr;
   return &(*it);
 }
 
@@ -361,7 +368,7 @@ void PhysicsTowerOrganizer::findNeighbors(int ieta, int iphi, std::set<const Phy
 void PhysicsTowerOrganizer::insert_(CaloTowerDetId& id, const HBHERecHit* hit)
 {
   PhysicsTower* twr=findTower(id);
-  if(twr==0) {
+  if(twr==nullptr) {
     PhysicsTower dummy;
     if(id.ietaAbs()==29)
       dummy.id = CaloTowerDetId((id.ietaAbs()-1)*id.zside(), id.iphi());
@@ -378,7 +385,7 @@ void PhysicsTowerOrganizer::insert_(CaloTowerDetId& id, const HBHERecHit* hit)
 void PhysicsTowerOrganizer::insert_(CaloTowerDetId& id, const EcalRecHit* hit)
 {
   PhysicsTower* twr=findTower(id);
-  if(twr==0) {
+  if(twr==nullptr) {
     PhysicsTower dummy;
     if(id.ietaAbs()==29)
       dummy.id = CaloTowerDetId((id.ietaAbs()-1)*id.zside(), id.iphi());
@@ -395,7 +402,7 @@ void PhysicsTowerOrganizer::insert_(CaloTowerDetId& id, const EcalRecHit* hit)
 void PhysicsTowerOrganizer::insert_(CaloTowerDetId& id, const reco::Track* track)
 {
   PhysicsTower* twr=findTower(id);
-  if(twr==0) {
+  if(twr==nullptr) {
     PhysicsTower dummy;
     if(id.ietaAbs()==29)
       dummy.id = CaloTowerDetId((id.ietaAbs()-1)*id.zside(), id.iphi());
@@ -582,7 +589,7 @@ void HBHEHitMap::tracksNeighborTowers(std::set<const reco::Track*>& v) const
 
 void HBHEHitMap::byTowers(std::vector<twrinfo>& v) const
 {
-  assert(0);
+  assert(false);
 }
 
 void HBHEHitMap::insert(const HBHERecHit* hit, const PhysicsTower* twr, std::set<const PhysicsTower*>& neighbors)
@@ -755,7 +762,7 @@ HBHEHitMapOrganizer::HBHEHitMapOrganizer(const edm::Handle<HBHERecHitCollection>
 	dihit.insert(hpdneighbors[0], tower2, neighbors2);
 	dihits_.push_back(dihit);
       }
-    } else if(hpdneighbors.size()==0) {
+    } else if(hpdneighbors.empty()) {
       
       // organize the monohits
       HBHEHitMap monohit;

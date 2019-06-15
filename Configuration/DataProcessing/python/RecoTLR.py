@@ -43,6 +43,56 @@ def customisePostEra_Run2_2016(process):
     _hcalCustoms25ns(process)
     return process
 
+def customisePostEra_Run2_2017(process):
+    import RecoLocalCalo.HcalRecAlgos.RemoveAddSevLevel as HcalRemoveAddSevLevel
+    HcalRemoveAddSevLevel.AddFlag(process.hcalRecAlgos,"HBHEFlatNoise",8)
+    HcalRemoveAddSevLevel.RemoveFlag(process.hcalRecAlgos,"HFDigiTime")
+    return process
+
+def customisePostEra_Run2_2017_express_trackingOnly(process):
+    customisePostEra_Run2_2017(process)
+    from Calibration.TkAlCaRecoProducers.PCLHPbeamspot_custom import customise_HPbeamspot as _customise_HPbeamspot
+    _customise_HPbeamspot(process)
+    return process
+
+def customisePostEra_Run2_2017_harvesting_trackingOnly(process):
+    from Calibration.TkAlCaRecoProducers.PCLHPbeamspot_custom import customise_HPbeamspot as _customise_HPbeamspot
+    _customise_HPbeamspot(process)
+    return process
+
+def customisePostEra_Run2_2017_pp_on_XeXe(process):
+    customisePostEra_Run2_2017(process)
+    return process
+
+def customisePostEra_Run2_2017_ppRef(process):
+    customisePostEra_Run2_2017(process)
+    return process
+
+# 2018 equivalents
+def customisePostEra_Run2_2018(process):
+    #start with a repeat of 2017
+    customisePostEra_Run2_2017(process)
+    return process
+
+def customisePostEra_Run2_2018_express_trackingOnly(process):
+    #start with a repeat of 2017
+    customisePostEra_Run2_2017_express_trackingOnly(process)
+    return process
+
+def customisePostEra_Run2_2018_harvesting_trackingOnly(process):
+    #start with a repeat of 2017
+    customisePostEra_Run2_2017_harvesting_trackingOnly(process)
+    return process
+
+def customise_HI_PostEra_Run2_2018(process):
+    customisePostEra_Run2_2018(process)
+    return process
+
+def customisePostEra_Run2_2018_pp_on_AA(process):
+    customisePostEra_Run2_2018(process)
+    return process
+
+
 
 ##############################################################################
 def customisePPData(process):
@@ -179,4 +229,3 @@ def customiseRun2CommonHI(process):
     # process = customiseSimL1EmulatorForPostLS1_Additional_HI(process)
 
     return process
-

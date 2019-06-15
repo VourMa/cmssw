@@ -104,7 +104,10 @@ class JetCleanerForType1METT : public edm::stream::EDProducer<>
            skipMuonSelection_.reset( new StringCutObjectSelector<reco::Candidate>(skipMuonSelection_string,true) ) ;
        }
 
+       calcMuonSubtrRawPtAsValueMap_ = cfg.getParameter<bool>("calcMuonSubtrRawPtAsValueMap");
+
        produces<std::vector<T> >();
+       if (calcMuonSubtrRawPtAsValueMap_) produces<edm::ValueMap<float>>("MuonSubtrRawPt");
       }
 
     static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -120,12 +123,13 @@ class JetCleanerForType1METT : public edm::stream::EDProducer<>
         desc.add<double>("skipEMfractionThreshold");
         desc.add<bool>("skipMuons");
         desc.add<std::string>("skipMuonSelection");
+	desc.add<bool>("calcMuonSubtrRawPtAsValueMap",false)->setComment("calculate muon-subtracted raw pt as a ValueMap for the input collection (only for selected jets, zero for others)");
         descriptions.addDefault(desc);
     }
 
  private:
 
-  void produce(edm::Event& evt, const edm::EventSetup& es)
+  void produce(edm::Event& evt, const edm::EventSetup& es) override
   {
 
     edm::Handle<reco::JetCorrector> jetCorr;
@@ -145,6 +149,8 @@ class JetCleanerForType1METT : public edm::stream::EDProducer<>
     std::unique_ptr< std::vector<T> > cleanedJets( new std::vector<T>() );
 
     int numJets = jets->size();
+    std::vector<float> muonSubtrRawPt(numJets,0);
+
     for(int jetIndex=0;jetIndex<numJets; ++jetIndex ) {
       const T& jet = jets->at(jetIndex);
       
@@ -162,8 +168,8 @@ class JetCleanerForType1METT : public edm::stream::EDProducer<>
 	for ( std::vector<reco::CandidatePtr>::const_iterator cand = cands.begin();
 	      cand != cands.end(); ++cand ) {
 	  const reco::PFCandidate *pfcand = dynamic_cast<const reco::PFCandidate *>(cand->get());
-	  const reco::Candidate *mu = (pfcand != 0 ? ( pfcand->muonRef().isNonnull() ? pfcand->muonRef().get() : 0) : cand->get());
-	  if ( mu != 0 && (*skipMuonSelection_)(*mu) ) {
+	  const reco::Candidate *mu = (pfcand != nullptr ? ( pfcand->muonRef().isNonnull() ? pfcand->muonRef().get() : nullptr) : cand->get());
+	  if ( mu != nullptr && (*skipMuonSelection_)(*mu) ) {
 	    reco::Candidate::LorentzVector muonP4 = (*cand)->p4();
 	    rawJetP4 -= muonP4;
 	  }
@@ -182,9 +188,20 @@ class JetCleanerForType1METT : public edm::stream::EDProducer<>
       if(corrJetP4.pt()<type1JetPtThreshold_) continue;
 
       cleanedJets->push_back(jet);
+      if (calcMuonSubtrRawPtAsValueMap_) muonSubtrRawPt[jetIndex]=rawJetP4.Pt();
+
     }
 
     evt.put(std::move(cleanedJets));
+
+    if (calcMuonSubtrRawPtAsValueMap_) {
+      std::unique_ptr<edm::ValueMap<float>> muonSubtrRawPtV(new edm::ValueMap<float>());
+      edm::ValueMap<float>::Filler fillerMuonSubtrRawPt(*muonSubtrRawPtV);
+      fillerMuonSubtrRawPt.insert(jets,muonSubtrRawPt.begin(),muonSubtrRawPt.end());
+      fillerMuonSubtrRawPt.fill();
+      evt.put(std::move(muonSubtrRawPtV),"MuonSubtrRawPt");
+    }
+
   }
 
 
@@ -215,7 +232,7 @@ class JetCleanerForType1METT : public edm::stream::EDProducer<>
   // from jet energy before compute JECs/propagating JECs to Type 1 + 2 MET corrections
   std::unique_ptr<StringCutObjectSelector< reco::Candidate> > skipMuonSelection_;
 
-    
+  bool calcMuonSubtrRawPtAsValueMap_; // calculate muon-subtracted raw pt as a ValueMap for the input collection (only for selected jets, zero for others)
 };
 
 #endif

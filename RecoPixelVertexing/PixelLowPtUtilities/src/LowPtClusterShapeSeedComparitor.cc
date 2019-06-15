@@ -1,32 +1,24 @@
-#include "RecoPixelVertexing/PixelLowPtUtilities/interface/LowPtClusterShapeSeedComparitor.h"
+#include <cmath>
 
-#include "RecoPixelVertexing/PixelTrackFitting/src/CircleFromThreePoints.h"
-#include "RecoPixelVertexing/PixelLowPtUtilities/interface/HitInfo.h"
-#include "RecoPixelVertexing/PixelLowPtUtilities/interface/ClusterShapeHitFilter.h"
-
-#include "FWCore/Framework/interface/EventSetup.h"
-#include "FWCore/Framework/interface/ESHandle.h"
-#include "FWCore/Framework/interface/Event.h"
-#include "FWCore/Framework/interface/ConsumesCollector.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/MessageLogger/interface/MessageLogger.h"
-
-#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHit.h"
-#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
-#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-#include "Geometry/Records/interface/TrackerTopologyRcd.h"
-
-#include "RecoTracker/TkSeedingLayers/interface/SeedingHitSet.h"
-
-#include "RecoTracker/Record/interface/CkfComponentsRecord.h"
-
+#include "DataFormats/GeometryVector/interface/Basic2DVector.h"
 #include "DataFormats/GeometryVector/interface/GlobalPoint.h"
 #include "DataFormats/GeometryVector/interface/GlobalVector.h"
-#include "DataFormats/GeometryVector/interface/Basic2DVector.h"
-
-#include<cmath>
-
-
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHit.h"
+#include "DataFormats/TrackingRecHit/interface/TrackingRecHit.h"
+#include "FWCore/Framework/interface/ConsumesCollector.h"
+#include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Framework/interface/Event.h"
+#include "FWCore/Framework/interface/EventSetup.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "Geometry/Records/interface/TrackerTopologyRcd.h"
+#include "RecoPixelVertexing/PixelLowPtUtilities/interface/ClusterShapeHitFilter.h"
+#include "RecoPixelVertexing/PixelLowPtUtilities/interface/HitInfo.h"
+#include "RecoPixelVertexing/PixelLowPtUtilities/interface/LowPtClusterShapeSeedComparitor.h"
+#include "RecoPixelVertexing/PixelTrackFitting/interface/CircleFromThreePoints.h"
+#include "RecoTracker/Record/interface/CkfComponentsRecord.h"
+#include "RecoTracker/TkSeedingLayers/interface/SeedingHitSet.h"
 
 namespace {
   typedef Basic2DVector<float>   Vector2D;
@@ -106,12 +98,13 @@ namespace {
 
 /*****************************************************************************/
 LowPtClusterShapeSeedComparitor::LowPtClusterShapeSeedComparitor(const edm::ParameterSet& ps, edm::ConsumesCollector& iC):
-  thePixelClusterShapeCacheToken(iC.consumes<SiPixelClusterShapeCache>(ps.getParameter<edm::InputTag>("clusterShapeCacheSrc")))
+  thePixelClusterShapeCacheToken(iC.consumes<SiPixelClusterShapeCache>(ps.getParameter<edm::InputTag>("clusterShapeCacheSrc"))),
+  theShapeFilterLabel_(ps.getParameter<std::string>("clusterShapeHitFilter"))
 {}
 
 /*****************************************************************************/
 void LowPtClusterShapeSeedComparitor::init(const edm::Event& e, const edm::EventSetup& es) {
-  es.get<CkfComponentsRecord>().get("ClusterShapeHitFilter", theShapeFilter);
+  es.get<CkfComponentsRecord>().get(theShapeFilterLabel_, theShapeFilter);
   es.get<TrackerTopologyRcd>().get(theTTopo);
 
   e.getByToken(thePixelClusterShapeCacheToken, thePixelClusterShapeCache);
@@ -123,7 +116,8 @@ bool LowPtClusterShapeSeedComparitor::compatible(const SeedingHitSet &hits) cons
   assert(hits.size()==3);
 
   const ClusterShapeHitFilter * filter = theShapeFilter.product();
-  assert(filter != 0 && "LowPtClusterShapeSeedComparitor: init(EventSetup) method was not called");
+  if(filter == nullptr)
+    throw cms::Exception("LogicError") << "LowPtClusterShapeSeedComparitor: init(EventSetup) method was not called";
 
    // Get global positions
    GlobalPoint  globalPoss[3];

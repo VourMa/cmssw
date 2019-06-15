@@ -1,11 +1,7 @@
 #include "DetectorDescription/Parser/src/DDDividedTubs.h"
-
-#include <string>
-#include <utility>
-
 #include "CLHEP/Units/GlobalSystemOfUnits.h"
 #include "CLHEP/Units/SystemOfUnits.h"
-#include "DetectorDescription/Base/interface/DDRotationMatrix.h"
+#include "DetectorDescription/Core/interface/DDRotationMatrix.h"
 #include "DetectorDescription/Core/interface/DDAxes.h"
 #include "DetectorDescription/Core/interface/DDLogicalPart.h"
 #include "DetectorDescription/Core/interface/DDMaterial.h"
@@ -14,6 +10,9 @@
 #include "DetectorDescription/Core/interface/DDTransform.h"
 #include "DetectorDescription/Parser/src/DDDividedGeometryObject.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
+
+#include <string>
+#include <utility>
 
 class DDCompactView;
 

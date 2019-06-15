@@ -1,6 +1,6 @@
 import FWCore.ParameterSet.Config as cms
 
-from Validation.HGCalValidation.rechitValidation_cfi import *
+from Validation.HGCalValidation.hgcalRecHitValidationEE_cfi import *
 
 hgcalRecHitValidationHEF = hgcalRecHitValidationEE.clone(
     DetectorName  = cms.string("HGCalHESiliconSensitive"),
@@ -8,4 +8,8 @@ hgcalRecHitValidationHEF = hgcalRecHitValidationEE.clone(
 
 hgcalRecHitValidationHEB = hgcalRecHitValidationEE.clone(
     DetectorName  = cms.string("HCal"),
-    RecHitSource  = cms.InputTag("hbhereco"))
+    RecHitSource  = cms.InputTag("HGCalRecHit", "HGCHEBRecHits"))
+
+from Configuration.Eras.Modifier_phase2_hgcalV9_cff import phase2_hgcalV9
+phase2_hgcalV9.toModify(hgcalRecHitValidationHEB, DetectorName = cms.string("HGCalHEScintillatorSensitive"));
+

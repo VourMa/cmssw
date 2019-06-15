@@ -166,7 +166,7 @@ struct GsfElectronAlgo::EventSetupData
 
 GsfElectronAlgo::EventSetupData::EventSetupData()
  : cacheIDGeom(0), cacheIDTopo(0), cacheIDTDGeom(0), cacheIDMagField(0),/*cacheChStatus(0),*/
-   cacheSevLevel(0), mtsTransform(0), constraintAtVtx(0), mtsMode(new MultiTrajectoryStateMode)
+   cacheSevLevel(0), mtsTransform(nullptr), constraintAtVtx(nullptr), mtsMode(new MultiTrajectoryStateMode)
  {}
 
 GsfElectronAlgo::EventSetupData::~EventSetupData()
@@ -213,7 +213,6 @@ struct GsfElectronAlgo::EventData
   edm::Handle<reco::VertexCollection> vertices;
 
   // isolation helpers
-  ElectronTkIsolation * tkIsolation03, * tkIsolation04 ;
   EgammaTowerIsolation * hadDepth1Isolation03, * hadDepth1Isolation04 ;
   EgammaTowerIsolation * hadDepth2Isolation03, * hadDepth2Isolation04 ;
   EgammaTowerIsolation * hadDepth1Isolation03Bc, * hadDepth1Isolation04Bc ;
@@ -228,24 +227,21 @@ struct GsfElectronAlgo::EventData
  } ;
 
 GsfElectronAlgo::EventData::EventData()
- : event(0), beamspot(0),
+ : event(nullptr), beamspot(nullptr),
    originalCtfTrackCollectionRetreived(false),
    originalGsfTrackCollectionRetreived(false),
-   tkIsolation03(0), tkIsolation04(0),
-   hadDepth1Isolation03(0), hadDepth1Isolation04(0),
-   hadDepth2Isolation03(0), hadDepth2Isolation04(0),
-   hadDepth1Isolation03Bc(0), hadDepth1Isolation04Bc(0),
-   hadDepth2Isolation03Bc(0), hadDepth2Isolation04Bc(0),
-   ecalBarrelIsol03(0), ecalBarrelIsol04(0),
-   ecalEndcapIsol03(0), ecalEndcapIsol04(0)
+   hadDepth1Isolation03(nullptr), hadDepth1Isolation04(nullptr),
+   hadDepth2Isolation03(nullptr), hadDepth2Isolation04(nullptr),
+   hadDepth1Isolation03Bc(nullptr), hadDepth1Isolation04Bc(nullptr),
+   hadDepth2Isolation03Bc(nullptr), hadDepth2Isolation04Bc(nullptr),
+   ecalBarrelIsol03(nullptr), ecalBarrelIsol04(nullptr),
+   ecalEndcapIsol03(nullptr), ecalEndcapIsol04(nullptr)
  {
   electrons = new GsfElectronPtrCollection ;
  }
 
 GsfElectronAlgo::EventData::~EventData()
  {
-  delete tkIsolation03 ;
-  delete tkIsolation04 ;
   delete hadDepth1Isolation03 ;
   delete hadDepth1Isolation04 ;
   delete hadDepth2Isolation03 ;
@@ -540,6 +536,35 @@ Candidate::LorentzVector GsfElectronAlgo::ElectronData::calculateMomentum()
      superClusterRef->energy() ) ;
  }
 
+void GsfElectronAlgo::calculateSaturationInfo(const reco::SuperClusterRef& theClus,
+					      reco::GsfElectron::SaturationInfo& si) {
+
+  const reco::CaloCluster & seedCluster = *(theClus->seed()) ;
+  DetId seedXtalId = seedCluster.seed();
+  int detector = seedXtalId.subdetId();
+  const EcalRecHitCollection* ecalRecHits = nullptr ;
+  if (detector==EcalBarrel)
+    ecalRecHits = eventData_->barrelRecHits.product() ;
+  else
+    ecalRecHits = eventData_->endcapRecHits.product() ;
+  
+  int nSaturatedXtals = 0;
+  bool isSeedSaturated = false;
+  const auto hitsAndFractions = theClus->hitsAndFractions();
+  for (auto&& hitFractionPair : hitsAndFractions) {    
+    auto&& ecalRecHit = ecalRecHits->find(hitFractionPair.first);
+    if (ecalRecHit == ecalRecHits->end()) continue;
+    if (ecalRecHit->checkFlag(EcalRecHit::Flags::kSaturated)) {
+      nSaturatedXtals++;
+      if (seedXtalId == ecalRecHit->detid())
+	isSeedSaturated = true;
+    }
+  }
+  si.nSaturatedXtals = nSaturatedXtals;
+  si.isSeedSaturated = isSeedSaturated;
+
+}
+
 void GsfElectronAlgo::calculateShowerShape( const reco::SuperClusterRef & theClus, bool pflow, 
                                             reco::GsfElectron::ShowerShape & showerShape )
  {
@@ -550,7 +575,7 @@ void GsfElectronAlgo::calculateShowerShape( const reco::SuperClusterRef & theClu
 
   const CaloTopology * topology = eventSetupData_->caloTopo.product() ;
   const CaloGeometry * geometry = eventSetupData_->caloGeom.product() ;
-  const EcalRecHitCollection * recHits = 0 ;
+  const EcalRecHitCollection * recHits = nullptr ;
   std::vector<int> recHitFlagsToBeExcluded ;
   std::vector<int> recHitSeverityToBeExcluded ;
   if (detector==EcalBarrel)
@@ -583,6 +608,9 @@ void GsfElectronAlgo::calculateShowerShape( const reco::SuperClusterRef & theClu
     showerShape.hcalTowersBehindClusters = generalData_->hcalHelperPflow->hcalTowersBehindClusters(*theClus) ;
     showerShape.hcalDepth1OverEcalBc = generalData_->hcalHelperPflow->hcalESumDepth1BehindClusters(showerShape.hcalTowersBehindClusters)/theClus->energy() ;
     showerShape.hcalDepth2OverEcalBc = generalData_->hcalHelperPflow->hcalESumDepth2BehindClusters(showerShape.hcalTowersBehindClusters)/theClus->energy() ;
+    showerShape.invalidHcal = (showerShape.hcalDepth1OverEcalBc == 0 && 
+                               showerShape.hcalDepth2OverEcalBc == 0 &&
+                               !generalData_->hcalHelperPflow->hasActiveHcal(*theClus));
    }
   else
    {
@@ -591,6 +619,9 @@ void GsfElectronAlgo::calculateShowerShape( const reco::SuperClusterRef & theClu
     showerShape.hcalTowersBehindClusters = generalData_->hcalHelper->hcalTowersBehindClusters(*theClus) ;
     showerShape.hcalDepth1OverEcalBc = generalData_->hcalHelper->hcalESumDepth1BehindClusters(showerShape.hcalTowersBehindClusters)/theClus->energy() ;
     showerShape.hcalDepth2OverEcalBc = generalData_->hcalHelper->hcalESumDepth2BehindClusters(showerShape.hcalTowersBehindClusters)/theClus->energy() ;
+    showerShape.invalidHcal = (showerShape.hcalDepth1OverEcalBc == 0 && 
+                               showerShape.hcalDepth2OverEcalBc == 0 &&
+                               !generalData_->hcalHelper->hasActiveHcal(*theClus));
    }
   
   // extra shower shapes
@@ -608,6 +639,11 @@ void GsfElectronAlgo::calculateShowerShape( const reco::SuperClusterRef & theClu
   showerShape.eLeft         = EcalClusterTools::eLeft(seedCluster,recHits,topology);
   showerShape.eRight        = EcalClusterTools::eRight(seedCluster,recHits,topology);
   showerShape.eBottom       = EcalClusterTools::eBottom(seedCluster,recHits,topology);
+
+  showerShape.e2x5Left = EcalClusterTools::e2x5Left(seedCluster,recHits,topology);
+  showerShape.e2x5Right = EcalClusterTools::e2x5Right(seedCluster,recHits,topology);
+  showerShape.e2x5Top = EcalClusterTools::e2x5Top(seedCluster,recHits,topology);
+  showerShape.e2x5Bottom = EcalClusterTools::e2x5Bottom(seedCluster,recHits,topology);
  }
 
 void GsfElectronAlgo::calculateShowerShape_full5x5( const reco::SuperClusterRef & theClus, bool pflow, 
@@ -620,7 +656,7 @@ void GsfElectronAlgo::calculateShowerShape_full5x5( const reco::SuperClusterRef 
 
   const CaloTopology * topology = eventSetupData_->caloTopo.product() ;
   const CaloGeometry * geometry = eventSetupData_->caloGeom.product() ;
-  const EcalRecHitCollection * recHits = 0 ;
+  const EcalRecHitCollection * recHits = nullptr ;
   std::vector<int> recHitFlagsToBeExcluded ;
   std::vector<int> recHitSeverityToBeExcluded ;
   if (detector==EcalBarrel)
@@ -653,6 +689,9 @@ void GsfElectronAlgo::calculateShowerShape_full5x5( const reco::SuperClusterRef 
     showerShape.hcalTowersBehindClusters = generalData_->hcalHelperPflow->hcalTowersBehindClusters(*theClus) ;
     showerShape.hcalDepth1OverEcalBc = generalData_->hcalHelperPflow->hcalESumDepth1BehindClusters(showerShape.hcalTowersBehindClusters)/showerShape.e5x5 ;
     showerShape.hcalDepth2OverEcalBc = generalData_->hcalHelperPflow->hcalESumDepth2BehindClusters(showerShape.hcalTowersBehindClusters)/showerShape.e5x5 ;
+    showerShape.invalidHcal = (showerShape.hcalDepth1OverEcalBc == 0 && 
+                               showerShape.hcalDepth2OverEcalBc == 0 &&
+                               !generalData_->hcalHelperPflow->hasActiveHcal(*theClus));
    }
   else
    {
@@ -661,6 +700,9 @@ void GsfElectronAlgo::calculateShowerShape_full5x5( const reco::SuperClusterRef 
     showerShape.hcalTowersBehindClusters = generalData_->hcalHelper->hcalTowersBehindClusters(*theClus) ;
     showerShape.hcalDepth1OverEcalBc = generalData_->hcalHelper->hcalESumDepth1BehindClusters(showerShape.hcalTowersBehindClusters)/showerShape.e5x5 ;
     showerShape.hcalDepth2OverEcalBc = generalData_->hcalHelper->hcalESumDepth2BehindClusters(showerShape.hcalTowersBehindClusters)/showerShape.e5x5 ;
+    showerShape.invalidHcal = (showerShape.hcalDepth1OverEcalBc == 0 && 
+                               showerShape.hcalDepth2OverEcalBc == 0 &&
+                               !generalData_->hcalHelper->hasActiveHcal(*theClus));
    }
   
   // extra shower shapes
@@ -678,6 +720,12 @@ void GsfElectronAlgo::calculateShowerShape_full5x5( const reco::SuperClusterRef 
   showerShape.eLeft         = noZS::EcalClusterTools::eLeft(seedCluster,recHits,topology);
   showerShape.eRight        = noZS::EcalClusterTools::eRight(seedCluster,recHits,topology);
   showerShape.eBottom       = noZS::EcalClusterTools::eBottom(seedCluster,recHits,topology);
+
+  showerShape.e2x5Left = noZS::EcalClusterTools::e2x5Left(seedCluster,recHits,topology);
+  showerShape.e2x5Right = noZS::EcalClusterTools::e2x5Right(seedCluster,recHits,topology);
+  showerShape.e2x5Top = noZS::EcalClusterTools::e2x5Top(seedCluster,recHits,topology);
+  showerShape.e2x5Bottom = noZS::EcalClusterTools::e2x5Bottom(seedCluster,recHits,topology);
+
  }
 
 
@@ -698,11 +746,15 @@ GsfElectronAlgo::GsfElectronAlgo
    EcalClusterFunctionBaseClass * crackCorrectionFunction,
    const SoftElectronMVAEstimator::Configuration & mva_NIso_Cfg,
    const ElectronMVAEstimator::Configuration & mva_Iso_Cfg,
-   const RegressionHelper::Configuration & regCfg
+   const RegressionHelper::Configuration & regCfg,
+   const edm::ParameterSet& tkIsol03Cfg,
+   const edm::ParameterSet& tkIsol04Cfg
+   
  )
    : generalData_(new GeneralData(inputCfg,strategyCfg,cutsCfg,cutsCfgPflow,hcalCfg,hcalCfgPflow,isoCfg,recHitsCfg,superClusterErrorFunction,crackCorrectionFunction,mva_NIso_Cfg,mva_Iso_Cfg,regCfg)),
    eventSetupData_(new EventSetupData),
-   eventData_(0), electronData_(0)
+   eventData_(nullptr), electronData_(nullptr),
+   tkIsol03Calc_(tkIsol03Cfg),tkIsol04Calc_(tkIsol04Cfg)
  {}
 
 GsfElectronAlgo::~GsfElectronAlgo()
@@ -782,7 +834,7 @@ void GsfElectronAlgo::copyElectrons( GsfElectronCollection & outEle )
 
 void GsfElectronAlgo::beginEvent( edm::Event & event )
  {
-  if (eventData_!=0)
+  if (eventData_!=nullptr)
    { throw cms::Exception("GsfElectronAlgo|InternalError")<<"unexpected event data" ; }
   eventData_ = new EventData ;
 
@@ -811,12 +863,6 @@ void GsfElectronAlgo::beginEvent( edm::Event & event )
   generalData_->hcalHelperPflow->readEvent(event) ;
 
   // Isolation algos
-  float extRadiusSmall=0.3, extRadiusLarge=0.4 ;
-  float intRadiusBarrel=generalData_->isoCfg.intRadiusBarrelTk, intRadiusEndcap=generalData_->isoCfg.intRadiusEndcapTk, stripBarrel=generalData_->isoCfg.stripBarrelTk, stripEndcap=generalData_->isoCfg.stripEndcapTk ;
-  float ptMin=generalData_->isoCfg.ptMinTk, maxVtxDist=generalData_->isoCfg.maxVtxDistTk, drb=generalData_->isoCfg.maxDrbTk;
-  eventData_->tkIsolation03 = new ElectronTkIsolation(extRadiusSmall,intRadiusBarrel,intRadiusEndcap,stripBarrel,stripEndcap,ptMin,maxVtxDist,drb,eventData_->currentCtfTracks.product(),eventData_->beamspot->position()) ;
-  eventData_->tkIsolation04 = new ElectronTkIsolation(extRadiusLarge,intRadiusBarrel,intRadiusEndcap,stripBarrel,stripEndcap,ptMin,maxVtxDist,drb,eventData_->currentCtfTracks.product(),eventData_->beamspot->position()) ;
-
   float egHcalIsoConeSizeOutSmall=0.3, egHcalIsoConeSizeOutLarge=0.4;
   float egHcalIsoConeSizeIn=generalData_->isoCfg.intRadiusHcal,egHcalIsoPtMin=generalData_->isoCfg.etMinHcal;
   int egHcalDepth1=1, egHcalDepth2=2;
@@ -884,10 +930,10 @@ void GsfElectronAlgo::beginEvent( edm::Event & event )
 
 void GsfElectronAlgo::endEvent()
  {
-  if (eventData_==0)
+  if (eventData_==nullptr)
    { throw cms::Exception("GsfElectronAlgo|InternalError")<<"lacking event data" ; }
   delete eventData_ ;
-  eventData_ = 0 ;
+  eventData_ = nullptr ;
  }
 
 void GsfElectronAlgo::displayInternalElectrons( const std::string & title ) const
@@ -906,7 +952,7 @@ void GsfElectronAlgo::displayInternalElectrons( const std::string & title ) cons
 
 void GsfElectronAlgo::completeElectrons(const gsfAlgoHelpers::HeavyObjectCache* hoc)
  {
-  if (electronData_!=0)
+  if (electronData_!=nullptr)
    { throw cms::Exception("GsfElectronAlgo|InternalError")<<"unexpected electron data" ; }
 
   const GsfElectronCoreCollection * coreCollection = eventData_->coreElectrons.product() ;
@@ -944,7 +990,7 @@ void GsfElectronAlgo::completeElectrons(const gsfAlgoHelpers::HeavyObjectCache* 
    } // loop over tracks
 
   delete electronData_ ;
-  electronData_ = 0 ;
+  electronData_ = nullptr ;
  }
 
 void GsfElectronAlgo::clonePreviousElectrons()
@@ -1005,7 +1051,7 @@ void GsfElectronAlgo::addPflowInfo()
           found = true ;
 
 	  // Isolation Values
-        if( (eventData_->pfIsolationValues).size() != 0 )
+        if( !(eventData_->pfIsolationValues).empty() )
         {
 	  reco::GsfElectronRef 
 		pfElectronRef(eventData_->pflowElectrons, pfIndex);
@@ -1031,7 +1077,7 @@ void GsfElectronAlgo::addPflowInfo()
 
      // Isolation Values
      // Retreive not found info from ed electrons
-   if( (eventData_->edIsolationValues).size() != 0 )
+   if( !(eventData_->edIsolationValues).empty() )
    {
      edIndex = 0, edElectron = edElectrons->begin() ;
      while ((found == false)&&(edElectron != edElectrons->end()))
@@ -1366,6 +1412,13 @@ void GsfElectronAlgo::createElectron(const gsfAlgoHelpers::HeavyObjectCache* hoc
 
 
   //====================================================
+  // SaturationInfo
+  //====================================================
+
+  reco::GsfElectron::SaturationInfo saturationInfo;
+  calculateSaturationInfo(electronData_->superClusterRef, saturationInfo);
+
+  //====================================================
   // ShowerShape
   //====================================================
 
@@ -1416,7 +1469,7 @@ void GsfElectronAlgo::createElectron(const gsfAlgoHelpers::HeavyObjectCache* hoc
      ( eleCharge,eleChargeInfo,electronData_->coreRef,
        tcMatching, tkExtra, ctfInfo,
        fiducialFlags,showerShape, full5x5_showerShape,
-       conversionVars ) ;
+       conversionVars, saturationInfo ) ;
   // Will be overwritten later in the case of the regression
   ele->setCorrectedEcalEnergyError(generalData_->superClusterErrorFunction->getValue(*(ele->superCluster()),0)) ;
   ele->setP4(GsfElectron::P4_FROM_SUPER_CLUSTER,momentum,0,true) ;
@@ -1496,8 +1549,9 @@ void GsfElectronAlgo::createElectron(const gsfAlgoHelpers::HeavyObjectCache* hoc
   //====================================================
 
   reco::GsfElectron::IsolationVariables dr03, dr04 ;
-  dr03.tkSumPt = eventData_->tkIsolation03->getPtTracks(ele);
-  dr04.tkSumPt = eventData_->tkIsolation04->getPtTracks(ele);
+  dr03.tkSumPt = tkIsol03Calc_.calIsolPt(*ele->gsfTrack(),*eventData_->currentCtfTracks);
+  dr04.tkSumPt = tkIsol04Calc_.calIsolPt(*ele->gsfTrack(),*eventData_->currentCtfTracks);
+ 
   if( !(region==DetId::Forward || region == DetId::Hcal) ) {  
     dr03.hcalDepth1TowerSumEt = eventData_->hadDepth1Isolation03->getTowerEtSum(ele) ;
     dr03.hcalDepth2TowerSumEt = eventData_->hadDepth2Isolation03->getTowerEtSum(ele) ;

@@ -25,6 +25,9 @@ process.dqmEnv.subSystemFolder = 'DT'
 process.dqmSaver.tag = "DT"
 #-----------------------------
 
+#Enable HLT*Mu* filtering to monitor on Muon events
+#OR HLT_Physics* to monitor FEDs in commissioning runs
+process.source.SelectEvents = cms.untracked.vstring("HLT*Mu*","HLT_*Physics*")
 
 # DT reco and DQM sequences
 process.load("Configuration.StandardSequences.GeometryRecoDB_cff")
@@ -76,7 +79,6 @@ if (process.runType.getRunType() == process.runType.cosmic_run):
 #----------------------------
 
 if (process.runType.getRunType() == process.runType.hi_run):
-    process.dtunpacker.fedbyType = cms.bool(False)
     process.twinMuxStage2Digis.DTTM7_FED_Source = cms.InputTag("rawDataRepacker")
     process.dtunpacker.inputLabel = cms.InputTag("rawDataRepacker")
     process.gtDigis.DaqGtInputTag = cms.InputTag("rawDataRepacker")

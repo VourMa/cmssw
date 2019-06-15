@@ -39,7 +39,7 @@ using namespace reco;
             /// constructor 
             explicit AnalyticalTrackSelector( const edm::ParameterSet & cfg ) ;
             /// destructor
-            virtual ~AnalyticalTrackSelector() ;
+            ~AnalyticalTrackSelector() override ;
 
         private:
             typedef math::XYZPoint Point;
@@ -359,6 +359,7 @@ void AnalyticalTrackSelector::run( edm::Event& evt, const edm::EventSetup& es ) 
 	selHits_->push_back( (*hit)->clone() );
       }
       tx.setHits( rHits_, firstHitIndex, selHits_->size() - firstHitIndex);
+      tx.setTrajParams(trk.extra()->trajParams(),trk.extra()->chi2sX5());
     }
     if (copyTrajectories_) {
       trackRefs_[current] = TrackRef(rTracks_, selTracks_->size() - 1);

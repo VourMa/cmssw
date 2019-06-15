@@ -140,7 +140,7 @@ void CastorRecHitMonitor::bookHistograms(DQMStore::IBooker& ibooker,
 void CastorRecHitMonitor::processEventTowers(
         const reco::CastorTowerCollection& castorTowers)
 {
- if(castorTowers.size() <= 0) return;
+ if(castorTowers.empty()) return;
  int nTowers = 0;
 
  for(reco::CastorTowerCollection::const_iterator iTower= castorTowers.begin();
@@ -164,7 +164,7 @@ void CastorRecHitMonitor::processEvent(const CastorRecHitCollection& castorHits)
  CastorRecHitCollection::const_iterator CASTORiter;
 // if (showTiming)  { cpu_timer.reset(); cpu_timer.start(); } 
 
- if(castorHits.size() <= 0) return;
+ if(castorHits.empty()) return;
 
  //for(edm::TriggerResults::const_iterator iTrig= hltResults->begin();
 //  iTrig!= hltResults->end(); iTrig++) {;}
@@ -203,11 +203,12 @@ void CastorRecHitMonitor::processEvent(const CastorRecHitCollection& castorHits)
     etot += es;
   } // end for(int phi=0;
 
- if(ievt_ %100 == 0) 
-  for(int mod=1; mod<=14; mod++) for(int sec=1; sec<=16;sec++) {
-    double a= h2RHmap->getTH2F()->GetBinContent(mod,sec);
-    h2RHoccmap->getTH2F()->SetBinContent(mod,sec,a/double(ievt_));
-  }
+  if(ievt_ %100 == 0) 
+    for(int mod=1; mod<=14; mod++) 
+      for(int sec=1; sec<=16;sec++) {
+	double a= h2RHmap->getTH2F()->GetBinContent(mod,sec);
+	h2RHoccmap->getTH2F()->SetBinContent(mod,sec,a/double(ievt_));
+      }
 
   if(fVerbosity>0) std::cout << "CastorRecHitMonitor::processEvent (end)"<< std::endl;
   return;

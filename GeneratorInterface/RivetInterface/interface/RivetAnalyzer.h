@@ -1,7 +1,7 @@
 #ifndef GeneratorInterface_RivetInterface_RivetAnalyzer
 #define GeneratorInterface_RivetInterface_RivetAnalyzer
 
-#include "FWCore/Framework/interface/EDAnalyzer.h"
+#include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "Rivet/AnalysisHandler.hh"
 
 //DQM services
@@ -18,22 +18,22 @@
 #include <vector>
 #include <string>
 
-class RivetAnalyzer : public edm::EDAnalyzer
+class RivetAnalyzer : public edm::one::EDAnalyzer<edm::one::WatchRuns,edm::one::SharedResources>
 {
   public:
   RivetAnalyzer(const edm::ParameterSet&);
 
-  virtual ~RivetAnalyzer();
+  ~RivetAnalyzer() override;
 
-  virtual void beginJob() override;
+  void beginJob() override;
 
-  virtual void endJob() override;
+  void endJob() override;
 
-  virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
+  void analyze(const edm::Event&, const edm::EventSetup&) override;
 
-  virtual void beginRun(const edm::Run&, const edm::EventSetup&) override;
+  void beginRun(const edm::Run&, const edm::EventSetup&) override;
 
-  virtual void endRun(const edm::Run&, const edm::EventSetup&) override;
+  void endRun(const edm::Run&, const edm::EventSetup&) override;
   
   private:
 
@@ -43,6 +43,8 @@ class RivetAnalyzer : public edm::EDAnalyzer
   bool                     _useExternalWeight;
   bool                     _useLHEweights;
   int                      _LHEweightNumber;
+  bool                     _useGENweights;
+  int                      _GENweightNumber;
   edm::EDGetTokenT<LHEEventProduct> _LHECollection;
   edm::EDGetTokenT<GenEventInfoProduct> _genEventInfoCollection;
   Rivet::AnalysisHandler   _analysisHandler;   

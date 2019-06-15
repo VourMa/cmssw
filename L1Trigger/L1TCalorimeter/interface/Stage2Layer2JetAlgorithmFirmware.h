@@ -22,16 +22,16 @@ namespace l1t {
   class Stage2Layer2JetAlgorithmFirmwareImp1 : public Stage2Layer2JetAlgorithm {
   public:
     Stage2Layer2JetAlgorithmFirmwareImp1(CaloParamsHelper* params);
-    virtual ~Stage2Layer2JetAlgorithmFirmwareImp1();
-    virtual void processEvent(const std::vector<CaloTower> & towers,
-			      std::vector<Jet> & jets, std::vector<Jet> & alljets);
+    ~Stage2Layer2JetAlgorithmFirmwareImp1() override;
+    void processEvent(const std::vector<CaloTower> & towers,
+			      std::vector<Jet> & jets, std::vector<Jet> & alljets) override;
 
     void create(const std::vector<CaloTower> & towers,
 	                      std::vector<Jet> & jets, std::vector<Jet> & alljets, std::string PUSubMethod);
 
     void accuSort(std::vector<Jet> & jets);
 
-    void calibrate(std::vector<Jet> & jets, int calibThreshold);
+    void calibrate(std::vector<Jet> & jets, int calibThreshold, bool isAllJets);
 
     double calibFit(double, double*);
     double calibFitErr(double,double*);

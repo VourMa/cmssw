@@ -59,7 +59,9 @@ public:
     bool useSymEBTreshold, bool useSymEETreshold,				    
 
     double HcalThreshold,
-    double HBthreshold, double HESthreshold, double HEDthreshold,
+    double HBthreshold, double HBthreshold1, double HBthreshold2,
+    double HESthreshold, double HESthreshold1,
+    double HEDthreshold, double HEDthreshold1, 
     double HOthreshold0, double HOthresholdPlus1, double HOthresholdMinus1,  
     double HOthresholdPlus2, double HOthresholdMinus2,
     double HF1threshold, double HF2threshold, 
@@ -82,7 +84,9 @@ public:
     bool useSymEBTreshold, bool useSymEETreshold,
 
     double HcalThreshold,
-    double HBthreshold, double HESthreshold, double HEDthreshold,
+    double HBthreshold, double HBthreshold1, double HBthreshold2,
+    double HESthreshold, double HESthreshold1,
+    double HEDthreshold, double HEDthreshold1,
     double HOthreshold0, double HOthresholdPlus1, double HOthresholdMinus1,  
     double HOthresholdPlus2, double HOthresholdMinus2, 
     double HF1threshold, double HF2threshold,
@@ -182,6 +186,7 @@ public:
 
   void setUseRejectedRecoveredHcalHits(bool flag) {useRejectedRecoveredHcalHits = flag; };
   void setUseRejectedRecoveredEcalHits(bool flag) {useRejectedRecoveredEcalHits = flag; };
+  void setMissingHcalRescaleFactorForEcal(float factor) {missingHcalRescaleFactorForEcal = factor; };
 
   //-------------------------------------------------------------------------------------------------------------------
 
@@ -250,7 +255,9 @@ private:
   
   double  theHcalThreshold;
 
-  double theHBthreshold, theHESthreshold,  theHEDthreshold; 
+  double theHBthreshold, theHBthreshold1, theHBthreshold2;
+  double theHESthreshold, theHESthreshold1; 
+  double theHEDthreshold, theHEDthreshold1; 
   double theHOthreshold0, theHOthresholdPlus1, theHOthresholdMinus1;
   double theHOthresholdPlus2, theHOthresholdMinus2, theHF1threshold, theHF2threshold;
   std::vector<double> theEBGrid, theEBWeights;
@@ -309,6 +316,8 @@ private:
   unsigned int useRejectedRecoveredHcalHits;
   unsigned int useRejectedRecoveredEcalHits;
 
+  // if Hcal is missing, fudge it scaling Ecal by this factor (if > 0)
+  float missingHcalRescaleFactorForEcal;
 
   /// only affects energy and ET calculation.  HO is still recorded in the tower
   bool theHOIsUsed;
@@ -334,7 +343,7 @@ private:
 
   // Number of channels in the tower that were not used in RecHit production (dead/off,...).
   // These channels are added to the other "bad" channels found in the recHit collection. 
-  typedef std::map<CaloTowerDetId, int> HcalDropChMap;
+  typedef std::map<CaloTowerDetId, std::pair<short int,bool>> HcalDropChMap;
   HcalDropChMap hcalDropChMap;
 
   // Number of bad Ecal channel in each tower
@@ -351,13 +360,10 @@ private:
    
   edm::Handle<EcalRecHitCollection> theEbHandle;
   edm::Handle<EcalRecHitCollection> theEeHandle;
-
-  //store merged depths for tower 28/29
-  std::vector<int> mergedDepths;
   
   int theHcalPhase;
 
-
+  std::vector<HcalDetId>          ids_;
 };
 
 #endif

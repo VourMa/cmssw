@@ -365,7 +365,7 @@ class DirID(object):
     #if self.name in name2 or name2 in self.name:
     if search(self.compname,name2)!=None or search(compname2,self.name)!=None:
       is_equal = self.depth*depth2 <0 or self.depth==depth2
-    if len(self.mother)*(dirid.mother)>0:
+    if len(self.mother)*len(dirid.mother)>0:
       is_equal = is_equal and self.mother==dirid.mother
     return is_equal
     
@@ -594,7 +594,7 @@ class DirWalkerFile(object):
     contents={}
     self.different_histograms['file1']= {}
     self.different_histograms['file2']= {}
-    keys = filter(lambda key: key in contents1,contents2.keys()) #set of all possible contents from both files
+    keys = [key for key in contents2.keys() if key in contents1] #set of all possible contents from both files
     #print " ## keys: %s" %(keys)
     for key in keys:  #iterate on all unique keys
       if contents1[key]!=contents2[key]:

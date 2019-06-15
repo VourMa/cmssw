@@ -21,7 +21,7 @@
 #include <memory>
 #include <map>
 #include <sstream>
-#include <math.h>
+#include <cmath>
 #include <tuple>
 #include <utility>
 #include <vector>
@@ -59,7 +59,7 @@
 #include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
-#include "Geometry/CommonDetUnit/interface/GeomDetUnit.h"
+#include "Geometry/CommonDetUnit/interface/GeomDet.h"
 
 #include "DQMServices/Core/interface/DQMStore.h"
 #include "DQMServices/Core/interface/MonitorElement.h"
@@ -79,7 +79,7 @@
 class TrackerOfflineValidation : public edm::EDAnalyzer {
 public:
   explicit TrackerOfflineValidation(const edm::ParameterSet&);
-  ~TrackerOfflineValidation();
+  ~TrackerOfflineValidation() override;
   
   enum HistogramType { XResidual, NormXResidual, 
 			YResidual, /*NormYResidual, */
@@ -142,9 +142,9 @@ private:
   struct DirectoryWrapper{
     DirectoryWrapper(const DirectoryWrapper& upDir,const std::string& newDir,
 		     const std::string& basedir,bool useDqmMode)
-      : tfd(0),
+      : tfd(nullptr),
 	dqmMode(useDqmMode),
-	theDbe(0) {
+	theDbe(nullptr) {
       if (newDir.length()!=0){
         if(upDir.directoryString.length()!=0)directoryString=upDir.directoryString+"/"+newDir;
 	else directoryString = newDir;
@@ -163,9 +163,9 @@ private:
     }
     
     DirectoryWrapper(const std::string& newDir,const std::string& basedir,bool useDqmMode)
-      : tfd(0),
+      : tfd(nullptr),
 	dqmMode(useDqmMode),
-	theDbe(0) {
+	theDbe(nullptr) {
       if (!dqmMode){
 	edm::Service<TFileService> fs;
 	if (newDir.length()==0){
@@ -201,8 +201,8 @@ private:
   // 
   // ------------- private member function -------------
   // 
-  virtual void analyze(const edm::Event&, const edm::EventSetup&) override;
-  virtual void endJob() override;
+  void analyze(const edm::Event&, const edm::EventSetup&) override;
+  void endJob() override;
   
   virtual void checkBookHists(const edm::EventSetup& setup);
 
@@ -261,7 +261,8 @@ private:
 
   const edm::ParameterSet parSet_;
   edm::ESHandle<TrackerGeometry> tkGeom_;
-  const TrackerGeometry *bareTkGeomPtr_; // ugly hack to book hists only once, but check 
+  const TrackerGeometry *bareTkGeomPtr_; // ugly hack to book hists only once, but check
+  std::unique_ptr<AlignableTracker> alignableTracker_;
 
   // parameters from cfg to steer
   const bool lCoorHistOn_;
@@ -303,6 +304,9 @@ private:
   //sum hists are fit at the end using fitResiduals()
   std::vector<TH1*> toFit_;
 
+  unsigned long long nTracks_;
+  const unsigned long long maxTracks_;
+
   TrackerValidationVariables avalidator_;
 };
 
@@ -338,7 +342,7 @@ template <> TH1* TrackerOfflineValidation::DirectoryWrapper::make<TProfile>(cons
     theDbe->setCurrentFolder(directoryString);
     //DQM profile requires y-bins for construction... using TProfile creator by hand...
     TProfile *tmpProfile=new TProfile(name,title,nBinX,xBins);
-    tmpProfile->SetDirectory(0);
+    tmpProfile->SetDirectory(nullptr);
     return theDbe->bookProfile(name,tmpProfile)->getTH1();
   }
   else{return tfd->make<TProfile>(name,title,nBinX,xBins);}
@@ -349,7 +353,7 @@ template <> TH1* TrackerOfflineValidation::DirectoryWrapper::make<TProfile>(cons
     theDbe->setCurrentFolder(directoryString);
     //DQM profile requires y-bins for construction... using TProfile creator by hand...
     TProfile *tmpProfile=new TProfile(name,title,nBinX,minBinX,maxBinX);
-    tmpProfile->SetDirectory(0);
+    tmpProfile->SetDirectory(nullptr);
     return theDbe->bookProfile(name,tmpProfile)->getTH1();
   }
   else{return tfd->make<TProfile>(name,title,nBinX,minBinX,maxBinX);}
@@ -376,7 +380,7 @@ template <> TH1* TrackerOfflineValidation::DirectoryWrapper::make<TH2F>(const ch
 // constructors and destructor
 //
 TrackerOfflineValidation::TrackerOfflineValidation(const edm::ParameterSet& iConfig)
-  : parSet_(iConfig), bareTkGeomPtr_(0), lCoorHistOn_(parSet_.getParameter<bool>("localCoorHistosOn")),
+  : parSet_(iConfig), bareTkGeomPtr_(nullptr), lCoorHistOn_(parSet_.getParameter<bool>("localCoorHistosOn")),
     moduleLevelHistsTransient_(parSet_.getParameter<bool>("moduleLevelHistsTransient")),
     moduleLevelProfiles_(parSet_.getParameter<bool>("moduleLevelProfiles")),
     stripYResiduals_(parSet_.getParameter<bool>("stripYResiduals")), 
@@ -385,6 +389,8 @@ TrackerOfflineValidation::TrackerOfflineValidation(const edm::ParameterSet& iCon
     useOverflowForRMS_(parSet_.getParameter<bool>("useOverflowForRMS")),
     dqmMode_(parSet_.getParameter<bool>("useInDqmMode")),
     moduleDirectory_(parSet_.getParameter<std::string>("moduleDirectoryInOutput")),
+    nTracks_(0),
+    maxTracks_(parSet_.getParameter<unsigned long long>("maxTracks")),
     avalidator_(iConfig, consumesCollector())
 {
 }
@@ -421,7 +427,7 @@ TrackerOfflineValidation::checkBookHists(const edm::EventSetup& es)
     const TrackerTopology* const tTopo = tTopoHandle.product();
 
     // construct alignable tracker to get access to alignable hierarchy 
-    AlignableTracker aliTracker(&(*tkGeom_), tTopo);
+    alignableTracker_ = std::make_unique<AlignableTracker>(&(*tkGeom_), tTopo);
     
     edm::LogInfo("TrackerOfflineValidation") << "There are " << newBareTkGeomPtr->detIds().size()
 					     << " dets in the Geometry record.\n"
@@ -435,10 +441,10 @@ TrackerOfflineValidation::checkBookHists(const edm::EventSetup& es)
     
     // recursively book histograms on lowest level
     DirectoryWrapper tfdw("",moduleDirectory_,dqmMode_);
-    this->bookDirHists(tfdw, aliTracker, tTopo);
+    this->bookDirHists(tfdw, *alignableTracker_, tTopo);
     // and prepare the higher level histograms
     std::vector<TrackerOfflineValidation::SummaryContainer> vTrackerprofiles;
-    this->prepareSummaryHists(tfdw, (aliTracker), vTrackerprofiles);
+    this->prepareSummaryHists(tfdw, *alignableTracker_, vTrackerprofiles);
 
     setUpTreeMembers(mPxbResiduals_, *newBareTkGeomPtr, tTopo);
     setUpTreeMembers(mPxeResiduals_, *newBareTkGeomPtr, tTopo);
@@ -630,9 +636,9 @@ TrackerOfflineValidation::bookGlobalHists(DirectoryWrapper& tfd )
 void
 TrackerOfflineValidation::bookDirHists(DirectoryWrapper& tfd, const Alignable& ali, const TrackerTopology* tTopo)
 {
-  std::vector<Alignable*> alivec(ali.components());
+  const auto& alivec = ali.components();
   for(int i=0, iEnd = ali.components().size();i < iEnd; ++i) {
-    std::string structurename  = AlignableObjectId::idToString((alivec)[i]->alignableObjectId());
+    std::string structurename  = alignableTracker_->objectIdProvider().idToString((alivec)[i]->alignableObjectId());
     LogDebug("TrackerOfflineValidation") << "StructureName = " << structurename;
     std::stringstream dirname;
     dirname << structurename;
@@ -1004,6 +1010,9 @@ TrackerOfflineValidation::getHistStructFromMap(const DetId& detid)
 void
 TrackerOfflineValidation::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+  if (maxTracks_ > 0 && nTracks_ >= maxTracks_) return;  //don't do anything after hitting the max number of tracks
+                                                         //(could just rely on break below, but this way saves fillTrackQuantities)
+
   if (useOverflowForRMS_)TH1::StatOverflows(kTRUE);
   this->checkBookHists(iSetup); // check whether hists are booked and do so if not yet done
 
@@ -1014,6 +1023,7 @@ TrackerOfflineValidation::analyze(const edm::Event& iEvent, const edm::EventSetu
        itT != vTrackstruct.end();
        ++itT) {
     
+    if (maxTracks_ > 0 && nTracks_++ >= maxTracks_) break; //exit the loop after hitting the max number of tracks
     // Fill 1D track histos
     static const int etaindex = this->GetIndex(vTrackHistos_,"h_tracketa");
     vTrackHistos_[etaindex]->Fill(itT->eta);
@@ -1268,7 +1278,7 @@ TrackerOfflineValidation::endJob()
   this->fillTree(*tree, *treeMemPtr, mTobResiduals_);
   this->fillTree(*tree, *treeMemPtr, mTecResiduals_);
 
-  delete treeMemPtr; treeMemPtr = 0;
+  delete treeMemPtr; treeMemPtr = nullptr;
 }
 
 
@@ -1276,12 +1286,12 @@ void
 TrackerOfflineValidation::prepareSummaryHists( DirectoryWrapper& tfd, const Alignable& ali,
 					       std::vector<TrackerOfflineValidation::SummaryContainer>& vLevelProfiles)
 {
-  std::vector<Alignable*> alivec(ali.components());
+  const auto& alivec = ali.components();
   if( this->isDetOrDetUnit((alivec)[0]->alignableObjectId()) ) return;
   
   for(int iComp=0, iCompEnd = ali.components().size();iComp < iCompEnd; ++iComp) {
     std::vector< TrackerOfflineValidation::SummaryContainer > vProfiles;        
-    std::string structurename  = AlignableObjectId::idToString((alivec)[iComp]->alignableObjectId());
+    std::string structurename  = alignableTracker_->objectIdProvider().idToString((alivec)[iComp]->alignableObjectId());
     
     LogDebug("TrackerOfflineValidation") << "StructureName = " << structurename;
     std::stringstream dirname;
@@ -1354,9 +1364,9 @@ TrackerOfflineValidation::bookSummaryHists(DirectoryWrapper& tfd, const Alignabl
   const uint aliSize = ali.components().size();
   const align::StructureType alitype = ali.alignableObjectId();
   const align::StructureType subtype = ali.components()[0]->alignableObjectId();
-  const char *aliTypeName = AlignableObjectId::idToString(alitype); // lifetime of char* OK
-  const char *aliSubtypeName = AlignableObjectId::idToString(subtype);
-  const char *typeName = AlignableObjectId::idToString(type);
+  const char *aliTypeName = alignableTracker_->objectIdProvider().idToString(alitype); // lifetime of char* OK
+  const char *aliSubtypeName = alignableTracker_->objectIdProvider().idToString(subtype);
+  const char *typeName = alignableTracker_->objectIdProvider().idToString(type);
 
   const DetId aliDetId = ali.id(); 
   // y residuals only if pixel or specially requested for strip:
@@ -1396,7 +1406,7 @@ TrackerOfflineValidation::bookSummaryHists(DirectoryWrapper& tfd, const Alignabl
     }
     // title contains x-title
     const TString title(Form("Summary for substructures in %s %d;%s;", aliTypeName, i,
-			     AlignableObjectId::idToString(ali.components()[0]->components()[0]->alignableObjectId())));
+			     alignableTracker_->objectIdProvider().idToString(ali.components()[0]->components()[0]->alignableObjectId())));
     
     sumContainer.summaryXResiduals_ 
       = tfd.make<TH1F>(Form("h_summaryX%s_%d", aliTypeName, i), 
@@ -1572,7 +1582,7 @@ TrackerOfflineValidation::setUpTreeMembers(const std::map<int, TrackerOfflineVal
     DetId detId_ = it->first;
     treeMem.moduleId = detId_;
     treeMem.subDetId = detId_.subdetId();
-    treeMem.isDoubleSide =0;
+    treeMem.isDoubleSide =false;
 
     if(treeMem.subDetId == PixelSubdetector::PixelBarrel){
       unsigned int whichHalfBarrel(1), rawId(detId_.rawId());  //DetId does not know about halfBarrels is PXB ...
@@ -1851,8 +1861,8 @@ TrackerOfflineValidation::getMedian(const TH1* histo) const
   }
   median = TMath::Median(nbins, x, y);
   
-  delete[] x; x = 0;
-  delete [] y; y = 0;  
+  delete[] x; x = nullptr;
+  delete [] y; y = nullptr;  
 
   return median;
 

@@ -30,6 +30,9 @@
 #include "DataFormats/L1Trigger/interface/Tau.h"
 #include "DataFormats/L1Trigger/interface/CaloSpare.h"
 #include "DataFormats/L1Trigger/interface/L1DataEmulResult.h"
+#include "DataFormats/L1Trigger/interface/HOTwinMuxDigiCollection.h"
+#include "DataFormats/L1Trigger/interface/HOTPDigiTwinMux.h"
+
 
 namespace DataFormats_L1Trigger {
   struct dictionary {
@@ -60,6 +63,10 @@ namespace DataFormats_L1Trigger {
     std::vector<l1t::Tau> v_tauBx;
     std::vector<l1t::CaloSpare> v_caloSparseBx;
     std::vector<l1t::L1DataEmulResult> v_deResult;
+
+    HOTwinMuxDigiCollection theHOTP;
+    edm::Wrapper<edm::SortedCollection<HOTPDigiTwinMux> > anotherHOTP_;
+    edm::Wrapper<HOTwinMuxDigiCollection> theHOTPw_;
 
     l1t::L1CandidateRef   refL1Candidate_;
     l1t::L1CandidateRefVector   refVecL1Candidate_;
@@ -165,6 +172,41 @@ namespace DataFormats_L1Trigger {
 
     L1DataEmulRecord der;
     edm::Wrapper<L1DataEmulRecord> w_der;
+
+    l1t::EGammaRefBxCollection egrbxc;
+    edm::Wrapper<l1t::EGammaRefBxCollection> w_egrbxc;
+    l1t::EGammaRefPair egrp;
+    std::vector<l1t::EGammaRefPair> v_egrp;
+    l1t::EGammaRefPairBxCollection egrpc;
+    edm::Wrapper<l1t::EGammaRefPairBxCollection> w_egrpc;
+
+    l1t::TauRefBxCollection taurbxc;
+    edm::Wrapper<l1t::TauRefBxCollection> w_taurbxc;
+    l1t::TauRefPair taurp;
+    std::vector<l1t::TauRefPair> v_taurp;
+    l1t::TauRefPairBxCollection taurpc;
+    edm::Wrapper<l1t::TauRefPairBxCollection> w_taurpc;
+
+    l1t::JetRefBxCollection jetrbxc;
+    edm::Wrapper<l1t::JetRefBxCollection> w_jetrbxc;
+    l1t::JetRefPair jetrp;
+    std::vector<l1t::JetRefPair> v_jetrp;
+    l1t::JetRefPairBxCollection jetrpc;
+    edm::Wrapper<l1t::JetRefPairBxCollection> w_jetrpc;
+
+    l1t::EtSumRefBxCollection etsumrbxc;
+    edm::Wrapper<l1t::EtSumRefBxCollection> w_etsumrbxc;
+    l1t::EtSumRefPair etsumrp;
+    std::vector<l1t::EtSumRefPair> v_etsumrp;
+    l1t::EtSumRefPairBxCollection etsumrpc;
+    edm::Wrapper<l1t::EtSumRefPairBxCollection> w_etsumrpc;
+
+    l1t::MuonRefBxCollection murbxc;
+    edm::Wrapper<l1t::MuonRefBxCollection> w_murbxc;
+    l1t::MuonRefPair murp;
+    std::vector<l1t::MuonRefPair> v_murp;
+    l1t::MuonRefPairBxCollection murpc;
+    edm::Wrapper<l1t::MuonRefPairBxCollection> w_murpc;
 
     L1TriggerError l1tErr;
     L1TriggerErrorCollection l1tErrColl;

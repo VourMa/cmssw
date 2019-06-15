@@ -41,6 +41,7 @@
 
 #include "Geometry/CaloGeometry/interface/CaloGeometry.h"
 #include "Geometry/CaloGeometry/interface/CaloSubdetectorGeometry.h"
+#include "Geometry/HcalTowerAlgo/interface/HcalGeometry.h"
 #include "Geometry/Records/interface/CaloGeometryRecord.h"
 #include "DataFormats/HepMCCandidate/interface/GenParticle.h"
 #include "SimDataFormats/GeneratorProducts/interface/GenEventInfoProduct.h"
@@ -309,13 +310,13 @@ private:
   }
 
   struct PFJetCorretPairComp {
-    inline bool operator() ( const PFJetCorretPair& a, const PFJetCorretPair& b) {
+    inline bool operator() ( const PFJetCorretPair& a, const PFJetCorretPair& b) const{
       return (a.jet()->pt()*a.scale()) > (b.jet()->pt()*b.scale());
     }
   };
 
   struct PhotonPairComp {
-    inline bool operator() ( const PhotonPair& a, const PhotonPair& b) {
+    inline bool operator() ( const PhotonPair& a, const PhotonPair& b) const{
       return ( (a.photon()->pt()) > (b.photon()->pt()) );
     }
   };

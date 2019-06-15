@@ -11,6 +11,7 @@
 #include "TMVA/IMethod.h"
 #include "CondFormats/EgammaObjects/interface/GBRForest.h"
 #include "FWCore/Framework/interface/EventSetup.h"
+#include "FWCore/Utilities/interface/thread_safety_macros.h"
 
 
 class TMVAEvaluator {
@@ -35,14 +36,11 @@ class TMVAEvaluator {
 
     std::string mMethod;
     mutable std::mutex m_mutex;
-    [[cms::thread_guard("m_mutex")]] std::unique_ptr<TMVA::Reader> mReader;
-    #if ROOT_VERSION_CODE < ROOT_VERSION(6,7,0)
-    std::unique_ptr<TMVA::IMethod> mIMethod;
-    #endif
+    CMS_THREAD_GUARD(m_mutex) std::unique_ptr<TMVA::Reader> mReader;
     std::shared_ptr<const GBRForest> mGBRForest;
 
-    [[cms::thread_guard("m_mutex")]] mutable std::map<std::string,std::pair<size_t,float>> mVariables;
-    [[cms::thread_guard("m_mutex")]] mutable std::map<std::string,std::pair<size_t,float>> mSpectators;
+    CMS_THREAD_GUARD(m_mutex) mutable std::map<std::string,std::pair<size_t,float>> mVariables;
+    CMS_THREAD_GUARD(m_mutex) mutable std::map<std::string,std::pair<size_t,float>> mSpectators;
 };
 
 #endif // CommonTools_Utils_TMVAEvaluator_h

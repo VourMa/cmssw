@@ -11,7 +11,6 @@ class HcalSimParameters : public CaloSimParameters
 {
 public:
   HcalSimParameters(double simHitToPhotoelectrons,
-                    const std::vector<double> & photoelectronsToAnalog,
                     double samplingFactor, double timePhase,
                     int readoutFrameSize, int binOfMaximum,
                     bool doPhotostatistics, bool syncPhase,
@@ -20,12 +19,12 @@ public:
                     );
   HcalSimParameters(const edm::ParameterSet & p);
 
-  virtual ~HcalSimParameters() {}
+  ~HcalSimParameters() override {}
 
   void setDbService(const HcalDbService * service);
 
-  virtual double simHitToPhotoelectrons(const DetId & detId) const;
-  virtual double photoelectronsToAnalog(const DetId & detId) const;
+  double simHitToPhotoelectrons(const DetId & detId) const override;
+  double photoelectronsToAnalog(const DetId & detId) const override;
 
   double fCtoGeV(const DetId & detId) const;
 
@@ -54,7 +53,6 @@ private:
   const HcalSiPMCharacteristics* theSiPMcharacteristics;
   int theFirstRing;
   std::vector<double> theSamplingFactors;
-  std::vector<double> thePE2fCByRing;
   bool theSiPMSmearing;
   bool doTimeSmear_;
   HcalTimeSmearSettings theSmearSettings;

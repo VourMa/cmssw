@@ -38,6 +38,8 @@ namespace edm {
   class ActivityRegistry;
   class ProductRegistry;
   class ThinnedAssociationsHelper;
+  class WaitingTask;
+  class WaitingTaskWithArenaHolder;
 
   namespace maker {
     template<typename T> class ModuleHolderT;
@@ -56,7 +58,7 @@ namespace edm {
       friend class edm::GlobalSchedule;
 
       EDProducerBase();
-      virtual ~EDProducerBase();
+      ~EDProducerBase() override;
 
       static void fillDescriptions(ConfigurationDescriptions& descriptions);
       static void prevalidate(ConfigurationDescriptions& descriptions);
@@ -65,10 +67,19 @@ namespace edm {
       // Warning: the returned moduleDescription will be invalid during construction
       ModuleDescription const& moduleDescription() const { return moduleDescription_; }
 
+      virtual bool wantsGlobalRuns() const =0;
+      virtual bool wantsGlobalLuminosityBlocks() const =0;
+      virtual bool wantsStreamRuns() const =0;
+      virtual bool wantsStreamLuminosityBlocks() const =0;
+
     private:
-      bool doEvent(EventPrincipal const& ep, EventSetup const& c,
+      bool doEvent(EventPrincipal const&, EventSetup const&,
                    ActivityRegistry*,
                    ModuleCallingContext const*);
+      void doAcquire(EventPrincipal const&, EventSetup const&,
+                     ActivityRegistry*,
+                     ModuleCallingContext const*,
+                     WaitingTaskWithArenaHolder&);
       void doPreallocate(PreallocationConfiguration const&);
       void doBeginJob();
       void doEndJob();
@@ -102,9 +113,6 @@ namespace edm {
       void doEndLuminosityBlock(LuminosityBlockPrincipal const& lbp, EventSetup const& c,
                                 ModuleCallingContext const*);
       
-      void doPreForkReleaseResources();
-      void doPostForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren);
-
       //For now, the following are just dummy implemenations with no ability for users to override
       void doRespondToOpenInputFile(FileBlock const& fb);
       void doRespondToCloseInputFile(FileBlock const& fb);
@@ -117,13 +125,15 @@ namespace edm {
       std::string workerType() const {return "WorkerT<EDProducer>";}
       
       virtual void produce(StreamID, Event&, EventSetup const&) const= 0;
+      //For now this is a placeholder
+      /*virtual*/ void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {}
+
       virtual void beginJob() {}
       virtual void endJob(){}
 
-      virtual void preForkReleaseResources() {}
-      virtual void postForkReacquireResources(unsigned int /*iChildIndex*/, unsigned int /*iNumberOfChildren*/) {}
-      
       virtual void preallocStreams(unsigned int);
+      virtual void preallocLumis(unsigned int);
+      virtual void preallocate(PreallocationConfiguration const&);
       virtual void doBeginStream_(StreamID id);
       virtual void doEndStream_(StreamID id);
       virtual void doStreamBeginRun_(StreamID id, Run const& rp, EventSetup const& c);
@@ -146,13 +156,19 @@ namespace edm {
       virtual void doEndRunProduce_(Run& rp, EventSetup const& c);
       virtual void doBeginLuminosityBlockProduce_(LuminosityBlock& lbp, EventSetup const& c);
       virtual void doEndLuminosityBlockProduce_(LuminosityBlock& lbp, EventSetup const& c);
-      
-      
+
+      virtual bool hasAccumulator() const { return false; }
+
+      virtual bool hasAcquire() const { return false; }
+
+      virtual void doAcquire_(StreamID, Event const&, edm::EventSetup const&, WaitingTaskWithArenaHolder&);
+
       void setModuleDescription(ModuleDescription const& md) {
         moduleDescription_ = md;
       }
       ModuleDescription moduleDescription_;
       std::unique_ptr<std::vector<BranchID>[]> previousParentages_;
+      std::unique_ptr<std::vector<BranchID>[]> gotBranchIDsFromAcquire_;
       std::unique_ptr<ParentageID[]> previousParentageIds_;
     };
 

@@ -121,7 +121,7 @@ class EcalTrivialConditionRetriever : public edm::ESProducer,
 
 public:
   EcalTrivialConditionRetriever(const edm::ParameterSet&  pset);
-  virtual ~EcalTrivialConditionRetriever();
+  ~EcalTrivialConditionRetriever() override;
 
   // ---------- member functions ---------------------------
   virtual std::unique_ptr<EcalPedestals> produceEcalPedestals( const EcalPedestalsRcd& );
@@ -182,12 +182,12 @@ public:
 
 protected:
   //overriding from ContextRecordIntervalFinder
-  virtual void setIntervalFor( const edm::eventsetup::EventSetupRecordKey&,
+  void setIntervalFor( const edm::eventsetup::EventSetupRecordKey&,
                                const edm::IOVSyncValue& ,
-                               edm::ValidityInterval& ) ;
+                               edm::ValidityInterval& ) override ;
 private:
-  EcalTrivialConditionRetriever( const EcalTrivialConditionRetriever& ); // stop default
-  const  EcalTrivialConditionRetriever& operator=( const EcalTrivialConditionRetriever& ); // stop default
+  EcalTrivialConditionRetriever( const EcalTrivialConditionRetriever& ) = delete; // stop default
+  const  EcalTrivialConditionRetriever& operator=( const EcalTrivialConditionRetriever& ) = delete; // stop default
 
   void getWeightsFromConfiguration(const edm::ParameterSet& ps);
 
@@ -226,6 +226,11 @@ private:
   // laser
   double laserAlphaMean_;  
   double laserAlphaSigma_;  
+  double laserAlphaMeanEBR_; 
+  double laserAlphaMeanEBC_;  
+  double laserAlphaMeanEER_;  
+  double laserAlphaMeanEEC_;  
+
   double laserAPDPNRefMean_;  
   double laserAPDPNRefSigma_;  
   double laserAPDPNMean_;  
@@ -341,7 +346,11 @@ private:
   bool getEBAlignmentFromFile_;
   bool getEEAlignmentFromFile_;
   bool getESAlignmentFromFile_;
-  bool getLaserAlphaFromFile_;
+
+  bool getLaserAlphaFromFileEB_;
+  bool getLaserAlphaFromFileEE_;
+  bool getLaserAlphaFromTypeEB_;
+  bool getLaserAlphaFromTypeEE_;
   bool producedEcalSampleMask_;
   bool producedEcalTimeBiasCorrections_;
   bool producedEcalSamplesCorrelation_;

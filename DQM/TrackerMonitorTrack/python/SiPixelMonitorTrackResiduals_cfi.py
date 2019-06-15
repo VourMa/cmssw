@@ -1,7 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 
 # SiPixelMonitorTrackResiduals
-SiPixelMonitorTrackResiduals = cms.EDAnalyzer("SiPixelMonitorTrackResiduals",
+from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
+SiPixelMonitorTrackResiduals = DQMEDAnalyzer("SiPixelMonitorTrackResiduals",
     OutputMEsInRootFile = cms.bool(False),
     # should histogramms on module level be booked and filled?
     Mod_On = cms.bool(False),
@@ -20,8 +21,8 @@ SiPixelMonitorTrackResiduals = cms.EDAnalyzer("SiPixelMonitorTrackResiduals",
     ),
     # input for Tracks and Trajectories, should be TrackRefitter
     # or similar
-    Tracks = cms.InputTag("generalTracks"),
-    trajectoryInput = cms.string("generalTracks"),
+    Tracks = cms.InputTag("refittedForPixelDQM"),
+    trajectoryInput = cms.string("refittedForPixelDQM"),
     # should all MEs be reset after each run?
     ResetAfterRun = cms.bool(True)
 )

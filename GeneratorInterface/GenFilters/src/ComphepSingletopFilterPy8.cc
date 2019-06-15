@@ -34,7 +34,8 @@
 using namespace std;
 using namespace HepMC;
 
- ComphepSingletopFilterPy8::ComphepSingletopFilterPy8(const edm::ParameterSet& iConfig)
+ ComphepSingletopFilterPy8::ComphepSingletopFilterPy8(const edm::ParameterSet& iConfig):
+ token_(consumes<edm::HepMCProduct>(edm::InputTag(iConfig.getUntrackedParameter("moduleLabel",std::string("generator")),"unsmeared")))
 {	
 	ptsep = iConfig.getParameter<double>("pTSep");
 }
@@ -60,32 +61,35 @@ void ComphepSingletopFilterPy8::endJob()
 
 bool ComphepSingletopFilterPy8::filter(edm::Event& iEvent, const edm::EventSetup& iSetup)
 {
+  
+  
 edm::Handle<edm::HepMCProduct> evt;
-iEvent.getByLabel("generator","unsmeared", evt);
+//iEvent.getByLabel("generator","unsmeared", evt);
+iEvent.getByToken(token_, evt);
 const HepMC::GenEvent * myEvt = evt->GetEvent();
 
 int id_bdec=0, id_lJet=0, id_b_from_top=0, id_lep = 0;
 //vars for lepton top
-const   GenParticle * gp_clep = NULL;
-GenVertex * gv_hard = NULL;
+const   GenParticle * gp_clep = nullptr;
+GenVertex * gv_hard = nullptr;
 
-const   GenParticle * gp_lep_FSR = NULL;
-GenVertex * gv_lep = NULL;
+const   GenParticle * gp_lep_FSR = nullptr;
+GenVertex * gv_lep = nullptr;
 vector<const GenParticle *> vgp_lep;
 
 //vars for add b from top
-GenVertex * gv = NULL;
-const GenParticle * gp = NULL;
+GenVertex * gv = nullptr;
+const GenParticle * gp = nullptr;
 vector<const GenParticle *> vgp_bsec;
 
 //vars for light Jet (light q)
-GenVertex * gv_lJet= NULL;
-const GenParticle * gplJet= NULL;
+GenVertex * gv_lJet= nullptr;
+const GenParticle * gplJet= nullptr;
 vector<const GenParticle *> vgp_lJet;
 
 //vars for b from top
-GenVertex * gv_b_t= NULL;
-const GenParticle * gp_b_t= NULL;
+GenVertex * gv_b_t= nullptr;
+const GenParticle * gp_b_t= nullptr;
 vector<const GenParticle *> vgp_b_t;
 
 
@@ -103,7 +107,7 @@ vector<const GenParticle *> vgp_b_t;
 	    // Lepton FSR
 		 while (gv_lep) 
 		  {  
-		      gp_lep_FSR = NULL;
+		      gp_lep_FSR = nullptr;
 		  for (GenVertex::particle_iterator it = gv_lep->particles_begin(children); it != gv_lep->particles_end(children); ++it) 
 		    {
 			if ((*it)->pdg_id() == id_lep) 
@@ -121,7 +125,7 @@ vector<const GenParticle *> vgp_b_t;
 		      } 
 		      else 
 		      {
-			  gv_lep = NULL; //exits the "while" loop
+			  gv_lep = nullptr; //exits the "while" loop
 		      }
 		  }
                break;
@@ -152,7 +156,7 @@ vector<const GenParticle *> vgp_b_t;
 		
 		 while (gv_lJet) 
 		  {  
-		      gplJet = NULL;
+		      gplJet = nullptr;
 		  for (GenVertex::particle_iterator it = gv_lJet->particles_begin(children); it != gv_lJet->particles_end(children); ++it) 
 		    {
 			if ((*it)->pdg_id() == id_lJet) 
@@ -171,7 +175,7 @@ vector<const GenParticle *> vgp_b_t;
 		      } 
 		      else 
 		      {
-			  gv_lJet = NULL; //exits the "while" loop
+			  gv_lJet = nullptr; //exits the "while" loop
 		      }
 		  }		  
 	}
@@ -187,7 +191,7 @@ vector<const GenParticle *> vgp_b_t;
 		
 		 while (gv_b_t) 
 		  {  
-		      gp_b_t = NULL;
+		      gp_b_t = nullptr;
 		  for (GenVertex::particle_iterator it = gv_b_t->particles_begin(children); it != gv_b_t->particles_end(children); ++it) 
 		    {
 			if ((*it)->pdg_id() == id_b_from_top) 
@@ -206,7 +210,7 @@ vector<const GenParticle *> vgp_b_t;
 		      } 
 		      else 
 		      {
-			  gv_b_t = NULL; //exits the "while" loop
+			  gv_b_t = nullptr; //exits the "while" loop
 		      }
 		  }  
            } 
@@ -218,7 +222,7 @@ vector<const GenParticle *> vgp_b_t;
     }
 
 
-bool process22 = (vgp_bsec.size() == 0); //if there is no aditional b-quark in primary vexrtes, then it is tq-process (2->2) 
+bool process22 = (vgp_bsec.empty()); //if there is no aditional b-quark in primary vexrtes, then it is tq-process (2->2) 
 
     if (process22) 
     {
@@ -282,7 +286,7 @@ cerr << "ERROR: ComphepSingletopFilterPy8: HepMC inconsistency (No add b vertex 
 
     while (gv) 
     {
-        gp = NULL;
+        gp = nullptr;
 
         for (GenVertex::particle_iterator it = gv->particles_begin(children); it != gv->particles_end(children); ++it) 
        {
@@ -302,13 +306,13 @@ cerr << "ERROR: ComphepSingletopFilterPy8: HepMC inconsistency (No add b vertex 
         } 
         else 
         {
-            gv = NULL; //exits the "while" loop
+            gv = nullptr; //exits the "while" loop
         }
         gv_loopCount++;
     }
 
 
-    if (vgp_bsec.size() == 0) 
+    if (vgp_bsec.empty()) 
     {
         cerr << "ERROR: ComphepSingletopFilterPy8: HepMC inconsistency (vgp_bsec.size() == 0)" << endl;
         return false;

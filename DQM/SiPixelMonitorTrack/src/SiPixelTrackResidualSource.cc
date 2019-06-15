@@ -114,7 +114,7 @@ SiPixelTrackResidualSource::~SiPixelTrackResidualSource() {
   std::map<uint32_t,SiPixelTrackResidualModule*>::iterator struct_iter;
   for (struct_iter = theSiPixelStructure.begin() ; struct_iter != theSiPixelStructure.end() ; struct_iter++){
     delete struct_iter->second;
-    struct_iter->second = 0;
+    struct_iter->second = nullptr;
   }
 }
 
@@ -132,7 +132,7 @@ void SiPixelTrackResidualSource::dqmBeginRun(const edm::Run& r, edm::EventSetup 
   // build theSiPixelStructure with the pixel barrel and endcap dets from TrackerGeometry
   for (TrackerGeometry::DetContainer::const_iterator pxb = TG->detsPXB().begin();  
        pxb!=TG->detsPXB().end(); pxb++) {
-    if (dynamic_cast<PixelGeomDetUnit const *>((*pxb))!=0) {
+    if (dynamic_cast<PixelGeomDetUnit const *>((*pxb))!=nullptr) {
       SiPixelTrackResidualModule* module = new SiPixelTrackResidualModule((*pxb)->geographicalId().rawId());
       theSiPixelStructure.insert(pair<uint32_t, SiPixelTrackResidualModule*>((*pxb)->geographicalId().rawId(), module));
       //int DBlayer = PixelBarrelNameWrapper(pSet_, DetId((*pxb)->geographicalId())).layerName();
@@ -142,7 +142,7 @@ void SiPixelTrackResidualSource::dqmBeginRun(const edm::Run& r, edm::EventSetup 
   }
   for (TrackerGeometry::DetContainer::const_iterator pxf = TG->detsPXF().begin(); 
        pxf!=TG->detsPXF().end(); pxf++) {
-    if (dynamic_cast<PixelGeomDetUnit const *>((*pxf))!=0) {
+    if (dynamic_cast<PixelGeomDetUnit const *>((*pxf))!=nullptr) {
       SiPixelTrackResidualModule* module = new SiPixelTrackResidualModule((*pxf)->geographicalId().rawId());
       theSiPixelStructure.insert(pair<uint32_t, SiPixelTrackResidualModule*>((*pxf)->geographicalId().rawId(), module));
       int DBdisk;
@@ -692,6 +692,7 @@ void SiPixelTrackResidualSource::bookHistograms(DQMStore::IBooker & iBooker, edm
 
 
 void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::EventSetup& iSetup) {
+
   //Retrieve tracker topology from geometry
   edm::ESHandle<TrackerTopology> tTopoHandle;
   iSetup.get<TrackerTopologyRcd>().get(tTopoHandle);
@@ -755,6 +756,12 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
   edm:: Handle<reco::TrackCollection> TracksForRes;
   //iEvent.getByLabel( "generalTracks", TracksForRes );
   iEvent.getByToken(  generalTracksToken_, TracksForRes );
+  
+  if (debug_) {
+    edm::EDConsumerBase::Labels labels;
+    labelsForToken(generalTracksToken_, labels);
+    std::cout << "Track for Res from " << labels.module << std::endl;
+  }
 
   //
   // transient track builder, needs B-field from data base (global tag in .py)
@@ -946,24 +953,13 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
 	
  }//-----Tracks
   ////////////////////////////
-  //get trajectories
-  edm::Handle<std::vector<Trajectory> > trajCollectionHandle;
-  //iEvent.getByLabel(tracksrc_,trajCollectionHandle);
-  iEvent.getByToken ( tracksrcToken_, trajCollectionHandle );
-  auto const & trajColl = *(trajCollectionHandle.product());
-   
   //get tracks
   edm::Handle<std::vector<reco::Track> > trackCollectionHandle;
   //iEvent.getByLabel(tracksrc_,trackCollectionHandle);
   iEvent.getByToken( trackToken_, trackCollectionHandle );
   auto const & trackColl = *(trackCollectionHandle.product());
   
-  //get the map
-  edm::Handle<TrajTrackAssociationCollection> match;
-  //iEvent.getByLabel(tracksrc_,match);
-  iEvent.getByToken( trackAssociationToken_, match);
-  auto const &  ttac = *(match.product());
-  
+
   // get clusters
   edm::Handle< edmNew::DetSetVector<SiPixelCluster> >  clusterColl;
   //iEvent.getByLabel( clustersrc_, clusterColl );
@@ -973,20 +969,39 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
   // get digis
   edm::Handle< edm::DetSetVector<PixelDigi> >  digiinput;
   iEvent.getByToken( digisrcToken_, digiinput );
-  const edm::DetSetVector<PixelDigi> diginp = *(digiinput.product());
+  edm::DetSetVector<PixelDigi> const & diginp = *(digiinput.product());
   
 
-  if(debug_){
-    std::cout << "Trajectories\t : " << trajColl.size() << std::endl;
-    std::cout << "recoTracks  \t : " << trackColl.size() << std::endl;
-    std::cout << "Map entries \t : " << ttac.size() << std::endl;
-  }
-  
   std::set<SiPixelCluster> clusterSet;
   TrajectoryStateCombiner tsoscomb;
   int tracks=0, pixeltracks=0, bpixtracks=0, fpixtracks=0; 
   int trackclusters=0, barreltrackclusters=0, endcaptrackclusters=0;
   int otherclusters=0, barrelotherclusters=0, endcapotherclusters=0;
+
+  //get trajectories
+  edm::Handle<std::vector<Trajectory> > trajCollectionHandle;
+  iEvent.getByToken ( tracksrcToken_, trajCollectionHandle );
+
+  if(debug_){
+   edm::EDConsumerBase::Labels labels;
+   labelsForToken(tracksrcToken_, labels);
+   std::cout << "Trajectories for Res from " << labels.module << std::endl;
+  }
+
+  if (trajCollectionHandle.isValid()) {
+
+  auto const & trajColl = *(trajCollectionHandle.product());
+  //get the map
+  edm::Handle<TrajTrackAssociationCollection> match;
+  iEvent.getByToken( trackAssociationToken_, match);
+  auto const &  ttac = *(match.product());
+
+ if(debug_){
+    std::cout << "Trajectories\t : " << trajColl.size() << std::endl;
+    std::cout << "recoTracks  \t : " << trackColl.size() << std::endl;
+    std::cout << "Map entries \t : " << ttac.size() << std::endl;
+  }
+
 
   //Loop over map entries
   for(TrajTrackAssociationCollection::const_iterator it =  ttac.begin();it !=  ttac.end(); ++it){
@@ -1049,7 +1064,7 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
 	  // get the enclosed persistent hit
 	  const TrackingRecHit *persistentHit = hit->hit();
 	  // check if it's not null, and if it's a valid pixel hit
-	  if ((persistentHit != 0) && (typeid(*persistentHit) == typeid(SiPixelRecHit))) {
+	  if ((persistentHit != nullptr) && (typeid(*persistentHit) == typeid(SiPixelRecHit))) {
 	    // tell the C++ compiler that the hit is a pixel hit
 	    const SiPixelRecHit* pixhit = static_cast<const SiPixelRecHit*>( hit->hit() );
 	    //Hit probability:
@@ -1073,7 +1088,7 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
 	      const PixelGeomDetUnit* theGeomDet = static_cast<const PixelGeomDetUnit*> (theTracker.idToDet(hit_detId) );
 	      
 	      //test if PixelGeomDetUnit exists
-	      if(theGeomDet == 0) {
+	      if(theGeomDet == nullptr) {
 		if(debug_) std::cout << "NO THEGEOMDET\n";
 		continue;
 	      }
@@ -1226,6 +1241,8 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
     
   }//end loop on map entries
 
+  } // end valid trajectory:
+
   //find clusters that are NOT on track
   //edmNew::DetSet<SiPixelCluster>::const_iterator  di;
   if(debug_) std::cout << "clusters not on track: (size " << clustColl.size() << ") ";
@@ -1268,7 +1285,7 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
 	    const TrackerGeometry& theTracker(*theTrackerGeometry);
 	    const PixelGeomDetUnit* theGeomDet = static_cast<const PixelGeomDetUnit*> (theTracker.idToDet(detId) );
 	    //test if PixelGeomDetUnit exists
-	    if(theGeomDet == 0) {
+	    if(theGeomDet == nullptr) {
 	      if(debug_) std::cout << "NO THEGEOMDET\n";
 	      continue;
 	    }
@@ -1355,7 +1372,7 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
 	      const TrackerGeometry& theTracker(*theTrackerGeometry);
 	      const PixelGeomDetUnit* theGeomDet = static_cast<const PixelGeomDetUnit*> (theTracker.idToDet(detId) );
 	      //test if PixelGeomDetUnit exists
-	      if(theGeomDet == 0) {
+	      if(theGeomDet == nullptr) {
 		if(debug_) std::cout << "NO THEGEOMDET\n";
 		continue;
 	      }
@@ -1431,7 +1448,7 @@ void SiPixelTrackResidualSource::analyze(const edm::Event& iEvent, const edm::Ev
   if(fpixtracks>0)(meNofTracks_)->Fill(3,fpixtracks);
 }
 
-void SiPixelTrackResidualSource::getrococcupancy(DetId detId,const edm::DetSetVector<PixelDigi> diginp,const TrackerTopology* tTopo,std::vector<MonitorElement*> meinput) {
+void SiPixelTrackResidualSource::getrococcupancy(DetId detId,const edm::DetSetVector<PixelDigi> & diginp,const TrackerTopology* tTopo,std::vector<MonitorElement*> meinput) {
 
   edm::DetSetVector<PixelDigi>::const_iterator ipxsearch = diginp.find(detId);
   if( ipxsearch != diginp.end() ) {

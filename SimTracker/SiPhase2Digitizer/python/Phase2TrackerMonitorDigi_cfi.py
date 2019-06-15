@@ -1,13 +1,14 @@
 import FWCore.ParameterSet.Config as cms
 
-digiMon = cms.EDAnalyzer("Phase2TrackerMonitorDigi",
+from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
+digiMon = DQMEDAnalyzer('Phase2TrackerMonitorDigi',
     Verbosity = cms.bool(False),
     TopFolderName = cms.string("Ph2TkDigi"),
     PixelPlotFillingFlag = cms.bool(False),
     InnerPixelDigiSource   = cms.InputTag("simSiPixelDigis","Pixel"),
     OuterTrackerDigiSource = cms.InputTag("mix", "Tracker"),
     GeometryType = cms.string('idealForDigi'),
-    NumbeOfDigisH = cms.PSet(
+    NumberOfDigisPerDetH = cms.PSet(
            Nbins = cms.int32(200),
            xmin = cms.double(-0.5),
            xmax = cms.double(200.5)
@@ -30,25 +31,30 @@ digiMon = cms.EDAnalyzer("Phase2TrackerMonitorDigi",
            ymin   = cms.double(0.5),
            ymax   = cms.double(10.5)
     ),
+    EtaH = cms.PSet(
+        Nbins  = cms.int32(45),
+        xmin   = cms.double(-4.5),
+        xmax   = cms.double(4.5)
+    ),
     DigiChargeH = cms.PSet(
       Nbins = cms.int32(261),
       xmin   = cms.double(0.5),
       xmax   = cms.double(260.5)
     ), 
     TotalNumberOfDigisPerLayerH = cms.PSet(
-      Nbins = cms.int32(1000),
-      xmin   = cms.double(-0.5),
-      xmax   = cms.double(999.5)
+      Nbins = cms.int32(100),
+      xmin   = cms.double(0.0),
+      xmax   = cms.double(50000.0)
     ),
     NumberOfHitDetsPerLayerH = cms.PSet(
-      Nbins = cms.int32(200),
+      Nbins = cms.int32(2000),
       xmin   = cms.double(-0.5),
-      xmax   = cms.double(199.5)
+      xmax   = cms.double(2000.5)
     ),
-    NumberOfClustersH = cms.PSet(
-           Nbins = cms.int32(51),
+    NumberOfClustersPerDetH = cms.PSet(
+           Nbins = cms.int32(200),
            xmin = cms.double(-0.5),
-           xmax = cms.double(50.5)
+           xmax = cms.double(200.5)
     ),
     ClusterWidthH = cms.PSet(
            Nbins = cms.int32(16),

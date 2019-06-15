@@ -133,6 +133,24 @@ namespace edm {
       thinnedAssociationsHelper_->updateFromParentProcess(thinnedAssociationsHelper, keepAssociation_, droppedBranchIDToKeptBranchID_);
     }
 
+    void OutputModuleBase::updateBranchIDListsWithKeptAliases() {
+      if(!droppedBranchIDToKeptBranchID_.empty()) {
+        // Make a private copy of the BranchIDLists.
+        *branchIDLists_ = *origBranchIDLists_;
+        // Check for branches dropped while an EDAlias was kept.
+        for(BranchIDList& branchIDList : *branchIDLists_) {
+          for(BranchID::value_type& branchID : branchIDList) {
+            // Replace BranchID of each dropped branch with that of the kept
+            // alias, so the alias branch will have the product ID of the original branch.
+            std::map<BranchID::value_type, BranchID::value_type>::const_iterator iter = droppedBranchIDToKeptBranchID_.find(branchID);
+            if(iter != droppedBranchIDToKeptBranchID_.end()) {
+              branchID = iter->second;
+            }
+          }
+        }
+      }
+    }
+
     void OutputModuleBase::keepThisBranch(BranchDescription const& desc,
                         std::map<BranchID, BranchDescription const*>& trueBranchIDToKeptBranchDesc,
                         std::set<BranchID>& keptProductsInEvent) {
@@ -197,6 +215,9 @@ namespace edm {
           seenFirst = true;
         }
       }
+      preallocStreams(nstreams);
+      preallocLumis(iPC.numberOfLuminosityBlocks());
+      preallocate(iPC);
     }
 
     void OutputModuleBase::doBeginJob() {
@@ -205,6 +226,23 @@ namespace edm {
     
     void OutputModuleBase::doEndJob() {
       endJob();
+    }
+    
+    bool OutputModuleBase::needToRunSelection() const {
+      return !wantAllEvents_;
+    }
+
+    std::vector<ProductResolverIndexAndSkipBit>
+    OutputModuleBase::productsUsedBySelection() const {
+      std::vector<ProductResolverIndexAndSkipBit> returnValue;
+      auto const& s = selectors_[0];
+      auto const n = s.numberOfTokens();
+      returnValue.reserve(n);
+      
+      for(unsigned int i=0; i< n;++i) {
+        returnValue.emplace_back(uncheckedIndexFrom(s.token(i)));
+      }
+      return returnValue;
     }
     
     bool OutputModuleBase::prePrefetchSelection(StreamID id, EventPrincipal const& ep, ModuleCallingContext const* mcc) {
@@ -246,7 +284,7 @@ namespace edm {
     OutputModuleBase::doBeginRun(RunPrincipal const& rp,
                                  EventSetup const&,
                                  ModuleCallingContext const* mcc) {
-      RunForOutput r(rp, moduleDescription_, mcc);
+      RunForOutput r(rp, moduleDescription_, mcc, false);
       r.setConsumer(this);
       doBeginRun_(r);
       return true;
@@ -256,7 +294,7 @@ namespace edm {
     OutputModuleBase::doEndRun(RunPrincipal const& rp,
                                EventSetup const&,
                                ModuleCallingContext const* mcc) {
-      RunForOutput r(rp, moduleDescription_, mcc);
+      RunForOutput r(rp, moduleDescription_, mcc, true);
       r.setConsumer(this);
       doEndRun_(r);
       return true;
@@ -265,7 +303,7 @@ namespace edm {
     void
     OutputModuleBase::doWriteRun(RunPrincipal const& rp,
                                  ModuleCallingContext const* mcc) {
-      RunForOutput r(rp, moduleDescription_, mcc);
+      RunForOutput r(rp, moduleDescription_, mcc, true);
       r.setConsumer(this);
       writeRun(r);
     }
@@ -274,7 +312,7 @@ namespace edm {
     OutputModuleBase::doBeginLuminosityBlock(LuminosityBlockPrincipal const& lbp,
                                              EventSetup const&,
                                              ModuleCallingContext const* mcc) {
-      LuminosityBlockForOutput lb(lbp, moduleDescription_, mcc);
+      LuminosityBlockForOutput lb(lbp, moduleDescription_, mcc, false);
       lb.setConsumer(this);
       doBeginLuminosityBlock_(lb);
       return true;
@@ -284,7 +322,7 @@ namespace edm {
     OutputModuleBase::doEndLuminosityBlock(LuminosityBlockPrincipal const& lbp,
                                            EventSetup const&,
                                            ModuleCallingContext const* mcc) {
-      LuminosityBlockForOutput lb(lbp, moduleDescription_, mcc);
+      LuminosityBlockForOutput lb(lbp, moduleDescription_, mcc, true);
       lb.setConsumer(this);
       doEndLuminosityBlock_(lb);
       return true;
@@ -292,7 +330,7 @@ namespace edm {
     
     void OutputModuleBase::doWriteLuminosityBlock(LuminosityBlockPrincipal const& lbp,
                                                   ModuleCallingContext const* mcc) {
-      LuminosityBlockForOutput lb(lbp, moduleDescription_, mcc);
+      LuminosityBlockForOutput lb(lbp, moduleDescription_, mcc, true);
       lb.setConsumer(this);
       writeLuminosityBlock(lb);
     }
@@ -300,36 +338,16 @@ namespace edm {
     void OutputModuleBase::doOpenFile(FileBlock const& fb) {
       openFile(fb);
     }
-    
+
     void OutputModuleBase::doRespondToOpenInputFile(FileBlock const& fb) {
+      updateBranchIDListsWithKeptAliases();
       doRespondToOpenInputFile_(fb);
     }
     
     void OutputModuleBase::doRespondToCloseInputFile(FileBlock const& fb) {
       doRespondToCloseInputFile_(fb);
     }
-    
-    void
-    OutputModuleBase::doPreForkReleaseResources() {
-      preForkReleaseResources();
-    }
-    
-    void
-    OutputModuleBase::doPostForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren) {
-      postForkReacquireResources(iChildIndex, iNumberOfChildren);
-    }
-    
-    void
-    OutputModuleBase::preForkReleaseResources() {}
-    
-    void
-    OutputModuleBase::postForkReacquireResources(unsigned int /*iChildIndex*/, unsigned int /*iNumberOfChildren*/) {}
-
-    
-    void OutputModuleBase::maybeOpenFile() {
-      if(!isFileOpen()) reallyOpenFile();
-    }
-    
+        
     void OutputModuleBase::doCloseFile() {
       if(isFileOpen()) {
         reallyCloseFile();
@@ -340,20 +358,8 @@ namespace edm {
     }
     
     BranchIDLists const*
-    OutputModuleBase::branchIDLists() {
+    OutputModuleBase::branchIDLists() const {
       if(!droppedBranchIDToKeptBranchID_.empty()) {
-        // Make a private copy of the BranchIDLists.
-        *branchIDLists_ = *origBranchIDLists_;
-        // Check for branches dropped while an EDAlias was kept.
-        for(BranchIDList& branchIDList : *branchIDLists_) {
-          for(BranchID::value_type& branchID : branchIDList) {
-            // Replace BranchID of each dropped branch with that of the kept alias, so the alias branch will have the product ID of the original branch.
-            std::map<BranchID::value_type, BranchID::value_type>::const_iterator iter = droppedBranchIDToKeptBranchID_.find(branchID);
-            if(iter != droppedBranchIDToKeptBranchID_.end()) {
-              branchID = iter->second;
-            }
-          }
-        }
         return branchIDLists_.get();
       }
       return origBranchIDLists_;

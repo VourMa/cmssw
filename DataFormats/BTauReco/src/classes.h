@@ -33,6 +33,8 @@
 #include "DataFormats/BTauReco/interface/SecondaryVertexTagInfo.h"
 #include "DataFormats/BTauReco/interface/CandSecondaryVertexTagInfo.h"
 #include "DataFormats/BTauReco/interface/BoostedDoubleSVTagInfo.h"
+#include "DataFormats/BTauReco/interface/BoostedDoubleSVTagInfoFeatures.h"
+#include "DataFormats/BTauReco/interface/ShallowTagInfo.h"
 #include "DataFormats/BTauReco/interface/SoftLeptonTagInfo.h"
 #include "DataFormats/BTauReco/interface/CandSoftLeptonTagInfo.h"
 #include "DataFormats/BTauReco/interface/TauImpactParameterInfo.h"
@@ -45,6 +47,18 @@
 #include "DataFormats/BTauReco/interface/JetTagInfo.h"
 #include "DataFormats/BTauReco/interface/CATopJetTagInfo.h"
 #include "DataFormats/BTauReco/interface/HTTTopJetTagInfo.h"
+#include "DataFormats/BTauReco/interface/JetFeatures.h"
+#include "DataFormats/BTauReco/interface/SecondaryVertexFeatures.h"
+#include "DataFormats/BTauReco/interface/ShallowTagInfoFeatures.h"
+#include "DataFormats/BTauReco/interface/NeutralCandidateFeatures.h"
+#include "DataFormats/BTauReco/interface/ChargedCandidateFeatures.h"
+#include "DataFormats/BTauReco/interface/DeepFlavourFeatures.h"
+#include "DataFormats/BTauReco/interface/DeepFlavourTagInfo.h"
+#include "DataFormats/BTauReco/interface/DeepDoubleXFeatures.h"
+#include "DataFormats/BTauReco/interface/DeepDoubleXTagInfo.h"
+#include "DataFormats/BTauReco/interface/DeepBoostedJetTagInfo.h"
+
+
 
 namespace reco {
     typedef TrackTauImpactParameterAssociationCollection::map_type          TrackTauImpactParameterAssociationMapType;
@@ -87,6 +101,14 @@ namespace DataFormats_BTauReco {
     reco::BoostedDoubleSVTagInfoRefProd                                 bdsv_rp;
     reco::BoostedDoubleSVTagInfoRefVector                               bdsv_rv;
     edm::Wrapper<reco::BoostedDoubleSVTagInfoCollection>                bdsv_wc;
+
+    reco::ShallowTagInfo                                                 dnn;
+    reco::ShallowTagInfoCollection                                       dnn_c;
+    reco::ShallowTagInfoRef                                              dnn_r;
+    reco::ShallowTagInfoFwdRef                                           dnn_fr;
+    reco::ShallowTagInfoRefProd                                          dnn_rp;
+    reco::ShallowTagInfoRefVector                                        dnn_rv;
+    edm::Wrapper<reco::ShallowTagInfoCollection>                         dnn_wc;
 
     reco::CombinedTauTagInfo                                            ct;
     reco::CombinedTauTagInfoCollection                                  ct_c;
@@ -269,7 +291,7 @@ namespace DataFormats_BTauReco {
     reco::HTTTopJetTagInfoRefVector                                      htttopjet_rv;
     edm::Wrapper<reco::HTTTopJetTagInfoCollection>                       htttopjet_wc;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::HTTTopJetTagInfoRef> rb_htttopjet;
-    edm::reftobase::RefHolder<reco::HTTTopJetTagInfoRef>                 rbh_htttopjet; 
+    edm::reftobase::RefHolder<reco::HTTTopJetTagInfoRef>                 rbh_htttopjet;
 
     std::vector<Measurement1D>                                          vm1d;
 
@@ -296,6 +318,10 @@ namespace DataFormats_BTauReco {
     edm::reftobase::RefHolder<reco::CandSecondaryVertexTagInfoRef>                  rbh_casv;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::BoostedDoubleSVTagInfoRef>  rb_bdsv;
     edm::reftobase::RefHolder<reco::BoostedDoubleSVTagInfoRef>                  rbh_bdsv;
+    edm::reftobase::Holder<reco::BaseTagInfo, reco::ShallowTagInfoRef>           rb_dnn;
+    edm::reftobase::RefHolder<reco::ShallowTagInfoRef>                           rbh_dnn;
+    edm::reftobase::Holder<reco::BaseTagInfo, reco::DeepFlavourTagInfoRef>       rb_df;
+    edm::reftobase::RefHolder<reco::DeepFlavourTagInfoRef>                       rbh_df;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::CombinedTauTagInfoRef>      rb_ct;
     edm::reftobase::RefHolder<reco::CombinedTauTagInfoRef>                      rbh_ct;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::IsolatedTauTagInfoRef>      rb_it;
@@ -327,6 +353,10 @@ namespace DataFormats_BTauReco {
     edm::reftobase::RefHolder<reco::CandSecondaryVertexTagInfoFwdRef>                  rbh_casvf;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::BoostedDoubleSVTagInfoFwdRef>  rb_bdsvf;
     edm::reftobase::RefHolder<reco::BoostedDoubleSVTagInfoFwdRef>                  rbh_bdsvf;
+    edm::reftobase::Holder<reco::BaseTagInfo, reco::ShallowTagInfoFwdRef>          rb_dnnf;
+    edm::reftobase::RefHolder<reco::ShallowTagInfoFwdRef>                          rbh_dnnf;
+    edm::reftobase::Holder<reco::BaseTagInfo, reco::DeepFlavourTagInfoFwdRef>      rb_dff;
+    edm::reftobase::RefHolder<reco::DeepFlavourTagInfoFwdRef>                      rbh_dff;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::CombinedTauTagInfoFwdRef>      rb_ctf;
     edm::reftobase::RefHolder<reco::CombinedTauTagInfoFwdRef>                      rbh_ctf;
     edm::reftobase::Holder<reco::BaseTagInfo, reco::IsolatedTauTagInfoFwdRef>      rb_itf;
@@ -373,5 +403,39 @@ namespace DataFormats_BTauReco {
     edm::AssociationMap<edm::OneToMany<reco::CandSecondaryVertexTagInfoCollection, std::vector<reco::VertexCompositePtrCandidate> > > dummy08;
     edm::Wrapper<edm::helpers::KeyVal<edm::RefProd<std::vector<reco::CandSecondaryVertexTagInfo> >, edm::RefProd<std::vector<reco::VertexCompositePtrCandidate> > > > dummy09;
     edm::Wrapper<edm::AssociationMap<edm::OneToMany<std::vector<reco::CandSecondaryVertexTagInfo>, std::vector<reco::VertexCompositePtrCandidate>, unsigned int > > > dummy10;
+
+    btagbtvdeep::JetFeatures jet_features;
+    btagbtvdeep::SecondaryVertexFeatures secondary_vertex_features;
+    btagbtvdeep::ShallowTagInfoFeatures shallow_tag_info_features;
+    btagbtvdeep::NeutralCandidateFeatures neutral_candidate_features;
+    btagbtvdeep::ChargedCandidateFeatures charged_candidate_features;
+    btagbtvdeep::DeepFlavourFeatures deep_flavour_features;
+
+    reco::DeepFlavourTagInfo deep_flavour_tag_info;
+    reco::DeepFlavourTagInfoCollection deep_flavour_tag_info_collection;
+    reco::DeepFlavourTagInfoRef deep_flavour_tag_info_collection_ref;
+    reco::DeepFlavourTagInfoFwdRef deep_flavour_tag_info_collection_fwd_ref;
+    reco::DeepFlavourTagInfoRefProd deep_flavour_tag_info_collection_ref_prod;
+    reco::DeepFlavourTagInfoRefVector deep_flavour_tag_info_collection_ref_vector;
+    edm::Wrapper<reco::DeepFlavourTagInfoCollection> deep_flavour_tag_info_collection_edm_wrapper;
+
+    btagbtvdeep::BoostedDoubleSVTagInfoFeatures boosted_double_sv_tag_info_features;
+    btagbtvdeep::DeepDoubleXFeatures deep_doublex_features;
+    reco::DeepDoubleXTagInfo deep_doublex_tag_info;
+    reco::DeepDoubleXTagInfoCollection deep_doublex_tag_info_collection;
+    reco::DeepDoubleXTagInfoRef deep_doublex_tag_info_collection_ref;
+    reco::DeepDoubleXTagInfoFwdRef deep_doublex_tag_info_collection_fwd_ref;
+    reco::DeepDoubleXTagInfoRefProd deep_doublex_tag_info_collection_ref_prod;
+    reco::DeepDoubleXTagInfoRefVector deep_doublex_tag_info_collection_ref_vector;
+    edm::Wrapper<reco::DeepDoubleXTagInfoCollection> deep_doublex_tag_info_collection_edm_wrapper;
+    
+    btagbtvdeep::DeepBoostedJetFeatures deep_boosted_jet_tag_info_features;
+    reco::DeepBoostedJetTagInfo deep_boosted_jet_tag_info;
+    reco::DeepBoostedJetTagInfoCollection deep_boosted_jet_tag_info_collection;
+    reco::DeepBoostedJetTagInfoRef deep_boosted_jet_tag_info_collection_ref;
+    reco::DeepBoostedJetTagInfoFwdRef deep_boosted_jet_tag_info_collection_fwd_ref;
+    reco::DeepBoostedJetTagInfoRefProd deep_boosted_jet_tag_info_collection_ref_prod;
+    reco::DeepBoostedJetTagInfoRefVector deep_boosted_jet_tag_info_collection_ref_vector;
+    edm::Wrapper<reco::DeepBoostedJetTagInfoCollection> deep_boosted_jet_tag_info_collection_edm_wrapper;
   };
 }

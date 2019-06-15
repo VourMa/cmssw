@@ -11,7 +11,8 @@ HcalTrigTowerGeometry::HcalTrigTowerGeometry( const HcalTopology* topology )
    auto tmode = theTopology->triggerMode();
    useRCT_ = tmode <= HcalTopologyMode::TriggerMode_2016;
    use1x1_ = tmode >= HcalTopologyMode::TriggerMode_2016;
-   use2017_ = tmode == HcalTopologyMode::TriggerMode_2017;
+   use2017_ = tmode >= HcalTopologyMode::TriggerMode_2017 or
+              tmode == HcalTopologyMode::TriggerMode_2018legacy;
 }
 
 std::vector<HcalTrigTowerDetId> 
@@ -37,7 +38,7 @@ HcalTrigTowerGeometry::towerIds(const HcalDetId & cellId) const {
       // go two cells per trigger tower.
       
       int iphi = (((cellId.iphi()+1)/4) * 4 + 1)%72; // 71+1 --> 1, 3+5 --> 5
-      results.push_back( HcalTrigTowerDetId(ieta, iphi) );
+      results.emplace_back( HcalTrigTowerDetId(ieta, iphi) );
     } 
     if (use1x1_) {
       int hfRing = cellId.ietaAbs();
@@ -48,13 +49,13 @@ HcalTrigTowerGeometry::towerIds(const HcalDetId & cellId) const {
 
       HcalTrigTowerDetId id(ieta,iphi);
       id.setVersion(1); // version 1 for 1x1 HF granularity
-      results.push_back(id);
+      results.emplace_back(id);
     }
       
   } else {
     // the first twenty rings are one-to-one
     if(cellId.ietaAbs() < theTopology->firstHEDoublePhiRing()) {    
-      results.push_back( HcalTrigTowerDetId(cellId.ieta(), cellId.iphi()) );
+      results.emplace_back( HcalTrigTowerDetId(cellId.ieta(), cellId.iphi()) );
     } else {
       // the remaining rings are two-to-one in phi
       int iphi1 = cellId.iphi();
@@ -71,8 +72,8 @@ HcalTrigTowerGeometry::towerIds(const HcalDetId & cellId) const {
             --ieta;
       }
 
-      results.push_back( HcalTrigTowerDetId(ieta, iphi1) );
-      results.push_back( HcalTrigTowerDetId(ieta, iphi1+1) );
+      results.emplace_back( HcalTrigTowerDetId(ieta, iphi1) );
+      results.emplace_back( HcalTrigTowerDetId(ieta, iphi1+1) );
     }
   }
 
@@ -96,17 +97,17 @@ HcalTrigTowerGeometry::detIds(const HcalTrigTowerDetId & hcalTrigTowerDetId) con
   // HB
   
   if (abs(cell_ieta) <= theTopology->lastHBRing()){
-    theTopology->depthBinInformation(HcalBarrel, abs(tower_ieta), n_depths, min_depth);
+    theTopology->depthBinInformation(HcalBarrel, abs(tower_ieta), tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);
     for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++)
-      results.push_back(HcalDetId(HcalBarrel,cell_ieta,cell_iphi,cell_depth));
+      results.emplace_back(HcalDetId(HcalBarrel,cell_ieta,cell_iphi,cell_depth));
   }
 
   // HO
   
   if (abs(cell_ieta) <= theTopology->lastHORing()){ 
-    theTopology->depthBinInformation(HcalOuter , abs(tower_ieta), n_depths, min_depth);  
+    theTopology->depthBinInformation(HcalOuter , abs(tower_ieta), tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);  
     for (int ho_depth = min_depth; ho_depth <= min_depth + n_depths - 1; ho_depth++)
-      results.push_back(HcalDetId(HcalOuter, cell_ieta,cell_iphi,ho_depth));
+      results.emplace_back(HcalDetId(HcalOuter, cell_ieta,cell_iphi,ho_depth));
   }
 
   // HE 
@@ -114,7 +115,7 @@ HcalTrigTowerGeometry::detIds(const HcalTrigTowerDetId & hcalTrigTowerDetId) con
   if (abs(cell_ieta) >= theTopology->firstHERing() && 
       abs(cell_ieta) <  theTopology->lastHERing()){   
 
-    theTopology->depthBinInformation(HcalEndcap, abs(tower_ieta), n_depths, min_depth);
+    theTopology->depthBinInformation(HcalEndcap, abs(tower_ieta), tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);
     
     // Special for double-phi cells
     if (abs(cell_ieta) >= theTopology->firstHEDoublePhiRing())
@@ -124,20 +125,20 @@ HcalTrigTowerGeometry::detIds(const HcalTrigTowerDetId & hcalTrigTowerDetId) con
          if (abs(tower_ieta) == 26)
             --n_depths;
          if (tower_ieta == 27)
-            results.push_back(HcalDetId(HcalEndcap, cell_ieta - 1, cell_iphi, 7));
+            results.emplace_back(HcalDetId(HcalEndcap, cell_ieta - 1, cell_iphi, 7));
          if (tower_ieta == -27)
-            results.push_back(HcalDetId(HcalEndcap, cell_ieta + 1, cell_iphi, 7));
+            results.emplace_back(HcalDetId(HcalEndcap, cell_ieta + 1, cell_iphi, 7));
     }
     
     for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++)
-      results.push_back(HcalDetId(HcalEndcap, cell_ieta, cell_iphi, cell_depth));
+      results.emplace_back(HcalDetId(HcalEndcap, cell_ieta, cell_iphi, cell_depth));
     
     // Special for split-eta cells
     if (abs(tower_ieta) == 28){
-      theTopology->depthBinInformation(HcalEndcap, abs(tower_ieta)+1, n_depths, min_depth);
+      theTopology->depthBinInformation(HcalEndcap, abs(tower_ieta)+1, tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);
       for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++){
-	if (tower_ieta < 0) results.push_back(HcalDetId(HcalEndcap, tower_ieta - 1, cell_iphi, cell_depth));
-	if (tower_ieta > 0) results.push_back(HcalDetId(HcalEndcap, tower_ieta + 1, cell_iphi, cell_depth));
+	if (tower_ieta < 0) results.emplace_back(HcalDetId(HcalEndcap, tower_ieta - 1, cell_iphi, cell_depth));
+	if (tower_ieta > 0) results.emplace_back(HcalDetId(HcalEndcap, tower_ieta + 1, cell_iphi, cell_depth));
       }
     }
     
@@ -171,7 +172,7 @@ HcalTrigTowerGeometry::detIds(const HcalTrigTowerDetId & hcalTrigTowerDetId) con
 
 	  if (cell_ieta >= 40 && cell_iphi%4 == 1) continue;  // These cells don't exist.
 
-	  theTopology->depthBinInformation(HcalForward, cell_ieta, n_depths, min_depth);  
+	  theTopology->depthBinInformation(HcalForward, cell_ieta, tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);  
 	  
 	  // Negative tower_ieta -> negative cell_ieta
 	  int zside = 1;
@@ -180,25 +181,25 @@ HcalTrigTowerGeometry::detIds(const HcalTrigTowerDetId & hcalTrigTowerDetId) con
 	  cell_ieta *= zside;	       
 
 	  for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++)
-	    results.push_back(HcalDetId(HcalForward, cell_ieta, cell_iphi, cell_depth));
+	    results.emplace_back(HcalDetId(HcalForward, cell_ieta, cell_iphi, cell_depth));
 	
 	  if ( zside * cell_ieta == 30 ) {
-	    theTopology->depthBinInformation(HcalForward, 29 * zside, n_depths, min_depth);  
+	    theTopology->depthBinInformation(HcalForward, 29 * zside, tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);  
 	    for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++) 
-	      results.push_back(HcalDetId(HcalForward, 29 * zside , cell_iphi, cell_depth));
+	      results.emplace_back(HcalDetId(HcalForward, 29 * zside , cell_iphi, cell_depth));
 	  }
 	}
       }  
     } else if (hcalTrigTowerDetId.version()==1) {
-      theTopology->depthBinInformation(HcalForward, tower_ieta, n_depths, min_depth);  
+      theTopology->depthBinInformation(HcalForward, tower_ieta, tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);  
       for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++)
-	results.push_back(HcalDetId(HcalForward, tower_ieta, tower_iphi, cell_depth));      
+	results.emplace_back(HcalDetId(HcalForward, tower_ieta, tower_iphi, cell_depth));      
       if (abs(tower_ieta)==30) {
 	int i29 = 29;
 	  if (tower_ieta < 0) i29 = -29;
-	  theTopology->depthBinInformation(HcalForward, i29, n_depths, min_depth);  
+	  theTopology->depthBinInformation(HcalForward, i29, tower_iphi, hcalTrigTowerDetId.zside(), n_depths, min_depth);  
 	  for (int cell_depth = min_depth; cell_depth <= min_depth + n_depths - 1; cell_depth++)
-	    results.push_back(HcalDetId(HcalForward, i29, tower_iphi, cell_depth));      
+	    results.emplace_back(HcalDetId(HcalForward, i29, tower_iphi, cell_depth));      
       }
     }
   }

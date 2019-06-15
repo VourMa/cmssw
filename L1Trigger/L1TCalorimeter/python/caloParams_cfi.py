@@ -2,7 +2,7 @@ import FWCore.ParameterSet.Config as cms
 
 caloParamsSource = cms.ESSource(
     "EmptyESSource",
-    recordName = cms.string('L1TCaloStage2ParamsRcd'),
+    recordName = cms.string('L1TCaloParamsRcd'),
     iovIsRunNotTime = cms.bool(True),
     firstValid = cms.vuint32(1)
 )
@@ -26,8 +26,10 @@ caloParams = cms.ESProducer(
     regionPUSVersion = cms.int32(0),
     regionPUSParams  = cms.vdouble(),
 
+    pileUpTowerThreshold = cms.int32(0),
+
     # EG
-    egEtaCut                   = cms.int32(0),
+    egEtaCut                   = cms.int32(28),
     egLsb                      = cms.double(0.5),
     egSeedThreshold            = cms.double(2.),
     egNeighbourThreshold       = cms.double(1.),
@@ -35,8 +37,8 @@ caloParams = cms.ESProducer(
     egMaxHcalEt                = cms.double(0.),
     egTrimmingLUTFile          = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egTrimmingLUT_corners.txt"),
     egMaxPtHOverE          = cms.double(128.),
-    egHOverEcutBarrel          = cms.int32(5),
-    egHOverEcutEndcap          = cms.int32(4),
+    egHOverEcutBarrel          = cms.int32(4),
+    egHOverEcutEndcap          = cms.int32(3),
     egMaxHOverE                = cms.double(0.15),
     egMaxHOverELUTFile         = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egMaxHOverELUT.txt"),
     egCompressShapesLUTFile    = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egCompressShapesLUT.txt"),
@@ -53,6 +55,8 @@ caloParams = cms.ESProducer(
     egPUSType               = cms.string("None"),
     egIsolationType          = cms.string("unspecified"),
     egIsoLUTFile               = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egIsoLUT.txt"),
+    egIsoLUTFile2               = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egIsoLUT.txt"),
+
     #egIsoLUTFileBarrel         = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egIsoLUT_stage1_isol0.30.txt"),
     #egIsoLUTFileEndcaps        = cms.FileInPath("L1Trigger/L1TCalorimeter/data/egIsoLUT_stage1_isol0.50.txt"),
     egIsoAreaNrTowersEta       = cms.uint32(2),
@@ -62,6 +66,7 @@ caloParams = cms.ESProducer(
     egIsoMaxEtaAbsForTowerSum  = cms.uint32(4),
     egIsoMaxEtaAbsForIsoSum    = cms.uint32(27),
     egBypassEGVetos            = cms.uint32(0),
+    egBypassExtHOverE          = cms.uint32(1),
 
     # Tau
     tauRegionMask                 = cms.int32(0),
@@ -74,13 +79,15 @@ caloParams = cms.ESProducer(
     tauMaxJetIsolationA    = cms.double(0.1),
     tauPUSType                 = cms.string("None"),
     isoTauEtaMin                  = cms.int32(0),
-    isoTauEtaMax                  = cms.int32(17),
+    isoTauEtaMax                  = cms.int32(28),
     tauIsoAreaNrTowersEta 		  = cms.uint32(2),
     tauIsoAreaNrTowersPhi		  = cms.uint32(4),
     tauIsoVetoNrTowersPhi 		  = cms.uint32(2),
     tauIsoLUTFile                 = cms.FileInPath("L1Trigger/L1TCalorimeter/data/tauIsoLUTetPU.txt"),
+    tauIsoLUTFile2                = cms.FileInPath("L1Trigger/L1TCalorimeter/data/tauIsoLUTetPU.txt"),
     tauCalibrationLUTFileEta      = cms.FileInPath("L1Trigger/L1TCalorimeter/data/tauCalibrationLUTEta.txt"),
     tauCalibrationLUTFile         = cms.FileInPath("L1Trigger/L1TCalorimeter/data/tauCalibrationLUT.txt"),
+    tauTrimmingShapeVetoLUTFile   = cms.FileInPath("L1Trigger/L1TCalorimeter/data/Tau_TrimmingShapeVeto_LUT_v1.0.0.txt"),
     tauCompressLUTFile            = cms.FileInPath("L1Trigger/L1TCalorimeter/data/Tau_Eta_Et_compression_LUT.txt"),
     tauEtToHFRingEtLUTFile        = cms.FileInPath("L1Trigger/L1TCalorimeter/data/tauHwEtToHFRingScale_LUT.txt"),
     tauPUSParams                  = cms.vdouble(1,4,27),
@@ -103,10 +110,23 @@ caloParams = cms.ESProducer(
     etSumEtaMin              = cms.vint32(-999, -999, -999, -999),
     etSumEtaMax              = cms.vint32(999,  999,  999,  999),
     etSumEtThreshold         = cms.vdouble(0.,  0.,   0.,   0.),
-    etSumXPUSLUTFile         = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
-    etSumYPUSLUTFile         = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
-    etSumEttPUSLUTFile       = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
-    etSumEcalSumPUSLUTFile   = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
+    etSumMetPUSLUTFile       = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_towEtThresh_dummy.txt"),
+    etSumEttPUSLUTFile       = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_towEtThresh_dummy.txt"),
+    etSumEcalSumPUSLUTFile   = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_towEtThresh_dummy.txt"),
+    etSumBypassMetPUS        = cms.uint32(0),
+    etSumBypassEttPUS        = cms.uint32(0),
+    etSumBypassEcalSumPUS    = cms.uint32(0),    
+    etSumMetPUSType          = cms.string("None"),
+    etSumEttPUSType          = cms.string("None"),
+    etSumEcalSumPUSType      = cms.string("None"),
+    etSumXCalibrationType    = cms.string("None"),
+    etSumYCalibrationType    = cms.string("None"),
+    etSumEttCalibrationType  = cms.string("None"),
+    etSumEcalSumCalibrationType = cms.string("None"),
+    etSumXCalibrationLUTFile  = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
+    etSumYCalibrationLUTFile         = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
+    etSumEttCalibrationLUTFile       = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
+    etSumEcalSumCalibrationLUTFile   = cms.FileInPath("L1Trigger/L1TCalorimeter/data/lut_etSumPUS_dummy.txt"),
 
 
     # HI

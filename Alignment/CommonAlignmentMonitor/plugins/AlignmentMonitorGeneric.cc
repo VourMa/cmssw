@@ -22,7 +22,11 @@ void AlignmentMonitorGeneric::book()
   residNames.push_back("y hit residuals pos track");
   residNames.push_back("y hit residuals neg track");
 
-  const std::vector<Alignable*>& alignables = pStore()->alignables();
+
+  auto alignableObjectId =
+    AlignableObjectId::commonObjectIdProvider(pTracker(), pMuon());
+
+  const auto& alignables = pStore()->alignables();
 
   unsigned int nAlignable = alignables.size();
   unsigned int nResidName = residNames.size();
@@ -33,7 +37,7 @@ void AlignmentMonitorGeneric::book()
 
     Hist1Ds& hists = m_resHists[ali];
 
-    hists.resize(nResidName, 0);
+    hists.resize(nResidName, nullptr);
 
     align::ID id = ali->id();
     align::StructureType type = ali->alignableObjectId();
@@ -43,19 +47,19 @@ void AlignmentMonitorGeneric::book()
       const std::string& name = residNames[n];
 
       TString histName(name.c_str());
-      histName += Form("_%s_%d", AlignableObjectId::idToString(type), id);
+      histName += Form("_%s_%d", alignableObjectId.idToString(type), id);
       histName.ReplaceAll(" ", "");
 
       TString histTitle(name.c_str());
       histTitle += Form(" for %s with ID %d (subdet %d)",
-			AlignableObjectId::idToString(type),
+			alignableObjectId.idToString(type),
 			id, DetId(id).subdetId());
 
-      hists[n] = book1D(std::string("/iterN/") + std::string(name) + std::string("/"), std::string(histName), std::string(histTitle), nBin_, -5., 5.);
+      hists[n] = book1D(std::string("/iterN/") + std::string(name) + std::string("/"), std::string(histName.Data()), std::string(histTitle.Data()), nBin_, -5., 5.);
     }
   }
 
-  m_trkHists.resize(6, 0);
+  m_trkHists.resize(6, nullptr);
   
   m_trkHists[0] = book1D("/iterN/", "pt"  , "track p_{t} (GeV)" , nBin_,   0.0,100.0);
   m_trkHists[1] = book1D("/iterN/", "eta" , "track #eta"        , nBin_, - 3.0,  3.0);

@@ -340,6 +340,7 @@ PFEGammaProducer::produce(edm::Event& iEvent,
       case reco::PFBlockElement::HFEM:
       case reco::PFBlockElement::HFHAD:
       case reco::PFBlockElement::HCAL:
+        if (elements[0].clusterRef()->flags() & reco::CaloCluster::badHcalMarker) continue;
         hcalBlockRefs.push_back( blockref );
         singleEcalOrHcal = true;
 	break;
@@ -377,7 +378,7 @@ PFEGammaProducer::produce(edm::Event& iEvent,
     
     pfeg_->RunPFEG(globalCache(),blockref,active);
 
-    if( pfeg_->getCandidates().size() ) {
+    if( !pfeg_->getCandidates().empty() ) {
       LOGDRESSED("PFEGammaProducer")
       << "Block with " << elements.size() 
       << " elements produced " 

@@ -4,7 +4,8 @@ import FWCore.ParameterSet.Config as cms
 # This object is used to make changes for different running scenarios
 #
 
-SiPixelHitEfficiencySource = cms.EDAnalyzer("SiPixelHitEfficiencySource",
+from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
+SiPixelHitEfficiencySource = DQMEDAnalyzer('SiPixelHitEfficiencySource',
     src = cms.InputTag("siPixelHitEfficiency"),
     debug = cms.untracked.bool(False),                          
     saveFile = cms.untracked.bool(True),
@@ -19,7 +20,7 @@ SiPixelHitEfficiencySource = cms.EDAnalyzer("SiPixelHitEfficiencySource",
     updateEfficiencies = cms.untracked.bool(False), 
     vtxsrc = cms.untracked.string('offlinePrimaryVertices'),
 
-    trajectoryInput = cms.InputTag('generalTracks'),  
+    trajectoryInput = cms.InputTag('refittedForPixelDQM'),  
     applyEdgeCut = cms.untracked.bool(False),
     nSigma_EdgeCut = cms.untracked.double(2.)             
 )

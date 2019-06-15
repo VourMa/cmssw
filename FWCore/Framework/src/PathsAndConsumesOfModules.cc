@@ -141,9 +141,13 @@ namespace edm {
     using namespace edm::graph;
     //Need to lookup ids to names quickly
     std::unordered_map<unsigned int, std::string> moduleIndexToNames;
-    
+
+    std::unordered_map<std::string, unsigned int> pathStatusInserterModuleLabelToModuleID;
+
     //for testing, state that TriggerResults is at the end of all paths
     const std::string kTriggerResults("TriggerResults");
+    const std::string kPathStatusInserter("PathStatusInserter");
+    const std::string kEndPathStatusInserter("EndPathStatusInserter");
     unsigned int kTriggerResultsIndex = kInvalidIndex;
     unsigned int largestIndex = 0;
     unsigned int kPathToTriggerResultsDependencyLastIndex = kInvalidIndex;
@@ -156,12 +160,14 @@ namespace edm {
       if(description->id() > largestIndex) {
         largestIndex = description->id();
       }
+      if(description->moduleName() == kPathStatusInserter || description->moduleName() == kEndPathStatusInserter) {
+        pathStatusInserterModuleLabelToModuleID[description->moduleLabel()] = description->id();
+      }
     }
-    if(kTriggerResultsIndex != kInvalidIndex) {
-      kPathToTriggerResultsDependencyLastIndex = largestIndex ;
-    }
+    kPathToTriggerResultsDependencyLastIndex = largestIndex ;
 
 
+    /*
     {
       //We need to explicitly check that modules on Paths do not try to read data from
       // Modules which are only on EndPaths. The circular dependency finder has been
@@ -201,16 +207,27 @@ namespace edm {
       }
 
     }
+     */
 
     //If a module to module dependency comes from a path, remember which path
     EdgeToPathMap edgeToPathMap;
+
+    //Need to be able to quickly look up which paths a module appears on
+    std::unordered_map<unsigned int, std::vector<unsigned int>> moduleIndexToPathIndex;
 
     //determine the path dependencies
     std::vector<std::string> pathNames = iPnC.paths();
     const unsigned int kFirstEndPathIndex = pathNames.size();
 
-    const std::string kPathEnded("PathEnded");
-    const std::string kEndPathStart("EndPathStart");
+    const std::string kPathEnded("@PathEnded");
+    const std::string kEndPathStart("@EndPathStart");
+    
+    //The finished processing depends on all paths and end paths
+    const std::string kFinishedProcessing("@FinishedProcessing");
+    const unsigned int kFinishedProcessingIndex{0};
+    moduleIndexToNames.insert(std::make_pair(kFinishedProcessingIndex,
+                                             kFinishedProcessing));
+
 
     pathNames.insert(pathNames.end(), iPnC.endPaths().begin(), iPnC.endPaths().end());
     std::vector<std::vector<unsigned int>> pathIndexToModuleIndexOrder(pathNames.size());
@@ -234,6 +251,8 @@ namespace edm {
             //first time for this path
             unsigned int const moduleIndex = description->id();
             pathOrder.push_back(moduleIndex);
+            auto& paths =moduleIndexToPathIndex[moduleIndex];
+            paths.push_back(pathIndex);
             if(lastModuleIndex  != kInvalidIndex ) {
               edgeToPathMap[std::make_pair(moduleIndex,lastModuleIndex)].push_back(pathIndex);
             }
@@ -242,23 +261,42 @@ namespace edm {
         }
         //Have TriggerResults depend on the end of all paths 
         // Have all EndPaths depend on TriggerResults
+        auto labelToID = pathStatusInserterModuleLabelToModuleID.find(pathNames[pathIndex]);
+        if(labelToID == pathStatusInserterModuleLabelToModuleID.end()) {
+          // should never happen
+          throw Exception(errors::LogicError)
+            << "PathsAndConsumesOfModules::moduleDescription:checkForModuleDependencyCorrectness Could not find PathStatusInserter\n";
+        }
+        unsigned int pathStatusInserterModuleID = labelToID->second;
         if( pathIndex < kFirstEndPathIndex) {
-          if( (lastModuleIndex  != kInvalidIndex) and (kTriggerResultsIndex != kInvalidIndex) ) {
-            ++kPathToTriggerResultsDependencyLastIndex;
-            edgeToPathMap[std::make_pair(kPathToTriggerResultsDependencyLastIndex,lastModuleIndex)].push_back(pathIndex);
-            moduleIndexToNames.insert(std::make_pair(kPathToTriggerResultsDependencyLastIndex,
+          if( (lastModuleIndex  != kInvalidIndex) ) {
+            edgeToPathMap[std::make_pair(pathStatusInserterModuleID, lastModuleIndex)].push_back(pathIndex);
+            moduleIndexToNames.insert(std::make_pair(pathStatusInserterModuleID,
                                                      kPathEnded));
-            edgeToPathMap[std::make_pair(kTriggerResultsIndex, kPathToTriggerResultsDependencyLastIndex)].push_back(kDataDependencyIndex);
-            pathOrder.push_back(kPathToTriggerResultsDependencyLastIndex);
+            if (kTriggerResultsIndex != kInvalidIndex) {
+              edgeToPathMap[std::make_pair(kTriggerResultsIndex, pathStatusInserterModuleID)].push_back(kDataDependencyIndex);
+            }
+            //Need to make dependency for finished process
+            edgeToPathMap[std::make_pair(kFinishedProcessingIndex, pathStatusInserterModuleID)].push_back(kDataDependencyIndex);
+            pathOrder.push_back(pathStatusInserterModuleID);
           }
         } else {
-          if( (not moduleDescriptions->empty()) and (kTriggerResultsIndex != kInvalidIndex) ) {
+          if( (not moduleDescriptions->empty()) ) {
+            if (kTriggerResultsIndex != kInvalidIndex) {
+              ++kPathToTriggerResultsDependencyLastIndex;
+              edgeToPathMap[std::make_pair(moduleDescriptions->front()->id(),kPathToTriggerResultsDependencyLastIndex)].push_back(pathIndex);
+              moduleIndexToNames.insert(std::make_pair(kPathToTriggerResultsDependencyLastIndex,
+                                                       kEndPathStart));
+              edgeToPathMap[std::make_pair(kPathToTriggerResultsDependencyLastIndex,kTriggerResultsIndex)].push_back(kDataDependencyIndex);
+              pathOrder.insert(pathOrder.begin(),kPathToTriggerResultsDependencyLastIndex);
+            }
+            //Need to make dependency for finished process
             ++kPathToTriggerResultsDependencyLastIndex;
-            edgeToPathMap[std::make_pair(moduleDescriptions->front()->id(),kPathToTriggerResultsDependencyLastIndex)].push_back(pathIndex);
-            moduleIndexToNames.insert(std::make_pair(kPathToTriggerResultsDependencyLastIndex,
-                                                     kEndPathStart));
-            edgeToPathMap[std::make_pair(kPathToTriggerResultsDependencyLastIndex,kTriggerResultsIndex)].push_back(kDataDependencyIndex);
-            pathOrder.insert(pathOrder.begin(),kPathToTriggerResultsDependencyLastIndex);
+            edgeToPathMap[std::make_pair(pathStatusInserterModuleID, lastModuleIndex)].push_back(pathIndex);
+            moduleIndexToNames.insert(std::make_pair(pathStatusInserterModuleID,
+                                                     kPathEnded));
+            edgeToPathMap[std::make_pair(kFinishedProcessingIndex, pathStatusInserterModuleID)].push_back(kDataDependencyIndex);
+            pathOrder.push_back(pathStatusInserterModuleID);
           }
         }
       }
@@ -270,10 +308,39 @@ namespace edm {
         unsigned int const moduleIndex = description->id();
         auto const& dependentModules = iPnC.modulesWhoseProductsAreConsumedBy(moduleIndex);
         for(auto const& depDescription: dependentModules) {
-          edgeToPathMap[std::make_pair(moduleIndex, depDescription->id())].push_back(kDataDependencyIndex);
           if(iPrintDependencies) {
             edm::LogAbsolute("ModuleDependency") << "ModuleDependency '" << description->moduleLabel() <<
             "' depends on data products from module '" << depDescription->moduleLabel()<<"'";
+          }
+          //see if all paths containing this module also contain the dependent module earlier in the path
+          // if it does, then treat this only as a path dependency and not a data dependency as this
+          // simplifies the circular dependency checking logic
+          auto depID =depDescription->id();
+          auto itPathsFound = moduleIndexToPathIndex.find(moduleIndex);
+          bool keepDataDependency = true;
+          auto itDepsPathsFound =moduleIndexToPathIndex.find(depID);
+          if(itPathsFound != moduleIndexToPathIndex.end() and itDepsPathsFound != moduleIndexToPathIndex.end()) {
+            keepDataDependency = false;
+            for(auto const pathIndex: itPathsFound->second) {
+              for(auto idToCheck: pathIndexToModuleIndexOrder[pathIndex]) {
+                if(idToCheck == depID) {
+                  //found dependent module first so check next path
+                  break;
+                }
+                if(idToCheck == moduleIndex) {
+                  //did not find dependent module earlier on path so
+                  // must keep data dependency
+                  keepDataDependency = true;
+                  break;
+                }
+              }
+              if(keepDataDependency) {
+                break;
+              }
+            }
+          }
+          if(keepDataDependency) {
+            edgeToPathMap[std::make_pair(moduleIndex, depID)].push_back(kDataDependencyIndex);
           }
         }
       }

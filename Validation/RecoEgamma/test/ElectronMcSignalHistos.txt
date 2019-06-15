@@ -117,7 +117,7 @@ ElectronMcSignalValidator/h_ele_hcalDepth2OverEcalBc            1 1 0 0
 ElectronMcSignalValidator/h_ele_hcalDepth2OverEcalBc_barrel     1 1 0 0
 ElectronMcSignalValidator/h_ele_hcalDepth2OverEcalBc_endcaps    1 1 1 0
 ElectronMcSignalValidator/h_ele_HoE_fiducial                1 1 1 0
-ElectronMcSignalValidator/h_ele_sigmaIetaIetaVsPt_pfx       1 1 1 0
+ElectronMcSignalValidator/h_ele_sigmaIetaIetaVsPt_pfx       0 1 1 0
 ElectronMcSignalValidator/h_scl_sigietaieta                 1 1 0 0
 ElectronMcSignalValidator/h_scl_sigietaieta_barrel          1 1 0 0
 ElectronMcSignalValidator/h_scl_sigietaieta_endcaps         1 1 1 0
@@ -254,9 +254,9 @@ ElectronMcSignalValidator/h_ele_chargeInfo    1 1 1 1 0
 
 Provenance
 
-ElectronMcSignalValidator/h_ele_provenance                  1 1 0 0
-ElectronMcSignalValidator/h_ele_provenance_barrel           1 1 0 0
-ElectronMcSignalValidator/h_ele_provenance_endcaps          1 1 1 0
+ElectronMcSignalValidator/h_ele_provenance                  0 1 0 0
+ElectronMcSignalValidator/h_ele_provenance_barrel           0 1 0 0
+ElectronMcSignalValidator/h_ele_provenance_endcaps          0 1 1 0
 ElectronMcSignalValidator/h_ele_mva                         1 1 0 0
 ElectronMcSignalValidator/h_ele_mva_barrel                  1 1 0 0
 ElectronMcSignalValidator/h_ele_mva_endcaps                 1 1 1 0

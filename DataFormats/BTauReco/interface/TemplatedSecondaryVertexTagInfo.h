@@ -16,7 +16,6 @@
 #include "DataFormats/BTauReco/interface/CandIPTagInfo.h"
 #include "DataFormats/Candidate/interface/VertexCompositePtrCandidate.h"
 #include <functional>
-#include <ext/functional>
 #include <algorithm>
 
 #include "FWCore/Utilities/interface/EDMException.h"
@@ -97,7 +96,7 @@ class TemplatedSecondaryVertexTagInfo : public BaseTagInfo {
 	typedef typename IPTI::input_container input_container;
 
 	TemplatedSecondaryVertexTagInfo() {}
-	virtual ~TemplatedSecondaryVertexTagInfo() {}
+	~TemplatedSecondaryVertexTagInfo() override {}
 
 	TemplatedSecondaryVertexTagInfo(
 	                const std::vector<IndexedTrackData> &trackData,
@@ -106,14 +105,14 @@ class TemplatedSecondaryVertexTagInfo : public BaseTagInfo {
 			 const edm::Ref<std::vector<IPTI> >&);
 
         /// clone
-        virtual TemplatedSecondaryVertexTagInfo * clone(void) const {
+        TemplatedSecondaryVertexTagInfo * clone(void) const override {
             return new TemplatedSecondaryVertexTagInfo(*this);
         }
   
 	const edm::Ref<std::vector<IPTI> > &trackIPTagInfoRef() const
 	{ return m_trackIPTagInfoRef; }
 
-	virtual edm::RefToBase<Jet> jet(void) const
+	edm::RefToBase<Jet> jet(void) const override
 	{ return m_trackIPTagInfoRef->jet(); }
 
 //	virtual input_container ipTracks(void) const
@@ -156,7 +155,7 @@ class TemplatedSecondaryVertexTagInfo : public BaseTagInfo {
         }
 	const GlobalVector &flightDirection(unsigned int index) const
 	{ return m_svData[index].direction; }
-	virtual TaggingVariableList taggingVariables() const;
+	TaggingVariableList taggingVariables() const override;
 	
 	// Used by ROOT storage
 	CMS_CLASS_VERSION(11)

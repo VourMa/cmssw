@@ -51,9 +51,9 @@ namespace reco {
 
     explicit ConversionTrackProducer(const edm::ParameterSet& conf);
 
-    virtual ~ConversionTrackProducer();
+    ~ConversionTrackProducer() override;
 
-    virtual void produce(edm::Event& e, const edm::EventSetup& c);
+    void produce(edm::Event& e, const edm::EventSetup& c) override;
 
   private:
 
@@ -65,6 +65,7 @@ namespace reco {
     edm::EDGetTokenT<TrajGsfTrackAssociationCollection> gsfTrajectories;
     bool useTrajectory;
     bool setTrackerOnly;
+    bool setIsGsfTrackOpen;
     bool setArbitratedEcalSeeded;
     bool setArbitratedMerged;
     bool setArbitratedMergedEcalGeneral;

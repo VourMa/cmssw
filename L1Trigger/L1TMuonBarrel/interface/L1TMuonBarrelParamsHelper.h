@@ -19,13 +19,12 @@
 #include "CondFormats/L1TObjects/interface/L1TriggerLutFile.h"
 #include "CondFormats/L1TObjects/interface/DTTFBitArray.h"
 
-#include "L1Trigger/L1TCommon/interface/XmlConfigReader.h"
-#include "L1Trigger/L1TCommon/interface/TrigSystem.h"
-#include "L1Trigger/L1TCommon/interface/Setting.h"
+#include "L1Trigger/L1TCommon/interface/TriggerSystem.h"
+#include "L1Trigger/L1TCommon/interface/Parameter.h"
 #include "L1Trigger/L1TCommon/interface/Mask.h"
 
-#include "CondFormats/L1TObjects/interface/L1MuDTQualPatternLut.h"
-#include "CondFormats/L1TObjects/interface/L1MuDTEtaPatternLut.h"
+#include "L1Trigger/L1TMuonBarrel/interface/L1MuBMTQualPatternLut.h"
+#include "L1Trigger/L1TMuonBarrel/interface/L1MuBMTEtaPatternLut.h"
 
 typedef std::map<short, short, std::less<short> > LUT;
 
@@ -38,11 +37,11 @@ public:
 	~L1TMuonBarrelParamsHelper() {};
 
 	void configFromPy(std::map<std::string, int>& allInts, std::map<std::string, bool>& allBools, std::map<std::string, std::vector<std::string> > allMasks, unsigned int fwVersion, const std::string& AssLUTpath);
-	void configFromDB(l1t::TrigSystem& trgSys);
+	void configFromDB(l1t::TriggerSystem& trgSys);
 
 
 
-  std::string AssLUTPath() const  { return pnodes_[CONFIG].sparams_.size() > 0 ? pnodes_[CONFIG].sparams_[0] : ""; }
+  std::string AssLUTPath() const  { return !pnodes_[CONFIG].sparams_.empty() ? pnodes_[CONFIG].sparams_[0] : ""; }
   void setAssLUTPath        (std::string path) { pnodes_[CONFIG].sparams_.push_back(path); }
   
   void setpta_lut(std::vector<LUT> ptalut) { lutparams_.pta_lut_ = ptalut; };
@@ -107,11 +106,10 @@ public:
 ///  friend std::ostream& operator<<(std::ostream& o, const L1TMuonBarrelParams & p) { p.print(o); return o; }
 
 //  L1MuDTExtLut        l1mudttfextlut;
-  L1MuDTQualPatternLut l1mudttfqualplut;
-  L1MuDTEtaPatternLut  l1mudttfetaplut;
+  L1MuBMTQualPatternLut l1mudttfqualplut;
+  L1MuBMTEtaPatternLut  l1mudttfetaplut;
 
 private:
-	l1t::TrigSystem m_trgSys;
 
 	int load_pt(std::vector<LUT>& , std::vector<int>&, unsigned short int, std::string);
 	int load_phi(std::vector<LUT>& , unsigned short int, unsigned short int, std::string);

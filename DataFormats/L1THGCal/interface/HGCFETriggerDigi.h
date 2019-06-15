@@ -43,7 +43,9 @@ namespace l1t {
     typedef std::vector<bool> data_payload;
     typedef uint32_t key_type; 
 
-    HGCFETriggerDigi() : codec_((unsigned char)0xffff) {}
+    HGCFETriggerDigi() : codec_((unsigned char)0xffff) {
+      detid_ = 0;
+    }
     ~HGCFETriggerDigi() {}
     
     //detector id information
@@ -75,7 +77,7 @@ namespace l1t {
           << " given to data encoded with HGC codec type: " 
           << codec_ << std::dec;
       }
-      data = codec.decode(data_);
+      data = codec.decode(data_, detid_);
     }
  
     void print(std::ostream& out) const;
@@ -96,7 +98,7 @@ namespace l1t {
         << " given to data encoded with HGC codec type: " 
         << codec_;
     }
-    out << codec.decode(data_);
+    out << codec.decode(data_, detid_);
     out << std::endl << " decoded from: " << std::endl;
     this->print(out);
   }

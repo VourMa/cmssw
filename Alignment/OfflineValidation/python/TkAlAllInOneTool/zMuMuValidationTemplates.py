@@ -1,48 +1,10 @@
 ZMuMuValidationTemplate="""
-import FWCore.ParameterSet.Config as cms
-
-process = cms.Process("ONLYHISTOS")
-
-
-# Messages
-process.load("FWCore.MessageService.MessageLogger_cfi")
-process.MessageLogger.destinations = ['cout', 'cerr']
-process.MessageLogger.cerr.FwkReport.reportEvery = 5000
-
-
-########### DATA FILES  ####################################
-.oO[datasetDefinition]Oo.
-# process.load("Alignment.OfflineValidation..oO[dataset]Oo._cff")
-
-#process.load("Geometry.CMSCommonData.cmsIdealGeometryXML_cfi")
-#process.load("Geometry.CommonDetUnit.globalTrackingGeometry_cfi")
-process.load("RecoMuon.DetLayers.muonDetLayerGeometry_cfi")
-process.load("Geometry.MuonNumbering.muonNumberingInitialization_cfi")
-process.load("RecoMuon.TrackingTools.MuonServiceProxy_cff")
-
-########### standard includes ##############################
-process.load("Configuration.StandardSequences..oO[magneticField]Oo._cff")
-process.load("Configuration.StandardSequences.Reconstruction_cff")
-process.load("Configuration.Geometry.GeometryRecoDB_cff")
-
-
-########### DATABASE conditions ############################
-.oO[LoadGlobalTagTemplate]Oo.
-
-.oO[condLoad]Oo.
-
-########### TRACK REFITTER #################################
-process.load("RecoTracker.TrackProducer.TrackRefitters_cff")
-process.TrackRefitter.src = 'ALCARECOTkAlZMuMu'
-process.TrackRefitter.TrajectoryInEvent = True
-process.TrackRefitter.TTRHBuilder = "WithAngleAndTemplate"
-process.TrackRefitter.NavigationSchool = ""
 
 ###### MuSclFit SETTINGS  ##############################################
 
 
-### MuScleFit specific configuration 
- 
+### MuScleFit specific configuration
+
 process.looper = cms.Looper(
     "MuScleFit",
     # Only used when reading events from a root tree
@@ -50,14 +12,14 @@ process.looper = cms.Looper(
 
     # Specify a file if you want to read events from a root tree in a local file.
     # In this case the input source should be an empty source with 0 events.
-    
+
     InputRootTreeFileName = cms.string(""),
-    
+
     # Specify the file name where you want to save a root tree with the muon pairs.
     # Leave empty if no file should be written.
-    
+
     OutputRootTreeFileName = cms.string(""),
-    
+
 
     # Choose the kind of muons you want to run on
     # -------------------------------------------
@@ -77,7 +39,14 @@ process.looper = cms.Looper(
     # The resonances are to be specified in this order:
     # Z0, Y(3S), Y(2S), Y(1S), Psi(2S), J/Psi
     # -------------------------------------------------
-    resfind = cms.vint32(1, 0, 0, 0, 0, 0),
+    resfind = cms.vint32(
+      int(".oO[resonance]Oo." == "Z"),
+      int(".oO[resonance]Oo." == "Y3S"),
+      int(".oO[resonance]Oo." == "Y2S"),
+      int(".oO[resonance]Oo." == "Y1S"),
+      int(".oO[resonance]Oo." == "Psi2S"),
+      int(".oO[resonance]Oo." == "JPsi")
+    ),
 
     # Likelihood settings
     # -------------------
@@ -113,11 +82,11 @@ process.looper = cms.Looper(
     parSmear = cms.vdouble(),
 
     ### taken from J/Psi #########################
-#    ResolFitType = cms.int32(14), 
+#    ResolFitType = cms.int32(14),
 #    parResol = cms.vdouble(0.007,0.015, -0.00077, 0.0063, 0.0018, 0.0164),
 #    parResolFix = cms.vint32(0, 0, 0,0, 0,0),
 #    parResolOrder = cms.vint32(0, 0, 0, 0, 0, 0),
-    ResolFitType = cms.int32(0), 
+    ResolFitType = cms.int32(0),
     parResol = cms.vdouble(0),
     parResolFix = cms.vint32(0),
     parResolOrder = cms.vint32(0),
@@ -138,7 +107,7 @@ process.looper = cms.Looper(
     parScale = cms.vdouble(0),
 
 
-    
+
     # ---------------------------- #
     # Cross section fit parameters #
     # ---------------------------- #
@@ -193,8 +162,8 @@ process.looper = cms.Looper(
     MinMuonEtaSecondRange = cms.untracked.double(.oO[etaminpos]Oo.),
     MaxMuonEtaSecondRange = cms.untracked.double(.oO[etamaxpos]Oo.),
     PileUpSummaryInfo = cms.untracked.InputTag("addPileupInfo"),
-    PrimaryVertexCollection = cms.untracked.InputTag("offlinePrimaryVertices"),    
-    
+    PrimaryVertexCollection = cms.untracked.InputTag("offlinePrimaryVertices"),
+
     # The following parameters can be used to filter events
     TriggerResultsLabel = cms.untracked.string("TriggerResults"),
     TriggerResultsProcess = cms.untracked.string("HLT"),
@@ -204,21 +173,34 @@ process.looper = cms.Looper(
     debug = cms.untracked.int32(0),
 )
 
-###### FINAL SEQUENCE ##############################################
+"""
 
+
+####################################################################
+####################################################################
+LoadMuonModules = """
+process.load("RecoMuon.DetLayers.muonDetLayerGeometry_cfi")
+process.load("Geometry.MuonNumbering.muonNumberingInitialization_cfi")
+process.load("RecoMuon.TrackingTools.MuonServiceProxy_cff")
+process.load("Configuration.StandardSequences.Reconstruction_cff")
+"""
+
+
+####################################################################
+####################################################################
+ZMuMuPath = """
 process.p = cms.Path(
     process.offlineBeamSpot*process.TrackRefitter
     )
-    
 """
 
 
 ####################################################################
 ####################################################################
 zMuMuScriptTemplate="""
-#!/bin/bash 
+#!/bin/bash
 source /afs/cern.ch/cms/caf/setup.sh
-eos='/afs/cern.ch/project/eos/installation/cms/bin/eos.select'
+export X509_USER_PROXY=.oO[scriptsdir]Oo./.user_proxy
 
 echo  -----------------------
 echo  Job started at `date`
@@ -236,7 +218,7 @@ rfmkdir -p .oO[logdir]Oo.
 rm -f .oO[logdir]Oo./*.stdout
 rm -f .oO[logdir]Oo./*.stderr
 
-if [[ $HOSTNAME = lxplus[0-9]*\.cern\.ch ]] # check for interactive mode
+if [[ $HOSTNAME = lxplus[0-9]*[.a-z0-9]* ]] # check for interactive mode
 then
     rfmkdir -p .oO[workdir]Oo.
     rm -f .oO[workdir]Oo./*
@@ -249,9 +231,9 @@ fi
 
 .oO[CommandLine]Oo.
 
-ls -lh . 
+ls -lh .
 
-cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/CompareBiasZValidation.cc .
+cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/CompareBias.oO[resonance]Oo.Validation.cc .
 cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/Legend.h .
 cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/FitMassSlices.cc .
 cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/FitSlices.cc .
@@ -259,7 +241,7 @@ cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/FitXslices.c
 cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/FitWithRooFit.cc .
 cp .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/FitMass1D.cc .
 
-root -q -b -l "CompareBiasZValidation.cc+(.oO[rebinphi]Oo., .oO[rebinetadiff]Oo., .oO[rebineta]Oo., .oO[rebinpt]Oo.)"
+root -q -b -l "CompareBias.oO[resonance]Oo.Validation.cc+(.oO[rebinphi]Oo., .oO[rebinetadiff]Oo., .oO[rebineta]Oo., .oO[rebinpt]Oo.)"
 
 cp  .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/tdrstyle.C .
 cp  .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/MultiHistoOverlap_.oO[resonance]Oo..C .
@@ -267,7 +249,7 @@ cp  .oO[MuonAnalysis/MomentumScaleCalibration]Oo./test/Macros/RooFit/MultiHistoO
 if [[ .oO[zmumureference]Oo. == *store* ]]; then xrdcp -f .oO[zmumureference]Oo. BiasCheck_Reference.root; else ln -fs .oO[zmumureference]Oo. ./BiasCheck_Reference.root; fi
 root -q -b -l MultiHistoOverlap_.oO[resonance]Oo..C
 
-$eos mkdir -p /store/caf/user/$USER/.oO[eosdir]Oo./plots/
+eos mkdir -p /store/caf/user/$USER/.oO[eosdir]Oo./plots/
 for RootOutputFile in $(ls *root )
 do
     xrdcp -f ${RootOutputFile}  root://eoscms//eos/cms/store/caf/user/$USER/.oO[eosdir]Oo./
@@ -283,7 +265,7 @@ done
 
 echo  -----------------------
 echo  Job ended at `date`
-echo  -----------------------    
+echo  -----------------------
 
 """
 
@@ -302,29 +284,29 @@ root -l -x -b -q TkAlMergeZmumuPlots.C++
 ######################################################################
 
 mergeZmumuPlotsTemplate="""
-#include "MuonAnalysis/MomentumScaleCalibration/test/Macros/RooFit/MultiHistoOverlapAll_Z.C"
+#include "MuonAnalysis/MomentumScaleCalibration/test/Macros/RooFit/MultiHistoOverlapAll_.oO[resonance]Oo..C"
 #include <sstream>
 #include <vector>
 
-template <typename T> string separatebycommas(vector<T> v)
-{
-    if (v.size()==0) return "";
-    stringstream s;
-    s << v[0];
-    for (unsigned int i = 1; i < v.size(); i++)
-        s << "," << v[i];
-    return s.str();
+template <typename T> string separatebycommas(vector<T> v){
+  if (v.size()==0) return "";
+  stringstream s;
+  s << v[0];
+  for (unsigned int i = 1; i < v.size(); i++) s << "," << v[i];
+  return s.str();
 }
 
-void TkAlMergeZmumuPlots()
-{
-    vector<string> filenames; vector<string> titles; vector<int> colors; vector<int> linestyles;
+void TkAlMergeZmumuPlots(){
+  vector<string> filenames; vector<string> titles; vector<int> colors; vector<int> linestyles;
 
-    .oO[mergeZmumuPlotsInstantiation]Oo.
+.oO[PlottingInstantiation]Oo.
 
-    TkAlStyle::legendheader = ".oO[legendheader]Oo.";
-    TkAlStyle::set(.oO[publicationstatus]Oo., .oO[era]Oo., ".oO[customtitle]Oo.", ".oO[customrighttitle]Oo.");
+  vector<int> linestyles_new, markerstyles_new;
+  for (unsigned int j=0; j<linestyles.size(); j++){ linestyles_new.push_back(linestyles.at(j) % 100); markerstyles_new.push_back(linestyles.at(j) / 100); }
 
-    MultiHistoOverlapAll_Z(separatebycommas(filenames), separatebycommas(titles), separatebycommas(colors), separatebycommas(linestyles), ".oO[datadir]Oo./ZMuMuPlots", .oO[switchONfit]Oo.);
+  TkAlStyle::legendheader = ".oO[legendheader]Oo.";
+  TkAlStyle::set(.oO[publicationstatus]Oo., .oO[era]Oo., ".oO[customtitle]Oo.", ".oO[customrighttitle]Oo.");
+
+  MultiHistoOverlapAll_.oO[resonance]Oo.(separatebycommas(filenames), separatebycommas(titles), separatebycommas(colors), separatebycommas(linestyles_new), separatebycommas(markerstyles_new), ".oO[datadir]Oo./.oO[PlotsDirName]Oo.", .oO[switchONfit]Oo., .oO[AutoSetRange]Oo., .oO[CustomMinY]Oo., .oO[CustomMaxY]Oo.);
 }
 """

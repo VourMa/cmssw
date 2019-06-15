@@ -9,7 +9,7 @@
 using namespace reco ;
 
 ElectronHcalHelper::ElectronHcalHelper( const Configuration & cfg  )
-  : cfg_(cfg), caloGeomCacheId_(0), hcalIso_(0), towerIso1_(0), towerIso2_(0),hadTower_(0) 
+  : cfg_(cfg), caloGeomCacheId_(0), hcalIso_(nullptr), towerIso1_(nullptr), towerIso2_(nullptr),hadTower_(nullptr) 
 {  }
 
 void ElectronHcalHelper::checkSetup( const edm::EventSetup & es )
@@ -42,8 +42,8 @@ void ElectronHcalHelper::readEvent( const edm::Event & evt )
 
   if (cfg_.useTowers)
    {
-    delete towerIso1_ ; towerIso1_ = 0 ;
-    delete towerIso2_ ; towerIso2_ = 0 ;
+    delete towerIso1_ ; towerIso1_ = nullptr ;
+    delete towerIso2_ ; towerIso2_ = nullptr ;
 
     edm::Handle<CaloTowerCollection> towersH_ ;
     if (!evt.getByToken(cfg_.hcalTowers,towersH_)){
@@ -56,7 +56,7 @@ void ElectronHcalHelper::readEvent( const edm::Event & evt )
    }
   else
    {
-    delete hcalIso_ ; hcalIso_ = 0 ;
+    delete hcalIso_ ; hcalIso_ = nullptr ;
 
     edm::Handle<HBHERecHitCollection> hbhe_;
     if (!evt.getByToken(cfg_.hcalRecHits,hbhe_)) { 
@@ -106,6 +106,16 @@ double ElectronHcalHelper::hcalESumDepth2( const SuperCluster & sc ,const std::v
   else
    { return hcalIso_->getHcalESumDepth2(&sc) ; }
  }
+
+bool ElectronHcalHelper::hasActiveHcal( const reco::SuperCluster & sc ) 
+ {
+     if (cfg_.checkHcalStatus && cfg_.hOverEConeSize != 0 && cfg_.useTowers) {
+         return hadTower_->hasActiveHcal( sc );
+     } else {
+         return true;
+     }
+ }
+
 
 ElectronHcalHelper::~ElectronHcalHelper()
  {

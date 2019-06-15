@@ -2,11 +2,13 @@
 
 #include <utility>
 
-#include "DetectorDescription/Base/interface/Store.h"
+#include "DetectorDescription/Core/interface/Store.h"
 
-DDMap::DDMap() : DDBase<DDName,dd_map_type*>() { }
+DDMap::DDMap()
+  : DDBase<DDName,dd_map_type*>() { }
 
-DDMap::DDMap(const DDName & name) : DDBase<DDName,dd_map_type*>() 
+DDMap::DDMap(const DDName & name)
+  : DDBase<DDName,dd_map_type*>() 
 {
   prep_ = StoreT::instance().create(name);
 }
@@ -32,5 +34,3 @@ std::ostream & operator<<(std::ostream & os, const DDMap & cons)
   }  
   return os;
 }
-
-

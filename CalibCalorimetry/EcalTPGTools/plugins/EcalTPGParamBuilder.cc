@@ -34,7 +34,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <time.h>
+#include <ctime>
 
 #include <TF1.h>
 #include <TH2F.h>
@@ -173,10 +173,10 @@ EcalTPGParamBuilder::EcalTPGParamBuilder(edm::ParameterSet const& pSet)
   //depending on the saturation scale: Et_sat_EB_                                                                                                                                                                
   if(SFGVB_SpikeKillingThreshold_ == -1 || (SFGVB_SpikeKillingThreshold_ > Et_sat_EB_)) 
     SFGVB_SpikeKillingThreshold_ = 1023; //nokilling
-  else
+  else 
     SFGVB_SpikeKillingThreshold_ = int(SFGVB_SpikeKillingThreshold_ * 1024/Et_sat_EB_);    
-    edm::LogInfo("TopInfo") << "INFO:SPIKE KILLING THRESHOLD (ADC)=" << SFGVB_SpikeKillingThreshold_ << "\n";
-
+  edm::LogInfo("TopInfo") << "INFO:SPIKE KILLING THRESHOLD (ADC)=" << SFGVB_SpikeKillingThreshold_ << "\n";
+  
   //modif-alex-02/02/11
   //TIMING information 
   TimingDelays_EB_ = pSet.getParameter<std::string>("timing_delays_EB") ;
@@ -408,8 +408,8 @@ void EcalTPGParamBuilder::analyze(const edm::Event& evt, const edm::EventSetup& 
   evtSetup.get<EcalEndcapGeometryRecord>().get("EcalEndcap",theEndcapGeometry_handle);
   evtSetup.get<EcalBarrelGeometryRecord>().get("EcalBarrel",theBarrelGeometry_handle);
   evtSetup.get<IdealGeometryRecord>().get(eTTmap_);
-  theEndcapGeometry_ = &(*theEndcapGeometry_handle);
-  theBarrelGeometry_ = &(*theBarrelGeometry_handle);
+  theEndcapGeometry_ = theEndcapGeometry_handle.product();
+  theBarrelGeometry_ = theBarrelGeometry_handle.product();
 
   // electronics mapping
   ESHandle< EcalElectronicsMapping > ecalmapping;

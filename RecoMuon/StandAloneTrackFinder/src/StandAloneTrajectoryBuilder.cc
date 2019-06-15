@@ -278,10 +278,7 @@ StandAloneMuonTrajectoryBuilder::trajectories(const TrajectorySeed& seed){
   
   TrajectorySeed seedForBW;
 
-  if(theBWSeedType == "noSeed") {
-    TrajectorySeed seedVoid;
-    seedForBW = seedVoid;
-  }
+  if(theBWSeedType == "noSeed") { }
   else if(theBWSeedType == "fromFWFit") {
 
     
@@ -454,7 +451,7 @@ StandAloneMuonTrajectoryBuilder::propagateTheSeedTSOS(TrajectoryStateOnSurface& 
   
   DetLayerWithState result = DetLayerWithState(initialLayer,initialState);
 
-  if(detLayers.size()){
+  if(!detLayers.empty()){
 
     LogTrace(metname) << "Compatible layers:"<<endl;
     for( vector<const DetLayer*>::const_iterator layer = detLayers.begin(); 

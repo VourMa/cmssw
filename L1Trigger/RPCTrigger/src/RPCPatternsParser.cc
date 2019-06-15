@@ -29,7 +29,7 @@ string xMLCh2String(const XMLCh* ch) {
   AnsiString astr(wstr);
   return astr.c_str();
 #else
-	if(ch == 0) return "";
+	if(ch == nullptr) return "";
 
 	//unique_ptr<char> v(XMLString::transcode(ch));
   //return string(v.get());
@@ -125,6 +125,7 @@ RPCPatternsParser::RPCPatternsParser()
 
 
 RPCPatternsParser::~RPCPatternsParser() {
+   cms::concurrency::xercesTerminate();
 }
 
 void RPCPatternsParser::parse(std::string fileName)

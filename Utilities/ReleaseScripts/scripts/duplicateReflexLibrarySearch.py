@@ -9,6 +9,7 @@ import pprint
 import commands
 import subprocess
 from XML2Python import xml2obj
+import six
 
 # These aren't all typedefs, but can sometimes make the output more
 # readable
@@ -32,7 +33,9 @@ typedefsDict = \
 #Ordered List to search for matched packages
 equivDict = \
      [
-         {'TrackTriggerAssociation' : ['TTClusterAssociationMap','TTStubAssociationMap', '(TTStub|TTCluster).*edm::refhelper::FindForDetSetVector.*Phase2TrackerDigi.*']},
+	 {'TrajectoryState'         : ['TrajectoryStateOnSurface']},
+         {'TrackTriggerAssociation' : ['(TTClusterAssociationMap|TTStubAssociationMap|TTTrackAssociationMap).*Phase2TrackerDigi',
+                                       '(TTStub|TTCluster|TTTrack).*Phase2TrackerDigi']},
          {'L1TCalorimeter'        : ['l1t::CaloTower.*']},
          {'GsfTracking'           : ['reco::GsfTrack(Collection|).*(MomentumConstraint|VertexConstraint)', 'Trajectory.*reco::GsfTrack']},
          {'ParallelAnalysis'      : ['examples::TrackAnalysisAlgorithm']},
@@ -69,6 +72,7 @@ equivDict = \
          {'VertexReco'            : ['reco::Vertex']},
          {'TFWLiteSelectorTest'   : ['tfwliteselectortest']},
          {'PatCandidates'         : ['reco::RecoCandidate','pat::[A-Za-z]+Ref(Vector|)']},
+         {'TauReco'               : ['reco::PFJetRef']},
          {'JetReco'               : ['reco::.*Jet','reco::.*Jet(Collection|Ref)']},
          {'HGCDigi'               : ['HGCSample']},
      ]
@@ -85,14 +89,14 @@ def searchClassDefXml ():
     classNameRE    = re.compile (r'class\s+name\s*=\s*"([^"]*)"')
     spacesRE       = re.compile (r'\s+')
     stdRE          = re.compile (r'std::')
-    srcClassNameRE = re.compile (r'(\w+)/src/classes_def.xml')
+    srcClassNameRE = re.compile (r'(\w+)/src/classes_def.*[.]xml')
     ignoreSrcRE    = re.compile (r'.*/FWCore/Skeletons/scripts/mkTemplates/.+')
     braketRE       = re.compile (r'<.+>')
     print "Searching for 'classes_def.xml' in '%s'." % os.path.join(os.environ.get('CMSSW_BASE'),'src')
     xmlFiles = []
     for srcDir in [os.environ.get('CMSSW_BASE'),os.environ.get('CMSSW_RELEASE_BASE')]:
       if not len(srcDir): continue
-      for xml in commands.getoutput ('cd '+os.path.join(srcDir,'src')+'; find . -name "*classes_def.xml" -follow -print').split ('\n'):
+      for xml in commands.getoutput ('cd '+os.path.join(srcDir,'src')+'; find . -name "*classes_def*.xml" -follow -print').split ('\n'):
         if xml and (not xml in xmlFiles):
           xmlFiles.append(xml)
     if options.showXMLs:
@@ -178,7 +182,7 @@ def searchClassDefXml ():
             className = stdRE.sub    ('', className)
             # print "  ", className
             # Now get rid of any typedefs
-            for typedef, tdList in typedefsDict.iteritems():
+            for typedef, tdList in six.iteritems(typedefsDict):
                 for alias in tdList:
                     className = re.sub (alias, typedef, className)
             classDict.setdefault (className, set()).add (filename)
@@ -224,12 +228,11 @@ def searchClassDefXml ():
             print '\n%s\n%s\n' % (filename, dupProblems)
     # for filename
     if options.dups:
-        for name, fileSet in sorted( classDict.iteritems() ):
+        for name, fileSet in sorted( six.iteritems(classDict) ):
             if len (fileSet) < 2:
                 continue
             print name
-            fileList = list (fileSet)
-            fileList.sort()
+            fileList = sorted (fileSet)
             for filename in fileList:
                 print "  ", filename
             print

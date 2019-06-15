@@ -50,6 +50,8 @@ namespace edm {
   class ActivityRegistry;
   class ProductRegistry;
   class ThinnedAssociationsHelper;
+  class SubProcessParentageHelper;
+  class WaitingTask;
 
   template <typename T> class OutputModuleCommunicatorT;
   
@@ -67,7 +69,7 @@ namespace edm {
       typedef OutputModuleBase ModuleType;
       
       explicit OutputModuleBase(ParameterSet const& pset);
-      virtual ~OutputModuleBase();
+      ~OutputModuleBase() override;
       
       OutputModuleBase(OutputModuleBase const&) = delete; // Disallow copying and moving
       OutputModuleBase& operator=(OutputModuleBase const&) = delete; // Disallow copying and moving
@@ -92,12 +94,28 @@ namespace edm {
       static const std::string& baseType();
       static void prevalidate(ConfigurationDescriptions& );
       
+      //Output modules always need writeRun and writeLumi to be called
+      virtual bool wantsGlobalRuns() const = 0;
+      virtual bool wantsGlobalLuminosityBlocks() const = 0;
+      bool wantsStreamRuns() const {return false;}
+      bool wantsStreamLuminosityBlocks() const {return false;};
+
+      SerialTaskQueue* globalRunsQueue() { return &runQueue_;}
+      SerialTaskQueue* globalLuminosityBlocksQueue() { return &luminosityBlockQueue_;}
+      SharedResourcesAcquirer& sharedResourcesAcquirer() {
+        return resourcesAcquirer_;
+      }
+
       bool wantAllEvents() const {return wantAllEvents_;}
       
       BranchIDLists const* branchIDLists();
 
       ThinnedAssociationsHelper const* thinnedAssociationsHelper() const;
-      
+
+      SubProcessParentageHelper const* subProcessParentageHelper() const {
+         return subProcessParentageHelper_;
+      }
+
       const ModuleDescription& moduleDescription() const {
         return moduleDescription_;
       }
@@ -173,11 +191,14 @@ namespace edm {
       edm::propagate_const<std::unique_ptr<BranchIDLists>> branchIDLists_;
       BranchIDLists const* origBranchIDLists_;
 
+      SubProcessParentageHelper const* subProcessParentageHelper_;
 
       edm::propagate_const<std::unique_ptr<ThinnedAssociationsHelper>> thinnedAssociationsHelper_;
       std::map<BranchID, bool> keepAssociation_;
 
       SharedResourcesAcquirer resourcesAcquirer_;
+      SerialTaskQueue runQueue_;
+      SerialTaskQueue luminosityBlockQueue_;
 
       //------------------------------------------------------------------
       // private member functions
@@ -190,26 +211,18 @@ namespace edm {
       void doOpenFile(FileBlock const& fb);
       void doRespondToOpenInputFile(FileBlock const& fb);
       void doRespondToCloseInputFile(FileBlock const& fb);
-      void doPreForkReleaseResources();
-      void doPostForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren);
       void doRegisterThinnedAssociations(ProductRegistry const&,
                                          ThinnedAssociationsHelper&) { }
 
       std::string workerType() const {return "WorkerT<edm::one::OutputModuleBase>";}
       
-      SharedResourcesAcquirer& sharedResourcesAcquirer() {
-        return resourcesAcquirer_;
-      }
-      
       /// Tell the OutputModule that is must end the current file.
       void doCloseFile();
       
-      /// Tell the OutputModule to open an output file, if one is not
-      /// already open.
-      void maybeOpenFile();
-      
       void registerProductsAndCallbacks(OutputModuleBase const*, ProductRegistry const*) {}
 
+      bool needToRunSelection() const;
+      std::vector<ProductResolverIndexAndSkipBit> productsUsedBySelection() const;
       bool prePrefetchSelection(StreamID id, EventPrincipal const&, ModuleCallingContext const*);
       
       // Do the end-of-file tasks; this is only called internally, after
@@ -221,24 +234,25 @@ namespace edm {
       virtual bool shouldWeCloseFile() const {return false;}
       
       virtual void write(EventForOutput const&) = 0;
+      virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {}
+
       virtual void beginJob(){}
       virtual void endJob(){}
       virtual void writeLuminosityBlock(LuminosityBlockForOutput const&) = 0;
       virtual void writeRun(RunForOutput const&) = 0;
       virtual void openFile(FileBlock const&) {}
       virtual bool isFileOpen() const { return true; }
-      virtual void reallyOpenFile() {}
       
-      virtual void preForkReleaseResources();
-      virtual void postForkReacquireResources(unsigned int /*iChildIndex*/, unsigned int /*iNumberOfChildren*/);
-
       virtual void doBeginRun_(RunForOutput const&){}
       virtual void doEndRun_(RunForOutput const& ){}
       virtual void doBeginLuminosityBlock_(LuminosityBlockForOutput const&){}
       virtual void doEndLuminosityBlock_(LuminosityBlockForOutput const&){}
       virtual void doRespondToOpenInputFile_(FileBlock const&) {}
       virtual void doRespondToCloseInputFile_(FileBlock const&) {}
-      
+
+      bool hasAcquire() const { return false; }
+      bool hasAccumulator() const { return false; }
+
       void keepThisBranch(BranchDescription const& desc,
                           std::map<BranchID, BranchDescription const*>& trueBranchIDToKeptBranchDesc,
                           std::set<BranchID>& keptProductsInEvent);

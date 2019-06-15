@@ -1,6 +1,9 @@
 #ifndef CalibratedElectronProducer_h
 #define CalibratedElectronProducer_h
 
+#include <iostream>
+#include <string>
+
 #include "DataFormats/Common/interface/Handle.h"
 #include "FWCore/Framework/interface/one/EDAnalyzer.h"
 #include "FWCore/Framework/interface/Event.h"
@@ -17,8 +20,8 @@ class GBRForestGetterFromDB: public edm::one::EDAnalyzer<>
 {
     public:
         explicit GBRForestGetterFromDB( const edm::ParameterSet & ) ;
-        virtual ~GBRForestGetterFromDB() ;
-        virtual void analyze( const edm::Event &, const edm::EventSetup & ) override ;
+        ~GBRForestGetterFromDB() override ;
+        void analyze( const edm::Event &, const edm::EventSetup & ) override ;
 
     private:
         std::string theGBRForestName;

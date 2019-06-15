@@ -8,10 +8,11 @@
 #include "RecoLocalCalo/EcalRecAlgos/interface/EcalSeverityLevelAlgoRcd.h"
 #include "CommonTools/Utils/interface/StringToEnumValue.h"
 
+//#define EDM_ML_DEBUG
 
 CaloTowersCreator::CaloTowersCreator(const edm::ParameterSet& conf) : 
   algo_(conf.getParameter<double>("EBThreshold"),
-	      conf.getParameter<double>("EEThreshold"),
+	conf.getParameter<double>("EEThreshold"),
 
 	conf.getParameter<bool>("UseEtEBTreshold"),
 	conf.getParameter<bool>("UseEtEETreshold"),
@@ -19,17 +20,21 @@ CaloTowersCreator::CaloTowersCreator(const edm::ParameterSet& conf) :
 	conf.getParameter<bool>("UseSymEETreshold"),
 
 
-	      conf.getParameter<double>("HcalThreshold"),
-	      conf.getParameter<double>("HBThreshold"),
-	      conf.getParameter<double>("HESThreshold"),
-	      conf.getParameter<double>("HEDThreshold"),
+	conf.getParameter<double>("HcalThreshold"),
+	conf.getParameter<double>("HBThreshold"),
+	conf.getParameter<double>("HBThreshold1"),
+	conf.getParameter<double>("HBThreshold2"),
+	conf.getParameter<double>("HESThreshold"),
+	conf.getParameter<double>("HESThreshold1"),
+	conf.getParameter<double>("HEDThreshold"),
+	conf.getParameter<double>("HEDThreshold1"),
 	conf.getParameter<double>("HOThreshold0"),
 	conf.getParameter<double>("HOThresholdPlus1"),
 	conf.getParameter<double>("HOThresholdMinus1"),
 	conf.getParameter<double>("HOThresholdPlus2"),
 	conf.getParameter<double>("HOThresholdMinus2"),
-	      conf.getParameter<double>("HF1Threshold"),
-	      conf.getParameter<double>("HF2Threshold"),
+	conf.getParameter<double>("HF1Threshold"),
+	conf.getParameter<double>("HF2Threshold"),
         conf.getParameter<std::vector<double> >("EBGrid"),
         conf.getParameter<std::vector<double> >("EBWeights"),
         conf.getParameter<std::vector<double> >("EEGrid"),
@@ -46,19 +51,19 @@ CaloTowersCreator::CaloTowersCreator(const edm::ParameterSet& conf) :
         conf.getParameter<std::vector<double> >("HF1Weights"),
         conf.getParameter<std::vector<double> >("HF2Grid"),
         conf.getParameter<std::vector<double> >("HF2Weights"),
-	      conf.getParameter<double>("EBWeight"),
-	      conf.getParameter<double>("EEWeight"),
-	      conf.getParameter<double>("HBWeight"),
-	      conf.getParameter<double>("HESWeight"),
-	      conf.getParameter<double>("HEDWeight"),
-	      conf.getParameter<double>("HOWeight"),
-	      conf.getParameter<double>("HF1Weight"),
-	      conf.getParameter<double>("HF2Weight"),
-	      conf.getParameter<double>("EcutTower"),
-	      conf.getParameter<double>("EBSumThreshold"),
-	      conf.getParameter<double>("EESumThreshold"),
-	      conf.getParameter<bool>("UseHO"),
-         // (for momentum reconstruction algorithm)
+	conf.getParameter<double>("EBWeight"),
+	conf.getParameter<double>("EEWeight"),
+	conf.getParameter<double>("HBWeight"),
+	conf.getParameter<double>("HESWeight"),
+	conf.getParameter<double>("HEDWeight"),
+	conf.getParameter<double>("HOWeight"),
+	conf.getParameter<double>("HF1Weight"),
+	conf.getParameter<double>("HF2Weight"),
+	conf.getParameter<double>("EcutTower"),
+	conf.getParameter<double>("EBSumThreshold"),
+	conf.getParameter<double>("EESumThreshold"),
+	conf.getParameter<bool>("UseHO"),
+	// (for momentum reconstruction algorithm)
         conf.getParameter<int>("MomConstrMethod"),
         conf.getParameter<double>("MomHBDepth"),
         conf.getParameter<double>("MomHEDepth"),
@@ -88,6 +93,7 @@ CaloTowersCreator::CaloTowersCreator(const edm::ParameterSet& conf) :
 
 
 {
+  algo_.setMissingHcalRescaleFactorForEcal(conf.getParameter<double>("missingHcalRescaleFactorForEcal"));
 
   // register for data access
   tok_hbhe_ = consumes<HBHERecHitCollection>(conf.getParameter<edm::InputTag>("hbheInput"));
@@ -118,16 +124,16 @@ CaloTowersCreator::CaloTowersCreator(const edm::ParameterSet& conf) :
    theEcalSeveritiesToBeUsedInBadTowers_ =  
      StringToEnumValue<EcalSeverityLevel::SeverityLevel>(conf.getParameter<std::vector<std::string> >("EcalSeveritiesToBeUsedInBadTowers") );
 
-  if (eScales_.instanceLabel=="") produces<CaloTowerCollection>();
+  if (eScales_.instanceLabel.empty()) produces<CaloTowerCollection>();
   else produces<CaloTowerCollection>(eScales_.instanceLabel);
 
-  /*
+#ifdef EDM_ML_DEBUG
   std::cout << "VI Producer " 
 	    << (useRejectedHitsOnly_ ? "use rejectOnly " : " ")
 	    << (allowMissingInputs_ ? "allowMissing " : " " )
 	    <<  nLabels << ' ' << severitynames.size() 
 	    << std::endl;
-  */
+#endif
 }
 
 void CaloTowersCreator::produce(edm::Event& e, const edm::EventSetup& c) {
@@ -195,7 +201,7 @@ void CaloTowersCreator::produce(edm::Event& e, const edm::EventSetup& c) {
   algo_.setUseRejectedRecoveredHcalHits(useRejectedRecoveredHcalHits_);
   algo_.setUseRejectedRecoveredEcalHits(useRejectedRecoveredEcalHits_);
 
-  /*
+#ifdef EDM_ML_DEBUG
   std::cout << "VI Produce: " 
 	    << (useRejectedHitsOnly_ ? "use rejectOnly " : " ")
 	    << (allowMissingInputs_ ? "allowMissing " : " " )
@@ -204,7 +210,7 @@ void CaloTowersCreator::produce(edm::Event& e, const edm::EventSetup& c) {
 	    << ' ' << theEcalSeveritiesToBeExcluded_.size()
 	    << ' ' << theEcalSeveritiesToBeUsedInBadTowers_.size() 
 	    << std::endl;
-  */
+#endif
 
   algo_.begin(); // clear the internal buffer
 
@@ -235,7 +241,7 @@ void CaloTowersCreator::produce(edm::Event& e, const edm::EventSetup& c) {
     edm::Handle<EcalRecHitCollection> ec_tmp;
     
     if (! e.getByToken(*i,ec_tmp) ) continue;
-    if (ec_tmp->size()==0) continue;
+    if (ec_tmp->empty()) continue;
 
     // check if this is EB or EE
     if ( (ec_tmp->begin()->detid()).subdetId() == EcalBarrel ) {
@@ -279,15 +285,21 @@ void CaloTowersCreator::produce(edm::Event& e, const edm::EventSetup& c) {
   // Step C: Process
   algo_.finish(*prod);
 
-  /*
+#ifdef EDM_ML_DEBUG
   int totc=0; float totE=0;
   reco::LeafCandidate::LorentzVector totP4;
-  for (auto const & tw : (*prod) ) { totc += tw.constituents().size(); totE+=tw.energy(); totP4+=tw.p4();}
+  for (auto const & tw : (*prod) ) { 
+    totc += tw.constituents().size(); 
+    totE+=tw.energy(); 
+    totP4+=tw.p4();
+    std::cout << "CaloTowerCreator: " << tw.id() << " with E " << tw.energy()
+	      << " and " << tw.constituents().size() << " constituents\n";
+  }
   std::cout << "VI " << (*prod).size() << " " << totc << " " << totE << " " << totP4 << std::endl;
-  */
+#endif
 
   // Step D: Put into the event
-  if (eScales_.instanceLabel=="") e.put(std::move(prod));
+  if (eScales_.instanceLabel.empty()) e.put(std::move(prod));
   else e.put(std::move(prod),eScales_.instanceLabel);
 
 
@@ -305,6 +317,8 @@ void CaloTowersCreator::fillDescriptions(edm::ConfigurationDescriptions& descrip
 	desc.add<double>("HOThresholdPlus2", 3.5);
 	desc.add<double>("HOThresholdMinus2", 3.5);
 	desc.add<double>("HBThreshold", 0.7);
+	desc.add<double>("HBThreshold1", 0.7);
+	desc.add<double>("HBThreshold2", 0.7);
 	desc.add<double>("HF1Threshold", 0.5);
 	desc.add<double>("HEDWeight", 1.0);
 	desc.add<double>("EEWeight", 1.0);
@@ -316,7 +330,9 @@ void CaloTowersCreator::fillDescriptions(edm::ConfigurationDescriptions& descrip
 	desc.add<double>("HcalThreshold", -1000.0);
 	desc.add<double>("HF2Threshold", 0.85);
 	desc.add<double>("HESThreshold", 0.8);
+	desc.add<double>("HESThreshold1", 0.8);
 	desc.add<double>("HEDThreshold", 0.8);
+	desc.add<double>("HEDThreshold1", 0.8);
 	desc.add<double>("EcutTower", -1000.0);
 	desc.add<double>("HBWeight", 1.0);
 	desc.add<double>("MomHBDepth", 0.2);
@@ -333,6 +349,7 @@ void CaloTowersCreator::fillDescriptions(edm::ConfigurationDescriptions& descrip
 	desc.add<bool>("UseRejectedHitsOnly", false);
 	desc.add<bool>("UseRejectedRecoveredHcalHits", true);
 	desc.add<bool>("UseRejectedRecoveredEcalHits", false);
+	desc.add<double>("missingHcalRescaleFactorForEcal", 0.0);
 	desc.add<bool>("AllowMissingInputs", false);
 	desc.add<std::vector<double> >("HBGrid", {-1.0, 1.0, 10.0, 100.0, 1000.0});
 	desc.add<std::vector<double> >("EEWeights", {1.0, 1.0, 1.0, 1.0, 1.0});

@@ -2,8 +2,8 @@
 
 #include <ostream>
 
-#include "DetectorDescription/Base/interface/Store.h"
-#include "Division.h"
+#include "DetectorDescription/Core/interface/Store.h"
+#include "DetectorDescription/Core/src/Division.h"
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 using DDI::Division;

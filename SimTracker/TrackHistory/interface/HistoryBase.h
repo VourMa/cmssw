@@ -100,29 +100,16 @@ public:
     //! Returns a pointer to most primitive status 1 or 2 particle in the genParticleTrail_.
     const HepMC::GenParticle * genParticle() const
     {
-        if ( genParticleTrail_.empty() ) return 0;
+        if ( genParticleTrail_.empty() ) return nullptr;
         return genParticleTrail_[genParticleTrail_.size()-1];
     }
     
     //! Returns a pointer to most primitive status 1 or 2 particle in the recoGenParticleTrail_.
     const reco::GenParticle * recoGenParticle() const
     {
-        if ( recoGenParticleTrail_.empty() ) return 0;
+        if ( recoGenParticleTrail_.empty() ) return nullptr;
         return recoGenParticleTrail_[recoGenParticleTrail_.size()-1];
     }
-
-protected:
-
-    // History cointainers
-    GenVertexTrail genVertexTrail_;
-    GenParticleTrail genParticleTrail_;
-    RecoGenParticleTrail recoGenParticleTrail_;
-    SimVertexTrail simVertexTrail_;
-    SimParticleTrail simParticleTrail_;
-
-    // Helper function to speedup search
-    GenVertexTrailHelper genVertexTrailHelper_;
-    RecoGenParticleTrailHelper recoGenParticleTrailHelper_;
 
     //! Evaluate track history using a TrackingParticleRef.
     /* Return false when the history cannot be determined upto a given depth.
@@ -151,6 +138,19 @@ protected:
         resetTrails();
         return traceSimHistory(tvr, depth_);
     }
+
+protected:
+
+    // History cointainers
+    GenVertexTrail genVertexTrail_;
+    GenParticleTrail genParticleTrail_;
+    RecoGenParticleTrail recoGenParticleTrail_;
+    SimVertexTrail simVertexTrail_;
+    SimParticleTrail simParticleTrail_;
+
+    // Helper function to speedup search
+    GenVertexTrailHelper genVertexTrailHelper_;
+    RecoGenParticleTrailHelper recoGenParticleTrailHelper_;
 
 private:
 

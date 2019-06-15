@@ -20,7 +20,7 @@ class LimitTrackAlgo:
         return True
 
 def limitRelVal(algo, quality):
-    return quality in ["", "highPurity"]
+    return quality in ["", "highPurity", "ByOriginalAlgo", "highPurityByOriginalAlgo"]
 
 def main(opts):
     sample = SimpleSample(opts.subdirprefix, opts.html_sample, [(f, f.replace(".root", "")) for f in opts.files])
@@ -45,8 +45,10 @@ def main(opts):
             "allTPEffic": limitProcessing,
             "fromPV": limitProcessing,
             "fromPVAllTP": limitProcessing,
+            "tpPtLess09": limitProcessing,
             "seeding": limitProcessing,
             "building": limitProcessing,
+            "bhadron": limitProcessing,
         }
     }
     if opts.limit_relval:
@@ -56,15 +58,16 @@ def main(opts):
             "allTPEffic": ignore,
             "fromPV": ignore,
             "fromPVAllTP": ignore,
+            "tpPtLess09": limitRelVal,
             "seeding": ignore,
-            "building": ignore,
+            "bhadron": limitRelVal,
         }
 
     trk = [trackingPlots.plotter]
-    other = [trackingPlots.timePlotter, vertexPlots.plotter]
+    other = [trackingPlots.timePlotter, vertexPlots.plotter, trackingPlots.plotterHLT]
     if opts.extended:
         trk.append(trackingPlots.plotterExt)
-        other.append(vertexPlots.plotterExt)
+        other.extend([vertexPlots.plotterExt, trackingPlots.plotterHLTExt])
     val.doPlots(trk, plotterDrawArgs=drawArgs, **kwargs_tracking)
     val.doPlots(other, plotterDrawArgs=drawArgs)
     print

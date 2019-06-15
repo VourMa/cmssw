@@ -4,16 +4,15 @@ import FWCore.ParameterSet.Config as cms
 # This object is used to make changes for different running scenarios
 #
 
-SiPixelTrackResidualSource = cms.EDAnalyzer("SiPixelTrackResidualSource",
+from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
+SiPixelTrackResidualSource = DQMEDAnalyzer('SiPixelTrackResidualSource',
     TopFolderName = cms.string('Pixel'),
     src = cms.InputTag("siPixelTrackResiduals"),
     clustersrc = cms.InputTag("siPixelClusters"),                            
-    tracksrc   = cms.InputTag("generalTracks"),
+    tracksrc   = cms.InputTag("refittedForPixelDQM"),
     debug = cms.untracked.bool(False),                          
     saveFile = cms.untracked.bool(False),
     outputFile = cms.string('Pixel_DQM_TrackResidual.root'),
-    TrackCandidateProducer = cms.string('initialStepTrackCandidates'),
-    TrackCandidateLabel = cms.string(''),
     TTRHBuilder = cms.string('WithTrackAngle'),
     Fitter = cms.string('KFFittingSmootherWithOutliersRejectionAndRK'),
     modOn = cms.untracked.bool(False),
@@ -27,7 +26,7 @@ SiPixelTrackResidualSource = cms.EDAnalyzer("SiPixelTrackResidualSource",
     PtMinRes = cms.untracked.double(4.0),
     vtxsrc= cms.untracked.string("offlinePrimaryVertices"),
 
-    trajectoryInput = cms.InputTag('generalTracks'),              
+    trajectoryInput = cms.InputTag('refittedForPixelDQM'),              
     digisrc = cms.InputTag("siPixelDigis") 
 )
 

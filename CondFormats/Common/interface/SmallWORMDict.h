@@ -5,10 +5,6 @@
 
 #include<vector>
 #include<string>
-#include<algorithm>
-#include<numeric>
-#include<exception>
-#include <boost/bind.hpp>
 #include <boost/iterator_adaptors.hpp>
 #include <boost/iterator/transform_iterator.hpp>
 #include <boost/iterator/counting_iterator.hpp>
@@ -34,7 +30,7 @@ namespace cond {
     ~SmallWORMDict();
     
     struct Frame {
-      Frame(): b(0){}
+      Frame(): b(nullptr){}
       Frame(char const * ib,
 	    unsigned int il,
 	    unsigned int iind) :
@@ -46,7 +42,7 @@ namespace cond {
 
     struct IterHelp {
       typedef Frame result_type;
-      IterHelp() : v(0){}
+      IterHelp() : v(nullptr){}
       IterHelp(SmallWORMDict const & iv) : v(&iv){}
       
       result_type const & operator()(int i) const {

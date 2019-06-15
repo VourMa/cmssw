@@ -46,7 +46,7 @@ class TTClusterBuilder : public edm::EDProducer
     /// Constructors
     explicit TTClusterBuilder( const edm::ParameterSet& iConfig );
     /// Destructor
-    ~TTClusterBuilder();
+    ~TTClusterBuilder() override;
 
   private:
     /// Data members
@@ -56,9 +56,9 @@ class TTClusterBuilder : public edm::EDProducer
     bool                                     storeLocalCoord;
 
     /// Mandatory methods
-    virtual void beginRun( const edm::Run& run, const edm::EventSetup& iSetup );
-    virtual void endRun( const edm::Run& run, const edm::EventSetup& iSetup );
-    virtual void produce( edm::Event& iEvent, const edm::EventSetup& iSetup );
+    void beginRun( const edm::Run& run, const edm::EventSetup& iSetup ) override;
+    void endRun( const edm::Run& run, const edm::EventSetup& iSetup ) override;
+    void produce( edm::Event& iEvent, const edm::EventSetup& iSetup ) override;
 
     /// Get hits
     void RetrieveRawHits( std::map< DetId, std::vector< T > > &mRawHits,
@@ -99,12 +99,6 @@ void TTClusterBuilder< T >::beginRun( const edm::Run& run, const edm::EventSetup
   /// Get the clustering algorithm 
   iSetup.get< TTClusterAlgorithmRecord >().get( theClusterFindingAlgoHandle );
 
-  /// Print some information when loaded
-  std::cout << std::endl;
-  std::cout << "TTClusterBuilder< " << templateNameFinder< T >() << " > loaded modules:"
-            << "\n\tTTClusterAlgorithm:\t" << theClusterFindingAlgoHandle->AlgorithmName()
-            << std::endl;
-  std::cout << std::endl;
 }
 
 /// End run

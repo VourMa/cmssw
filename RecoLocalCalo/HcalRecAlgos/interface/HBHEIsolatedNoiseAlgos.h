@@ -87,13 +87,13 @@ class ObjectValidator : public ObjectValidatorAbs
     MinValidTrackPt_(MinValidTrackPt),
     MinValidTrackPtBarrel_(MinValidTrackPtBarrel),
     MinValidTrackNHits_(MinValidTrackNHits),
-    theHcalChStatus_(0),
-    theEcalChStatus_(0),
-    theHcalSevLvlComputer_(0),
-    theEcalSevLvlAlgo_(0),
-    theEBRecHitCollection_(0),
-    theEERecHitCollection_(0) {}
-  virtual ~ObjectValidator();
+    theHcalChStatus_(nullptr),
+    theEcalChStatus_(nullptr),
+    theHcalSevLvlComputer_(nullptr),
+    theEcalSevLvlAlgo_(nullptr),
+    theEBRecHitCollection_(nullptr),
+    theEERecHitCollection_(nullptr) {}
+  ~ObjectValidator() override;
   
   inline void setHcalChannelQuality(const HcalChannelQuality* q) { theHcalChStatus_=q; }
   inline void setEcalChannelStatus(const EcalChannelStatus* q) { theEcalChStatus_=q; }
@@ -103,9 +103,9 @@ class ObjectValidator : public ObjectValidatorAbs
   inline void setEERecHitCollection(const EcalRecHitCollection* q) { theEERecHitCollection_=q; }
 
 
-  bool validHit(const HBHERecHit&) const;
-  bool validHit(const EcalRecHit&) const;
-  bool validTrack(const reco::Track&) const;
+  bool validHit(const HBHERecHit&) const override;
+  bool validHit(const EcalRecHit&) const override;
+  bool validTrack(const reco::Track&) const override;
 
  private:
 
@@ -117,8 +117,9 @@ class ObjectValidator : public ObjectValidatorAbs
 
   uint32_t HcalAcceptSeverityLevel_; // severity level to accept HCAL hits
   uint32_t EcalAcceptSeverityLevel_; // severity level to accept ECAL hits
-  bool UseHcalRecoveredHits_; // whether or not to use recovered HCAL hits
-  bool UseEcalRecoveredHits_; // whether or not to use recovered HCAL hits
+  bool UseHcalRecoveredHits_;  // whether or not to use recovered HCAL hits
+  bool UseEcalRecoveredHits_;  // whether or not to use recovered HCAL hits
+  bool UseAllCombinedRechits_; // whether to use all "Plan 1" combined rechits
 
   double MinValidTrackPt_; // minimum valid track pT
   double MinValidTrackPtBarrel_; // minimum valid track pT in the Barrel

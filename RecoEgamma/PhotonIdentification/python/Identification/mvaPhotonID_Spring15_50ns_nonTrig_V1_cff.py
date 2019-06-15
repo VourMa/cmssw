@@ -1,6 +1,6 @@
-from PhysicsTools.SelectorUtils.centralIDRegistry import central_id_registry
+from RecoEgamma.PhotonIdentification.Identification.mvaPhotonID_tools import *
 
-import FWCore.ParameterSet.Config as cms
+mvaVariablesFile        = "RecoEgamma/PhotonIdentification/data/PhotonMVAEstimatorRun2VariablesSpring15ValMaps.txt"
 
 #
 # In this file we define the locations of the MVA weights, cuts on the MVA values
@@ -14,11 +14,11 @@ import FWCore.ParameterSet.Config as cms
 #
 
 # This MVA implementation class name
-mvaSpring15NonTrigClassName = "PhotonMVAEstimatorRun2Spring15NonTrig"
+mvaSpring15NonTrigClassName = "PhotonMVAEstimator"
 # The tag is an extra string attached to the names of the products
 # such as ValueMaps that needs to distinguish cases when the same MVA estimator
 # class is used with different tuning/weights
-mvaTag = "50nsV1"
+mvaTag = "Run2Spring15NonTrig50nsV1"
 
 # There are 2 categories in this MVA. They have to be configured in this strict order
 # (cuts and weight files order):
@@ -26,12 +26,9 @@ mvaTag = "50nsV1"
 #   1    endcap photons
 
 mvaSpring15NonTrigWeightFiles_V1 = cms.vstring(
-    "RecoEgamma/PhotonIdentification/data/Spring15/photon_general_MVA_Spring15_50ns_EB_V1.weights.xml",
-    "RecoEgamma/PhotonIdentification/data/Spring15/photon_general_MVA_Spring15_50ns_EE_V1.weights.xml"
+    path.join(weightFileBaseDir, "Spring15/50ns_EB_V1.weights.xml.gz"),
+    path.join(weightFileBaseDir, "Spring15/50ns_EE_V1.weights.xml.gz"),
     )
-
-# Load some common definitions for MVA machinery
-from RecoEgamma.PhotonIdentification.Identification.mvaPhotonID_tools import *
 
 # The locatoins of value maps with the actual MVA values and categories
 # for all particles.
@@ -62,27 +59,7 @@ mvaPhoID_Spring15_50ns_nonTrig_V1_producer_config = cms.PSet(
     mvaName            = cms.string(mvaSpring15NonTrigClassName),
     mvaTag             = cms.string(mvaTag),
     weightFileNames    = mvaSpring15NonTrigWeightFiles_V1,
-    #
-    # All the event content needed for this MVA implementation follows
-    #
-    # All the value maps: these are expected to be produced by the
-    # PhotonIDValueMapProducer running upstream
-    #
-    useValueMaps = cms.bool(True),
-    full5x5SigmaIEtaIEtaMap   = cms.InputTag("photonIDValueMapProducer:phoFull5x5SigmaIEtaIEta"),
-    full5x5SigmaIEtaIPhiMap   = cms.InputTag("photonIDValueMapProducer:phoFull5x5SigmaIEtaIPhi"),
-    full5x5E1x3Map      = cms.InputTag("photonIDValueMapProducer:phoFull5x5E1x3"),
-    full5x5E2x2Map      = cms.InputTag("photonIDValueMapProducer:phoFull5x5E2x2"),
-    full5x5E2x5MaxMap   = cms.InputTag("photonIDValueMapProducer:phoFull5x5E2x5Max"),
-    full5x5E5x5Map      = cms.InputTag("photonIDValueMapProducer:phoFull5x5E5x5"),
-    esEffSigmaRRMap     = cms.InputTag("photonIDValueMapProducer:phoESEffSigmaRR"),
-    phoChargedIsolation = cms.InputTag("photonIDValueMapProducer:phoChargedIsolation"),
-    phoPhotonIsolation  = cms.InputTag("photonIDValueMapProducer:phoPhotonIsolation"),
-    phoWorstChargedIsolation = cms.InputTag("photonIDValueMapProducer:phoWorstChargedIsolation"),
-    #
-    # Original event content: pileup in this case
-    # 
-    rho                       = cms.InputTag("fixedGridRhoFastjetAll") 
+    variableDefinition  = cms.string(mvaVariablesFile)
     )
 # Create the VPset's for VID cuts
 mvaPhoID_Spring15_50ns_nonTrig_V1_wp90 = configureVIDMVAPhoID_V1( MVA_WP90 )

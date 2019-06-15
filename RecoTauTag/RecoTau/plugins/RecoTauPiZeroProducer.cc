@@ -43,7 +43,7 @@ class RecoTauPiZeroProducer : public edm::stream::EDProducer<> {
     typedef reco::tau::RecoTauPiZeroQualityPlugin Ranker;
 
     explicit RecoTauPiZeroProducer(const edm::ParameterSet& pset);
-    ~RecoTauPiZeroProducer() {}
+    ~RecoTauPiZeroProducer() override {}
     void produce(edm::Event& evt, const edm::EventSetup& es) override;
     void print(const std::vector<reco::RecoTauPiZero>& piZeros,
                std::ostream& out);
@@ -69,12 +69,17 @@ class RecoTauPiZeroProducer : public edm::stream::EDProducer<> {
     //consumes interface
     edm::EDGetTokenT<reco::CandidateView> cand_token;
 
+    double minJetPt_;
+    double maxJetAbsEta_;
+
     int verbosity_;
 };
 
 RecoTauPiZeroProducer::RecoTauPiZeroProducer(const edm::ParameterSet& pset) 
 {
   cand_token = consumes<reco::CandidateView>( pset.getParameter<edm::InputTag>("jetSrc"));
+  minJetPt_ = ( pset.exists("minJetPt") ) ? pset.getParameter<double>("minJetPt") : -1.0;
+  maxJetAbsEta_ = ( pset.exists("maxJetAbsEta") ) ? pset.getParameter<double>("maxJetAbsEta") : 99.0;
 
   typedef std::vector<edm::ParameterSet> VPSet;
   // Get the mass hypothesis for the pizeros
@@ -138,7 +143,7 @@ void RecoTauPiZeroProducer::produce(edm::Event& evt, const edm::EventSetup& es)
   // Make our association
   std::unique_ptr<reco::JetPiZeroAssociation> association;
 
-  if (jetRefs.size()) {
+  if (!jetRefs.empty()) {
     edm::Handle<reco::PFJetCollection> pfJetCollectionHandle;
     evt.get(jetRefs.id(), pfJetCollectionHandle);
     association = std::make_unique<reco::JetPiZeroAssociation>(reco::PFJetRefProd(pfJetCollectionHandle));
@@ -148,6 +153,9 @@ void RecoTauPiZeroProducer::produce(edm::Event& evt, const edm::EventSetup& es)
 
   // Loop over our jets
   BOOST_FOREACH(const reco::PFJetRef& jet, jetRefs) {
+
+    if(jet->pt() - minJetPt_ < 1e-5) continue;
+    if(std::abs(jet->eta()) - maxJetAbsEta_ > -1e-5) continue;
     // Build our global list of RecoTauPiZero
     PiZeroList dirtyPiZeros;
 
@@ -169,7 +177,7 @@ void RecoTauPiZeroProducer::produce(edm::Event& evt, const edm::EventSetup& es)
     // Keep track of the photons in the clean collection
     std::vector<reco::RecoTauPiZero> cleanPiZeros;
     std::set<reco::CandidatePtr> photonsInCleanCollection;
-    while (dirtyPiZeros.size()) {
+    while (!dirtyPiZeros.empty()) {
       // Pull our candidate pi zero from the front of the list
       std::auto_ptr<reco::RecoTauPiZero> toAdd(
           dirtyPiZeros.pop_front().release());
@@ -186,7 +194,7 @@ void RecoTauPiZeroProducer::produce(edm::Event& evt, const edm::EventSetup& es)
                           std::back_inserter(uniqueGammas));
       // If the pi zero has no unique gammas, discard it.  Note toAdd is deleted
       // when it goes out of scope.
-      if (!uniqueGammas.size()) {
+      if (uniqueGammas.empty()) {
         continue;
       } else if (uniqueGammas.size() == toAdd->daughterPtrVector().size()) {
         // Check if it is composed entirely of unique gammas.  In this case

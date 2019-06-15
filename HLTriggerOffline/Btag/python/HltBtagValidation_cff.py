@@ -4,7 +4,7 @@ from HLTriggerOffline.Btag.hltBtagJetMCTools_cff import *
 #denominator trigger
 hltBtagTriggerSelection = cms.EDFilter( "TriggerResultsFilter",
     triggerConditions = cms.vstring(
-      "HLT_PFMET120_* OR HLT_CaloMHTNoPU90_PFMET90_PFMHT90_IDTight_* OR HLT_QuadPFJet_VBF* OR HLT_Ele27_eta2p1_* OR HLT_IsoMu22_*"),
+      "HLT_PFMET120_PFMHT120_IDTight_v* OR HLT_PFHT330PT30_QuadPFJet_75_60_45_40_v* OR HLT_PFHT380_SixPFJet32_DoublePFBTagCSV_* OR HLT_PFHT380_SixPFJet32_DoublePFBTagDeepCSV_* OR HLT_IsoMu24_eta2p1_v*"),
     hltResults = cms.InputTag( "TriggerResults", "", "HLT" ),
 #    l1tResults = cms.InputTag( "simGtDigis" ),
     l1tResults = cms.InputTag( "" ),
@@ -15,21 +15,23 @@ hltBtagTriggerSelection = cms.EDFilter( "TriggerResultsFilter",
 hltBtagJetsbyRef.jets = cms.InputTag("ak4GenJetsNoNu")
 
 #define HltVertexValidationVertices for the vertex DQM validation
-HltVertexValidationVertices= cms.EDAnalyzer("HLTVertexPerformanceAnalyzer",
+from DQMServices.Core.DQMEDAnalyzer import DQMEDAnalyzer
+HltVertexValidationVertices= DQMEDAnalyzer('HLTVertexPerformanceAnalyzer',
         SimVertexCollection = cms.InputTag("g4SimHits"),
 	TriggerResults = cms.InputTag('TriggerResults','',"HLT"),
+	mainFolder   = cms.string("HLT/BTV/Validation"),
 	HLTPathNames =cms.vstring(
-	'HLT_PFMET120_',
-	'HLT_PFMET120_',
-	'HLT_PFMET120_',
-	'HLT_CaloMHTNoPU90_PFMET90_PFMHT90_IDTight_',
-	'HLT_CaloMHTNoPU90_PFMET90_PFMHT90_IDTight_',
-	'HLT_CaloMHTNoPU90_PFMET90_PFMHT90_IDTight_',
-	'HLT_QuadPFJet_VBF',
-	'HLT_QuadPFJet_VBF',
-	'HLT_QuadPFJet_VBF',
-	'HLT_Ele32_eta2p1_',
-	'HLT_IsoMu21_eta2p1_'
+	'HLT_PFMET120_PFMHT120_IDTight_v',
+	'HLT_PFMET120_PFMHT120_IDTight_v',
+	'HLT_PFMET120_PFMHT120_IDTight_v',
+	'HLT_PFHT330PT30_QuadPFJet_75_60_45_40_v',
+	'HLT_PFHT330PT30_QuadPFJet_75_60_45_40_v',
+	'HLT_PFHT330PT30_QuadPFJet_75_60_45_40_v',
+	'HLT_PFHT380_SixPFJet32_DoublePFBTagCSV_',
+	'HLT_PFHT380_SixPFJet32_DoublePFBTagCSV_',
+	'HLT_PFHT380_SixPFJet32_DoublePFBTagCSV_',
+	'HLT_PFHT380_SixPFJet32_DoublePFBTagDeepCSV_',
+	'HLT_IsoMu24_eta2p1_v'
 	),
 	Vertex = cms.VInputTag(
 		cms.InputTag("hltVerticesL3"), 
@@ -40,14 +42,15 @@ HltVertexValidationVertices= cms.EDAnalyzer("HLTVertexPerformanceAnalyzer",
 )
 
 #define bTagValidation for the b-tag DQM validation (distribution plot)
-hltbTagValidation = cms.EDAnalyzer("HLTBTagPerformanceAnalyzer",
+hltbTagValidation = DQMEDAnalyzer('HLTBTagPerformanceAnalyzer',
 	TriggerResults = cms.InputTag('TriggerResults','','HLT'),
+	mainFolder   = cms.string("HLT/BTV/Validation"),
 	HLTPathNames =cms.vstring(
-	'HLT_PFMET120_',
-	'HLT_CaloMHTNoPU90_PFMET90_PFMHT90_IDTight_',
-	'HLT_QuadPFJet_VBF',
-	'HLT_Ele32_eta2p1_',
-	'HLT_IsoMu21_eta2p1_'
+	'HLT_PFMET120_PFMHT120_IDTight_v',
+	'HLT_PFHT330PT30_QuadPFJet_75_60_45_40_v',
+	'HLT_PFHT380_SixPFJet32_DoublePFBTagCSV_',
+	'HLT_PFHT380_SixPFJet32_DoublePFBTagDeepCSV_',
+	'HLT_IsoMu24_eta2p1_v'
 	),
 	JetTag = cms.VInputTag(
 		cms.InputTag("hltCombinedSecondaryVertexBJetTagsCalo"),
@@ -69,7 +72,8 @@ hltbTagValidation = cms.EDAnalyzer("HLTBTagPerformanceAnalyzer",
 
 #put all in a path
 hltbtagValidationSequence = cms.Sequence(
-	hltBtagTriggerSelection +
+#	remove noisy warnings
+#	hltBtagTriggerSelection +
 	hltBtagJetMCTools +
 	HltVertexValidationVertices +
 	hltbTagValidation
@@ -77,8 +81,7 @@ hltbtagValidationSequence = cms.Sequence(
 
 # fastsim customs
 from Configuration.Eras.Modifier_fastSim_cff import fastSim
-if fastSim.isChosen():
-    HltVertexValidationVertices.SimVertexCollection = cms.InputTag("famosSimHits")
+fastSim.toModify(HltVertexValidationVertices, SimVertexCollection = "fastSimProducer")
     # are these customs actually needed?
     #HltVertexValidationVertices.HLTPathNames =cms.vstring(
     #'HLT_PFMET120_NoiseCleaned_BTagCSV07_v',

@@ -1,4 +1,3 @@
-
 #include <cmath>
 #include <iostream>
 #include <string>
@@ -6,8 +5,8 @@
 
 #include "CLHEP/Units/GlobalSystemOfUnits.h"
 #include "CLHEP/Units/SystemOfUnits.h"
-#include "DetectorDescription/Base/interface/DDRotationMatrix.h"
-#include "DetectorDescription/Base/interface/DDTranslation.h"
+#include "DetectorDescription/Core/interface/DDRotationMatrix.h"
+#include "DetectorDescription/Core/interface/DDTranslation.h"
 #include "DetectorDescription/Core/interface/DDCompactView.h"
 #include "DetectorDescription/Core/interface/DDExpandedView.h"
 #include "DetectorDescription/Core/interface/DDLogicalPart.h"
@@ -16,8 +15,6 @@
 #include "DetectorDescription/Core/interface/DDRoot.h"
 #include "DetectorDescription/Core/interface/DDSolid.h"
 #include "DetectorDescription/Core/interface/DDTransform.h"
-#include "DetectorDescription/ExprAlgo/interface/ClhepEvaluator.h"
-#include "DetectorDescription/ExprAlgo/interface/ExprEvalSingleton.h"
 #include "DetectorDescription/Parser/interface/DDLParser.h"
 #include "DetectorDescription/Parser/interface/FIPConfiguration.h"
 #include "FWCore/Utilities/interface/Exception.h"
@@ -40,8 +37,7 @@ File elements.xml:
   Material(elem) Nitrogen
   Material(elem) Oxygen  
 */
-void regressionTest_setup() {
-   ClhepEvaluator & eval = ExprEvalSingleton::instance();
+void regressionTest_setup(ClhepEvaluator& eval) {
    
    string ns = "setup"; // current namespace faking the filename 'setup.xml'
    
@@ -114,7 +110,7 @@ void regressionTest_setup() {
   File: first.xml
   
 */ 
-void regressionTest_first( ) {
+void regressionTest_first(ClhepEvaluator& eval ) {
   ///load the new cpv
   DDCompactView cpv;
   cout << "main::initialize DDL parser" << endl;
@@ -122,7 +118,6 @@ void regressionTest_first( ) {
   
   cout << "main::about to set configuration" << endl;
   
-  ClhepEvaluator & eval = ExprEvalSingleton::instance();
   string ns("first");
   DDSolid support = DDSolidFactory::box(DDName("support",ns),
 					eval.eval(ns,"[setup:corner]/4."),
@@ -214,7 +209,7 @@ void output(string filename)
        << "  " << exv.logicalPart().solid() << endl
        << "  " << exv.translation() << endl;
     os << "  " << ra.Axis() << ra.Angle()/deg << endl;
-    tvec.push_back(exv.translation());   
+    tvec.emplace_back(exv.translation());   
     loop = exv.next();
   }
   

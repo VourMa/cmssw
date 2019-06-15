@@ -13,14 +13,17 @@ class TGeoShape;
 class TFile;
 class TObjArray;
 
+#include <map>
+#include <vector>
+#include <memory>
+
+
 #include "TEveVSDStructs.h"
 #include "TGeoMatrix.h"
 
 #include "Fireworks/Core/interface/FWRecoGeom.h"
 
-#include <map>
-#include <vector>
-
+#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 class FWGeometry
 {
 public:
@@ -45,7 +48,7 @@ public:
       TNamed* cmsswVersion;
       TObjArray* extraDetectors;
 
-      VersionInfo() : productionTag(0), cmsswVersion(0), extraDetectors(0) {}
+      VersionInfo() : productionTag(nullptr), cmsswVersion(nullptr), extraDetectors(nullptr) {}
       bool haveExtraDet(const char*)const;
    };
 
@@ -119,8 +122,11 @@ public:
 
    const VersionInfo& versionInfo() const { return m_versionInfo; }
 
+   int getProducerVersion() const {return m_producerVersion;}
+   
    TGeoShape* getShape( const GeomDetInfo& info ) const;
 
+   const TrackerTopology* getTrackerTopology() const { return m_trackerTopology.get(); }
 
 private:
    mutable std::map<unsigned int, TGeoMatrix*> m_idToMatrix;
@@ -131,6 +137,9 @@ private:
 
    VersionInfo  m_versionInfo;
 
+   int m_producerVersion;
+
+   std::unique_ptr<TrackerTopology> m_trackerTopology;
 };
 
 #endif

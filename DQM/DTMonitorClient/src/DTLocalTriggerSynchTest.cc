@@ -48,7 +48,7 @@ DTLocalTriggerSynchTest::DTLocalTriggerSynchTest(const edm::ParameterSet& ps) {
   baseFolderTM = "DT/90-LocalTriggerSynch/";
   baseFolderDDU = "DT/90-LocalTriggerSynch/";
 
-  bookingdone = 0;
+  bookingdone = false;
 
 }
 
@@ -107,7 +107,7 @@ void DTLocalTriggerSynchTest::dqmEndLuminosityBlock(DQMStore::IBooker & ibooker,
     wPhaseMap = (*wPhaseHandle);
   }
 
-  bookingdone = 1; 
+  bookingdone = true; 
 
 }
   
@@ -135,7 +135,7 @@ void DTLocalTriggerSynchTest::runClientDiagnostic(DQMStore::IBooker & ibooker, D
 	  MonitorElement* ratioH = innerME.find(fullName(ratioHistoTag))->second;
 	  makeRatioME(numH,denH,ratioH);
 	  try {
-	    //Need our own copy to avoid threading problems
+            //Need our own copy to avoid threading problems
 	    TF1 mypol8("mypol8","pol8");
 	    getHisto<TH1F>(ratioH)->Fit(&mypol8,"CQO");
 	  } catch (cms::Exception& iException) {

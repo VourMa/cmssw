@@ -45,8 +45,6 @@ from RecoEgamma.Configuration.RecoEgammaCosmics_cff import *
 
 # local reco
 trackerCosmics = cms.Sequence(offlineBeamSpot*trackerlocalreco*MeasurementTrackerEvent*tracksP5)
-hbhereco = hbheprereco.clone()
-calolocalrecoCosmics.replace(hbheprereco,hbhereco)
 caloCosmics = cms.Sequence(calolocalrecoCosmics*ecalClustersCosmics)
 caloCosmics_HcalNZS = cms.Sequence(calolocalrecoCosmicsNZS*ecalClustersCosmics)
 muonsLocalRecoCosmics = cms.Sequence(muonlocalreco+muonlocalrecoT0Seg)
@@ -73,6 +71,11 @@ reconstructionCosmics         = cms.Sequence(localReconstructionCosmics*
                                              metrecoCosmics*
                                              egammaCosmics*
                                              logErrorHarvester)
+#logErrorHarvester should only wait for items produced in the reconstructionCosmics sequence
+_modulesInReconstruction = list()
+reconstructionCosmics.visit(cms.ModuleNamesFromGlobalsVisitor(globals(),_modulesInReconstruction))
+logErrorHarvester.includeModules = cms.untracked.vstring(set(_modulesInReconstruction))
+
 reconstructionCosmics_HcalNZS = cms.Sequence(localReconstructionCosmics_HcalNZS*
                                              beamhaloTracksSeq*
                                              jetsCosmics*

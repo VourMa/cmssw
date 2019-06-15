@@ -24,7 +24,7 @@
 
 #include "RecoTracker/TkMSParametrization/interface/PixelRecoUtilities.h"
 #include "DataFormats/GeometryCommonDetAlgo/interface/Measurement1D.h"
-#include "CircleFromThreePoints.h"
+#include "RecoPixelVertexing/PixelTrackFitting/interface/CircleFromThreePoints.h"
 
 #include "DataFormats/BeamSpot/interface/BeamSpot.h"
 #include "FWCore/Utilities/interface/InputTag.h"
@@ -92,7 +92,7 @@ std::unique_ptr<reco::Track> KFBasedPixelFitter::run(const std::vector<const Tra
 
   float ptMin = region.ptMin();
 
-  const GlobalPoint vertexPos = region.origin();
+  const GlobalPoint& vertexPos = region.origin();
   GlobalError vertexErr( sqr(region.originRBound()), 0, sqr(region.originRBound()), 0, 0, sqr(region.originZBound()));
 
   std::vector<GlobalPoint> points(nhits);
@@ -146,7 +146,7 @@ std::unique_ptr<reco::Track> KFBasedPixelFitter::run(const std::vector<const Tra
   // Now update initial state track using information from hits.
   TrajectoryStateOnSurface outerState;
   DetId outerDetId = 0;
-  const TrackingRecHit* hit = 0;
+  const TrackingRecHit* hit = nullptr;
   for ( unsigned int iHit = 0; iHit < hits.size(); iHit++) {
     hit = hits[iHit];
     if (iHit==0) outerState = thePropagator->propagate(fts,theTracker->idToDet(hit->geographicalId())->surface());

@@ -26,7 +26,7 @@ class ElectronHcalHelper {
     double hOverEConeSize;
     
     // strategy
-    bool useTowers;
+    bool useTowers, checkHcalStatus;
     
     // specific parameters if use towers
     edm::EDGetTokenT<CaloTowerCollection> hcalTowers; 
@@ -43,16 +43,20 @@ class ElectronHcalHelper {
   void readEvent( const edm::Event & ) ;
   ~ElectronHcalHelper() ;
   
-  double hcalESum( const reco::SuperCluster & , const std::vector<CaloTowerDetId> * excludeTowers = 0) ;
-  double hcalESumDepth1( const reco::SuperCluster &, const std::vector<CaloTowerDetId> * excludeTowers = 0) ;
-  double hcalESumDepth2( const reco::SuperCluster & ,const std::vector<CaloTowerDetId> * excludeTowers = 0 ) ;
+  double hcalESum( const reco::SuperCluster & , const std::vector<CaloTowerDetId> * excludeTowers = nullptr) ;
+  double hcalESumDepth1( const reco::SuperCluster &, const std::vector<CaloTowerDetId> * excludeTowers = nullptr) ;
+  double hcalESumDepth2( const reco::SuperCluster & ,const std::vector<CaloTowerDetId> * excludeTowers = nullptr ) ;
   double hOverEConeSize() const { return cfg_.hOverEConeSize ; }
   
   // Behind clusters
   std::vector<CaloTowerDetId> hcalTowersBehindClusters( const reco::SuperCluster & sc ) ;
   double hcalESumDepth1BehindClusters( const std::vector<CaloTowerDetId> & towers ) ;
   double hcalESumDepth2BehindClusters( const std::vector<CaloTowerDetId> & towers ) ;
-  
+
+  // forward EgammaHadTower methods, if checkHcalStatus is enabled, using towers and H/E 
+  // otherwise, return true
+  bool hasActiveHcal( const reco::SuperCluster & sc ) ;
+
  private:
   
   const Configuration cfg_ ;

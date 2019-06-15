@@ -47,7 +47,7 @@ namespace gen {
   class BaseHadronizer {
   public:
     BaseHadronizer( edm::ParameterSet const& ps );
-    ~BaseHadronizer() {}
+    virtual ~BaseHadronizer() noexcept (false) {}
 
     // GenRunInfo and GenEvent passing
     GenRunInfoProduct &getGenRunInfo() { return genRunInfo_; }
@@ -78,7 +78,7 @@ namespace gen {
     const std::string &gridpackPath() const { return gridpackPaths_[std::max(randomIndex_,0)]; }
     
     void randomizeIndex(edm::LuminosityBlock const& lumi, CLHEP::HepRandomEngine* rengine);
-    void generateLHE(edm::LuminosityBlock const& lumi, CLHEP::HepRandomEngine* rengine);
+    void generateLHE(edm::LuminosityBlock const& lumi, CLHEP::HepRandomEngine* rengine, unsigned int ncpu);
     void cleanLHE();
 
   protected:

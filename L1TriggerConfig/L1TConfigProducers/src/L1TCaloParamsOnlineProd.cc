@@ -5,26 +5,37 @@
 
 #include "CondTools/L1TriggerExt/interface/L1ConfigOnlineProdBaseExt.h"
 #include "CondFormats/L1TObjects/interface/CaloParams.h"
-#include "CondFormats/DataRecord/interface/L1TCaloStage2ParamsRcd.h"
+#include "CondFormats/DataRecord/interface/L1TCaloParamsRcd.h"
 #include "CondFormats/DataRecord/interface/L1TCaloParamsO2ORcd.h"
-#include "L1Trigger/L1TCommon/interface/TrigSystem.h"
-#include "L1Trigger/L1TCommon/interface/XmlConfigReader.h"
-#include "L1Trigger/L1TCalorimeter/interface/CaloParamsHelper.h"
+#include "L1Trigger/L1TCommon/interface/TriggerSystem.h"
+#include "L1Trigger/L1TCommon/interface/XmlConfigParser.h"
+#include "L1Trigger/L1TCommon/interface/ConvertToLUT.h"
+//#include "L1Trigger/L1TCalorimeter/interface/CaloParamsHelper.h"
+#include "CaloParamsHelperO2O.h"
+#include "OnlineDBqueryHelper.h"
 
 #include "xercesc/util/PlatformUtils.hpp"
 using namespace XERCES_CPP_NAMESPACE;
 
 class L1TCaloParamsOnlineProd : public L1ConfigOnlineProdBaseExt<L1TCaloParamsO2ORcd,l1t::CaloParams> {
 private:
+    unsigned int exclusiveLayer; // 0 - process calol1 and calol2, 1 - only calol1, 2 - only calol2
+    bool transactionSafe;
+
+    bool readCaloLayer1OnlineSettings(l1t::CaloParamsHelperO2O& paramsHelper, std::map<std::string, l1t::Parameter>& conf, std::map<std::string, 
+l1t::Mask>& );
+    bool readCaloLayer2OnlineSettings(l1t::CaloParamsHelperO2O& paramsHelper, std::map<std::string, l1t::Parameter>& conf, std::map<std::string, 
+l1t::Mask>& );
 public:
-    virtual std::shared_ptr<l1t::CaloParams> newObject(const std::string& objectKey, const L1TCaloParamsO2ORcd& record) override ;
+    std::shared_ptr<l1t::CaloParams> newObject(const std::string& objectKey, const L1TCaloParamsO2ORcd& record) override ;
 
     L1TCaloParamsOnlineProd(const edm::ParameterSet&);
-    ~L1TCaloParamsOnlineProd(void){}
+    ~L1TCaloParamsOnlineProd(void) override{}
 };
 
 bool
-readCaloLayer1OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::string, l1t::Setting>& conf, std::map<std::string, l1t::Mask>& ) {
+L1TCaloParamsOnlineProd::readCaloLayer1OnlineSettings(l1t::CaloParamsHelperO2O& paramsHelper, std::map<std::string, l1t::Parameter>& conf, 
+std::map<std::string, l1t::Mask>& ) {
   const char * expectedParams[] = {
     "layer1ECalScaleFactors",
     "layer1HCalScaleFactors",
@@ -32,10 +43,15 @@ readCaloLayer1OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::
     "layer1ECalScaleETBins",
     "layer1HCalScaleETBins",
     "layer1HFScaleETBins"
+    // Optional params
+    //"layer1ECalScalePhiBins",
+    //"layer1HCalScalePhiBins",
+    //"layer1HFScalePhiBins",
+    //"layer1SecondStageLUT"
   };
   for (const auto param : expectedParams) {
     if ( conf.find(param) == conf.end() ) {
-      std::cerr << "Unable to locate expected CaloLayer1 parameter: " << param << " in L1 settings payload!";
+      edm::LogError("L1-O2O: L1TCaloParamsOnlineProd") << "Unable to locate expected CaloLayer1 parameter: " << param << " in L1 settings payload!";
       return false;
     }
   }
@@ -47,11 +63,21 @@ readCaloLayer1OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::
   paramsHelper.setLayer1HCalScaleETBins(conf["layer1HCalScaleETBins"].getVector<int>());
   paramsHelper.setLayer1HFScaleETBins  (conf["layer1HFScaleETBins"]  .getVector<int>());
 
+  if( conf.find("layer1ECalScalePhiBins") != conf.end() )
+      paramsHelper.setLayer1ECalScalePhiBins(conf["layer1ECalScalePhiBins"].getVector<unsigned int>()); // std::vector<unsigned>(36,0)
+  if( conf.find("layer1HCalScalePhiBins") != conf.end() )
+      paramsHelper.setLayer1HCalScalePhiBins(conf["layer1HCalScalePhiBins"].getVector<unsigned int>());
+  if( conf.find("layer1HFScalePhiBins") != conf.end() )
+      paramsHelper.setLayer1HFScalePhiBins  (conf["layer1HFScalePhiBins"]  .getVector<unsigned int>());
+  if( conf.find("layer1SecondStageLUT") != conf.end() )
+      paramsHelper.setLayer1SecondStageLUT(conf["layer1SecondStageLUT"].getVector<unsigned int>() );
+
   return true;
 }
 
 bool
-readCaloLayer2OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::string, l1t::Setting>& conf, std::map<std::string, l1t::Mask>& ) {
+L1TCaloParamsOnlineProd::readCaloLayer2OnlineSettings(l1t::CaloParamsHelperO2O& paramsHelper, std::map<std::string, l1t::Parameter>& conf, 
+std::map<std::string, l1t::Mask>& ) {
   const char * expectedParams[] = {
     "leptonSeedThreshold",
     "leptonTowerThreshold",
@@ -70,23 +96,26 @@ readCaloLayer2OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::
     "egammaRelaxationThreshold",
     "egammaMaxEta",
     "egammaEnergyCalibLUT",
-    "egammaIsoLUT",
+    "egammaIsoLUT1",
+    "egammaIsoLUT2",
     "tauMaxEta",
     "tauEnergyCalibLUT",
     "tauIsoLUT1",
-    "tauIsoLUT2",
+///    "tauIsoLUT2",
     "towerCountThreshold",
     "towerCountMaxEta",
-    "ET_towerThreshold",
-    "MET_towerThreshold",
+    "ET_towerThresholdLUT",
+    "MET_towerThresholdLUT",
+    "ecalET_towerThresholdLUT",
     "jetBypassPileUpSub",
     "egammaBypassCuts",
     "egammaHOverECut_iEtaLT15",
-    "egammaHOverECut_iEtaGTEq15"
- };
+    "egammaHOverECut_iEtaGTEq15",
+    "egammaBypassExtendedHOverE"
+  };
   for (const auto param : expectedParams) {
     if ( conf.find(param) == conf.end() ) {
-      std::cerr << "Unable to locate expected CaloLayer2 parameter: " << param << " in L1 settings payload!";
+      edm::LogError("L1-O2O: L1TCaloParamsOnlineProd") << "Unable to locate expected CaloLayer2 parameter: " << param << " in L1 settings payload!";
       return false;
     }
   }
@@ -96,8 +125,8 @@ readCaloLayer2OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::
   paramsHelper.setEgNeighbourThreshold((conf["leptonTowerThreshold"].getValue<int>())/2);
   paramsHelper.setTauNeighbourThreshold((conf["leptonTowerThreshold"].getValue<int>())/2);
   paramsHelper.setJetSeedThreshold((conf["jetSeedThreshold"].getValue<int>())/2);
-  paramsHelper.setJetBypassPUS(conf["jetBypassPileUpSub"].getValue<unsigned>()); //these are bools in onlineDB
-  paramsHelper.setEgBypassEGVetos(conf["egammaBypassCuts"].getValue<unsigned>()); //these are bools in onlineDB
+  paramsHelper.setJetBypassPUS(conf["jetBypassPileUpSub"].getValue<bool>());
+  paramsHelper.setEgBypassEGVetos(conf["egammaBypassCuts"].getValue<bool>());
   paramsHelper.setEgHOverEcutBarrel(conf["egammaHOverECut_iEtaLT15"].getValue<int>());
   paramsHelper.setEgHOverEcutEndcap(conf["egammaHOverECut_iEtaGTEq15"].getValue<int>());
 
@@ -115,444 +144,243 @@ readCaloLayer2OnlineSettings(l1t::CaloParamsHelper& paramsHelper, std::map<std::
   etSumEtaMax.push_back(conf["HTMHT_maxJetEta"].getValue<int>());
   etSumEtaMax.push_back(conf["towerCountMaxEta"].getValue<int>());
   
-  etSumEtThresh.push_back(conf["ET_towerThreshold"].getValue<int>()); // ETT tower threshold
-  etSumEtThresh.push_back(conf["HT_jetThreshold"].getValue<int>());
-  etSumEtThresh.push_back(conf["MET_towerThreshold"].getValue<int>()); // ETM tower threshold
-  etSumEtThresh.push_back(conf["MHT_jetThreshold"].getValue<int>());
-  etSumEtThresh.push_back(conf["ET_towerThreshold"].getValue<int>());
+  etSumEtThresh.push_back(0); //conf["ET_towerThreshold"].getValue<int>()/2); // ETT tower threshold
+  etSumEtThresh.push_back(conf["HT_jetThreshold"].getValue<int>()/2);
+  etSumEtThresh.push_back(0); //conf["MET_towerThreshold"].getValue<int>()/2); // ETM tower threshold
+  etSumEtThresh.push_back(conf["MHT_jetThreshold"].getValue<int>()/2);
+  etSumEtThresh.push_back(conf["ET_towerThreshold"].getValue<int>()/2);
 
   for (uint i=0; i<5; ++i) {
     paramsHelper.setEtSumEtaMax(i, etSumEtaMax.at(i));
     paramsHelper.setEtSumEtThreshold(i, etSumEtThresh.at(i));
   }
 
-  std::stringstream oss;
+  paramsHelper.setJetCalibrationLUT ( l1t::convertToLUT( conf["jetEnergyCalibLUT"].getVector<uint32_t>() ) );
 
-  std::vector<uint32_t> jetEnergyCalibLUT = conf["jetEnergyCalibLUT"].getVector<uint32_t>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(jetEnergyCalibLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<jetEnergyCalibLUT.size(); i++) oss << i << " " << jetEnergyCalibLUT[i] << std::endl;
+  paramsHelper.setEtSumMetPUSLUT    ( l1t::convertToLUT( conf["MET_towerThresholdLUT"].getVector<int>() ) );
+  paramsHelper.setEtSumEttPUSLUT    ( l1t::convertToLUT( conf["ET_towerThresholdLUT"].getVector<int>() ) );
+  paramsHelper.setEtSumEcalSumPUSLUT( l1t::convertToLUT( conf["ecalET_towerThresholdLUT"].getVector<int>() ) );
 
-  std::istringstream iss1( oss.str() );
-  paramsHelper.setJetCalibrationLUT( l1t::LUT( (std::istream&)iss1 ) );
-  oss.str("");
+  paramsHelper.setEtSumEttCalibrationLUT    ( l1t::convertToLUT( conf["ET_energyCalibLUT"].getVector<int>() ) );
+  paramsHelper.setEtSumEcalSumCalibrationLUT( l1t::convertToLUT( conf["ecalET_energyCalibLUT"].getVector<int>() ) );
+  paramsHelper.setEtSumXCalibrationLUT      ( l1t::convertToLUT( conf["METX_energyCalibLUT"].getVector<int>() ) );
 
-  std::vector<int> etSumEttPUSLUT = conf["ET_energyCalibLUT"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(etSumEttPUSLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<etSumEttPUSLUT.size(); i++) oss << i << " " << etSumEttPUSLUT[i] << std::endl;
-
-  std::istringstream iss2( oss.str() );
-  paramsHelper.setEtSumEttPUSLUT( l1t::LUT( (std::istream&)iss2 ) );
-  oss.str("");
-
-  std::vector<int> etSumEcalSumPUTLUT = conf["ecalET_energyCalibLUT"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(etSumEcalSumPUTLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<etSumEcalSumPUTLUT.size(); i++) oss << i << " " << etSumEcalSumPUTLUT[i] << std::endl;
-
-  std::istringstream iss3( oss.str() );
-  paramsHelper.setEtSumEcalSumPUSLUT( l1t::LUT( (std::istream&)iss3 ) );
-  oss.str("");
-
-  std::vector<int> etSumXPUSLUT = conf["METX_energyCalibLUT"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(etSumXPUSLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<etSumXPUSLUT.size(); i++) oss << i << " " << etSumXPUSLUT[i] << std::endl;
-
-  std::istringstream iss4( oss.str() );
-  paramsHelper.setEtSumXPUSLUT( l1t::LUT( (std::istream&)iss4 ) );
-  oss.str("");
-
-  paramsHelper.setEgMaxPtHOverE((conf["egammaRelaxationThreshold"].getValue<int>()));
+  paramsHelper.setEgMaxPtHOverE((conf["egammaRelaxationThreshold"].getValue<int>())/2.);
   paramsHelper.setEgEtaCut((conf["egammaMaxEta"].getValue<int>()));
-
-
-  std::vector<int> egCalibrationLUT = conf["egammaEnergyCalibLUT"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(egCalibrationLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<egCalibrationLUT.size(); i++) oss << i << " " << egCalibrationLUT[i] << std::endl;
-
-  std::istringstream iss5( oss.str() );
-  paramsHelper.setEgCalibrationLUT( l1t::LUT( (std::istream&)iss5 ) );
-  oss.str("");
-
-  std::vector<int> egIsolationLUT = conf["egammaIsoLUT"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(egIsolationLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<egIsolationLUT.size(); i++) oss << i << " " << egIsolationLUT[i] << std::endl;
-
-  std::istringstream iss6( oss.str() );
-  paramsHelper.setEgIsolationLUT( l1t::LUT( (std::istream&)iss6 ) );
-  oss.str("");
-
-  //std::cout<<"egammaIsoLUT: "<<std::endl;
-  //for(unsigned int i=0; i<paramsHelper.egIsolationLUT()->maxSize(); i++) std::cout << std::setprecision(14) << paramsHelper.egIsolationLUT()->data(i) <<", ";
-  //std::cout << std::endl;
+  paramsHelper.setEgCalibrationLUT  ( l1t::convertToLUT( conf["egammaEnergyCalibLUT"].getVector<int>() ) );
+  paramsHelper.setEgIsolationLUT    ( l1t::convertToLUT( conf["egammaIsoLUT1"].getVector<int>() ) );
+  paramsHelper.setEgIsolationLUT2   ( l1t::convertToLUT( conf["egammaIsoLUT2"].getVector<int>() ) );
 
   paramsHelper.setIsoTauEtaMax((conf["tauMaxEta"].getValue<int>()));
 
-  std::vector<int> tauCalibrationLUT = conf["tauEnergyCalibLUT"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(tauCalibrationLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<tauCalibrationLUT.size(); i++) oss << i << " " << tauCalibrationLUT[i] << std::endl;
+  paramsHelper.setTauCalibrationLUT( l1t::convertToLUT( conf["tauEnergyCalibLUT"].getVector<int>() ) );
+  paramsHelper.setTauIsolationLUT  ( l1t::convertToLUT( conf["tauIsoLUT1"].getVector<int>() ) );
+  if( conf.find("tauIsoLUT2") != conf.end() )
+    paramsHelper.setTauIsolationLUT2 ( l1t::convertToLUT( conf["tauIsoLUT2"].getVector<int>() ) );
 
-  std::istringstream iss7( oss.str() );
-  paramsHelper.setTauCalibrationLUT(l1t::LUT( (std::istream&)iss7 ));
-  oss.str("");
+  paramsHelper.setEgBypassExtHOverE( conf["egammaBypassExtendedHOverE"].getValue<bool>() );
 
-  std::vector<int> tauIsolationLUT = conf["tauIsoLUT1"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(tauIsolationLUT.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<tauIsolationLUT.size(); i++) oss << i << " " << tauIsolationLUT[i] << std::endl;
-
-  std::istringstream iss8( oss.str() );
-  paramsHelper.setTauIsolationLUT( l1t::LUT((std::istream&)iss8 ) );
-  oss.str("");
-
-  std::vector<int> tauIsolationLUT2 = conf["tauIsoLUT2"].getVector<int>();
-  oss <<"#<header> V1 "<< ( 32 - __builtin_clz( uint32_t(tauIsolationLUT2.size()-1) ) ) <<" 63 </header> "<<std::endl; // hardcode max bits for data
-  for(unsigned int i=0; i<tauIsolationLUT2.size(); i++) oss << i << " " << tauIsolationLUT2[i] << std::endl;
-
-  std::istringstream iss9( oss.str() );
-  paramsHelper.setTauIsolationLUT2( l1t::LUT( (std::istream&)iss9 ) );
-  oss.str("");
+  if( conf.find("P_TauTrimming_13to8.mif") != conf.end() )
+    paramsHelper.setTauTrimmingShapeVetoLUT( l1t::convertToLUT( conf["P_TauTrimming_13to8.mif"].getVector<int>() ) );
 
   return true;
 }
 
-L1TCaloParamsOnlineProd::L1TCaloParamsOnlineProd(const edm::ParameterSet& iConfig) : L1ConfigOnlineProdBaseExt<L1TCaloParamsO2ORcd,l1t::CaloParams>(iConfig) {}
+L1TCaloParamsOnlineProd::L1TCaloParamsOnlineProd(const edm::ParameterSet& iConfig) : 
+    L1ConfigOnlineProdBaseExt<L1TCaloParamsO2ORcd,l1t::CaloParams>(iConfig)
+{
+    exclusiveLayer  = iConfig.getParameter<uint32_t>("exclusiveLayer");
+    transactionSafe = iConfig.getParameter<bool>("transactionSafe");
+}
 
 std::shared_ptr<l1t::CaloParams> L1TCaloParamsOnlineProd::newObject(const std::string& objectKey, const L1TCaloParamsO2ORcd& record) {
     using namespace edm::es;
 
-    const L1TCaloStage2ParamsRcd& baseRcd = record.template getRecord< L1TCaloStage2ParamsRcd >() ;
+    const L1TCaloParamsRcd& baseRcd = record.template getRecord< L1TCaloParamsRcd >() ;
     edm::ESHandle< l1t::CaloParams > baseSettings ;
     baseRcd.get( baseSettings ) ;
 
 
     if( objectKey.empty() ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Key is empty, returning empty l1t::CaloParams";
-        throw std::runtime_error("Empty objectKey");
-///        return boost::shared_ptr< l1t::CaloParams > ( new l1t::CaloParams( *(baseSettings.product()) ) );
+        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Key is empty";
+        if( transactionSafe )
+            throw std::runtime_error("SummaryForFunctionManager: Calo  | Faulty  | Empty objectKey");
+        else {
+            edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "returning unmodified prototype of l1t::CaloParams";
+            return std::make_shared< l1t::CaloParams >( *(baseSettings.product()) ) ;
+        }
     }
 
     std::string tscKey = objectKey.substr(0, objectKey.find(":") );
     std::string  rsKey = objectKey.substr(   objectKey.find(":")+1, std::string::npos );
 
+    edm::LogInfo( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Producing L1TCaloParamsOnlineProd with TSC key = " << tscKey << " and RS key = " << rsKey;
 
-    std::string stage2Schema = "CMS_TRG_L1_CONF" ;
-    edm::LogInfo( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Producing L1TCaloParamsOnlineProd with TSC key =" << tscKey << " and RS key = " << rsKey ;
+    std::string calol1_top_key, calol1_algo_key;
+    std::string calol1_algo_payload;
+    std::string calol2_top_key, calol2_algo_key, calol2_hw_key;
+    std::string calol2_hw_payload;
+    std::map<std::string,std::string> calol2_algo_payloads;  // key -> XML payload
+    try {
 
-    // first, find keys for the algo and RS tables
+        std::map<std::string,std::string> topKeys =
+            l1t::OnlineDBqueryHelper::fetch( {"CALOL1_KEY","CALOL2_KEY"},
+                                             "L1_TRG_CONF_KEYS",
+                                             tscKey,
+                                             m_omdsReader
+                                           );
 
-    // ALGO
-    std::vector< std::string > queryStrings ;
-    queryStrings.push_back( "CALOL1_KEY" ) ;
-    queryStrings.push_back( "CALOL2_KEY" ) ;
+      if( exclusiveLayer == 0 || exclusiveLayer == 1 ){
 
-    std::string calol1_conf_key, calol2_conf_key;
+        calol1_top_key = topKeys["CALOL1_KEY"];
 
-    // select CALOL1_KEY,CALOL2_KEY from CMS_TRG_L1_CONF.L1_TRG_CONF_KEYS where ID = tscKey ;
-    l1t::OMDSReader::QueryResults queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "L1_TRG_CONF_KEYS",
-                                     "L1_TRG_CONF_KEYS.ID",
-                                     m_omdsReader.singleAttribute(tscKey)
-                                   ) ;
+        calol1_algo_key = l1t::OnlineDBqueryHelper::fetch( {"ALGO"},
+                                                           "CALOL1_KEYS",
+                                                           calol1_top_key,
+                                                           m_omdsReader
+                                                         ) ["ALGO"];
 
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O" ) << "Cannot get L1_TRG_CONF_KEYS.{CALOL1_KEY,CALOL2_KEY} for ID = " << tscKey ;
-        throw std::runtime_error("Broken tscKey");
-///        return boost::shared_ptr< l1t::CaloParams > ( new l1t::CaloParams( *(baseSettings.product()) ) );
-    }
+        calol1_algo_payload = l1t::OnlineDBqueryHelper::fetch( {"CONF"},
+                                                               "CALOL1_CLOBS",
+                                                                calol1_algo_key,
+                                                                m_omdsReader
+                                                             ) ["CONF"];
+      }
 
-    if( !queryResult.fillVariable( "CALOL1_KEY", calol1_conf_key) ) calol1_conf_key = "";
-    if( !queryResult.fillVariable( "CALOL2_KEY", calol2_conf_key) ) calol2_conf_key = "";
+      if( exclusiveLayer == 0 || exclusiveLayer == 2 ){
 
-    // At this point we have two config keys; now query the payloads' keys for these config keys
-    std::string calol1_algo_key, calol2_algo_key;
-    queryStrings.clear();
-    queryStrings.push_back( "ALGO" );
+        calol2_top_key = topKeys["CALOL2_KEY"];
 
-    // query ALGO configurations
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL1_KEYS",
-                                     "CALOL1_KEYS.ID",
-                                     m_omdsReader.singleAttribute(calol1_conf_key)
-                                   ) ;
+        std::map<std::string,std::string> calol2_keys =
+            l1t::OnlineDBqueryHelper::fetch( {"ALGO","HW"},
+                                             "CALOL2_KEYS",
+                                             calol2_top_key,
+                                             m_omdsReader
+                                           );
 
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL1_KEYS.ALGO for ID="<<calol1_conf_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
+        calol2_hw_key = calol2_keys["HW"];
+        calol2_hw_payload = l1t::OnlineDBqueryHelper::fetch( {"CONF"},
+                                                             "CALOL2_CLOBS",
+                                                              calol2_hw_key,
+                                                              m_omdsReader
+                                                           ) ["CONF"];
 
-    if( !queryResult.fillVariable( "ALGO", calol1_algo_key ) ) calol1_algo_key = "";
+        calol2_algo_key = calol2_keys["ALGO"];
 
-    queryStrings.push_back( "HW" );
-//  No Layer2 for the moment
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_KEYS",
-                                     "CALOL2_KEYS.ID",
-                                     m_omdsReader.singleAttribute(calol2_conf_key)
-                                   ) ;
+        std::map<std::string,std::string> calol2_algo_keys =
+            l1t::OnlineDBqueryHelper::fetch( {"DEMUX","MPS_COMMON","MPS_JET","MP_EGAMMA","MP_SUM","MP_TAU"},
+                                             "CALOL2_ALGO_KEYS",
+                                             calol2_algo_key,
+                                             m_omdsReader
+                                           );
 
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_KEYS.ALGO for ID="<<calol2_conf_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
+        for(auto &key : calol2_algo_keys)
+            calol2_algo_payloads[ key.second ] = 
+                l1t::OnlineDBqueryHelper::fetch( {"CONF"},
+                                                 "CALOL2_CLOBS",
+                                                 key.second,
+                                                 m_omdsReader
+                                               ) ["CONF"];
+      }
 
-    std::string calol2_hw_key;
-    if( !queryResult.fillVariable( "ALGO", calol2_algo_key ) ) calol2_algo_key = "";
-    if( !queryResult.fillVariable( "HW",   calol2_hw_key   ) ) calol2_hw_key   = "";
-
-
-    // Now querry the actual payloads
-    enum {kCONF=0, kRS, kHW, NUM_TYPES};
-    std::map<std::string,std::string> payloads[NUM_TYPES];  // associates key -> XML payload for a given type of payloads
-    std::string xmlPayload;
-
-    queryStrings.clear();
-    queryStrings.push_back( "CONF" );
-
-    // query CALOL1 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL1_ALGO",
-                                     "CALOL1_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol1_algo_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL1_ALGO.CONF for ID="<<calol1_algo_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol1_algo_key.append("_L1")] = xmlPayload;
-
-    std::string calol2_demux_key, calol2_mps_common_key, calol2_mps_jet_key, calol2_mp_egamma_key, calol2_mp_sum_key, calol2_mp_tau_key;
-
-    queryStrings.clear();
-    queryStrings.push_back( "DEMUX"      );
-    queryStrings.push_back( "MPS_COMMON" );
-    queryStrings.push_back( "MPS_JET"    );
-    queryStrings.push_back( "MP_EGAMMA"  );
-    queryStrings.push_back( "MP_SUM"     );
-    queryStrings.push_back( "MP_TAU"     );
-
-    // No CALOL2 ALGO configuration for the moment
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO_KEYS",
-                                     "CALOL2_ALGO_KEYS.ID",
-                                     m_omdsReader.singleAttribute(calol2_algo_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO_KEYS.{DEMUX,MPS_COMMON,MPS_JET,MP_EGAMMA,MP_SUM,MP_TAU} for ID="<<calol2_algo_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "DEMUX",      calol2_demux_key      ) ) calol2_demux_key      = "";
-    if( !queryResult.fillVariable( "MPS_COMMON", calol2_mps_common_key ) ) calol2_mps_common_key = "";
-    if( !queryResult.fillVariable( "MPS_JET",    calol2_mps_jet_key    ) ) calol2_mps_jet_key    = "";
-    if( !queryResult.fillVariable( "MP_EGAMMA",  calol2_mp_egamma_key  ) ) calol2_mp_egamma_key  = "";
-    if( !queryResult.fillVariable( "MP_SUM",     calol2_mp_sum_key     ) ) calol2_mp_sum_key     = "";
-    if( !queryResult.fillVariable( "MP_TAU",     calol2_mp_tau_key     ) ) calol2_mp_tau_key     = "";
-
-    queryStrings.clear();
-    queryStrings.push_back( "CONF" );
-
-    // query CALOL2 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO",
-                                     "CALOL2_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol2_demux_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO.CONF for ID="<<calol2_demux_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol2_demux_key.append("_L2")] = xmlPayload;
-
-    // query CALOL2 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO",
-                                     "CALOL2_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol2_mps_common_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO.CONF for ID="<<calol2_mps_common_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol2_mps_common_key.append("_L2")] = xmlPayload;
-
-    // query CALOL2 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO",
-                                     "CALOL2_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol2_mps_jet_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO.CONF for ID="<<calol2_mps_jet_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol2_mps_jet_key.append("_L2")] = xmlPayload;
-
-    // query CALOL2 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO",
-                                     "CALOL2_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol2_mp_egamma_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO.CONF for ID="<<calol2_mp_egamma_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol2_mp_egamma_key.append("_L2")] = xmlPayload;
-
-    // query CALOL2 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO",
-                                     "CALOL2_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol2_mp_sum_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO.CONF for ID="<<calol2_mp_sum_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol2_mp_sum_key.append("_L2")] = xmlPayload;
-
-    // query CALOL2 ALGO configuration
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_ALGO",
-                                     "CALOL2_ALGO.ID",
-                                     m_omdsReader.singleAttribute(calol2_mp_tau_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_ALGO.CONF for ID="<<calol2_mp_tau_key;
-        throw std::runtime_error("Broken key");
-///        return boost::shared_ptr< l1t::CaloParams >( new l1t::CaloParams( *(baseSettings.product()) ) ) ;
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember ALGO configuration
-    payloads[kCONF][calol2_mp_tau_key.append("_L2")] = xmlPayload;
-
-    queryResult =
-            m_omdsReader.basicQuery( queryStrings,
-                                     stage2Schema,
-                                     "CALOL2_HW",
-                                     "CALOL2_HW.ID",
-                                     m_omdsReader.singleAttribute(calol2_hw_key)
-                                   ) ;
-
-    if( queryResult.queryFailed() || queryResult.numberRows() != 1 ){
-        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "Cannot get CALOL2_HW.CONF for ID="<<calol2_hw_key;
-        throw std::runtime_error("Broken key");
-    }
-
-    if( !queryResult.fillVariable( "CONF", xmlPayload ) ) xmlPayload = "";
-    // remember HW configuration
-    payloads[kHW][calol2_hw_key] = xmlPayload;
-
-    // for debugging purposes dump the configs to local files
-    for(auto &conf : payloads[kCONF]){ 
-        std::ofstream output(std::string("/tmp/").append(conf.first.substr(0,conf.first.find("/"))).append(".xml"));
-        output<<conf.second;
-        output.close();
-    }
-    for(auto &conf : payloads[kHW]){ 
-        std::ofstream output(std::string("/tmp/").append(conf.first.substr(0,conf.first.find("/"))).append(".xml"));
-        output<<conf.second;
-        output.close();
-    }
-
-
-    l1t::XmlConfigReader xmlReader1;
-    xmlReader1.readDOMFromString( payloads[kCONF][calol1_algo_key] );
-
-    l1t::TrigSystem calol1;
-    calol1.addProcRole("processors", "processors");
-    xmlReader1.readRootElement( calol1, "calol1" );
-    calol1.setConfigured();
-
-    std::map<std::string, l1t::Setting> calol1_conf = calol1.getSettings("processors");
-    std::map<std::string, l1t::Mask>    calol1_rs   ;//= calol1.getMasks   ("processors");
-
-    l1t::TrigSystem calol2;
-//    calol2.addProcRole("processors", "MainProcessor");
-
-    l1t::XmlConfigReader xmlReader2;
-    xmlReader2.readDOMFromString( payloads[kHW].begin()->second );
-    xmlReader2.readRootElement( calol2, "calol2" );
-
-    for(auto &conf : payloads[kCONF]){ 
-        if( conf.first.find("_L2") != std::string::npos ){
-            xmlReader2.readDOMFromString( conf.second );
-            xmlReader2.readRootElement( calol2, "calol2" );
+    } catch ( std::runtime_error &e ) {
+        edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << e.what();
+        if( transactionSafe )
+            throw std::runtime_error(std::string("SummaryForFunctionManager: Calo  | Faulty  | ") + e.what());
+        else {
+            edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "returning unmodified prototype of l1t::CaloParams";
+            return std::make_shared< l1t::CaloParams >( *(baseSettings.product()) ) ;
         }
     }
 
-//    calol2.setSystemId("calol2");
-    calol2.setConfigured();
+    if( exclusiveLayer == 0 || exclusiveLayer == 2 ){
+        // for debugging purposes dump the configs to local files
+        for(auto &conf : calol2_algo_payloads){ 
+            std::ofstream output(std::string("/tmp/").append(conf.first.substr(0,conf.first.find("/"))).append(".xml"));
+            output<<conf.second;
+            output.close();
+        }
+        std::ofstream output(std::string("/tmp/").append(calol2_hw_key.substr(0,calol2_hw_key.find("/"))).append(".xml"));
+        output << calol2_hw_payload;
+        output.close();
+    }
+    if( exclusiveLayer == 0 || exclusiveLayer == 1 )
+    { 
+        std::ofstream output(std::string("/tmp/").append(calol1_algo_key.substr(0,calol1_algo_key.find("/"))).append(".xml"));
+        output << calol1_algo_payload;
+        output.close();
+    }
 
-    // Perhaps layer 2 has to look at settings for demux and mp separately? // => No demux settings required
-    std::map<std::string, l1t::Setting> calol2_conf = calol2.getSettings("MP1");
-    std::map<std::string, l1t::Mask>    calol2_rs   ;//= calol2.getMasks   ("processors");
+    l1t::CaloParamsHelperO2O m_params_helper( *(baseSettings.product()) );
+
+
+    if( exclusiveLayer == 0 || exclusiveLayer == 1 ){
+        try {
+            l1t::XmlConfigParser xmlReader1;
+            xmlReader1.readDOMFromString( calol1_algo_payload );
+
+            l1t::TriggerSystem calol1;
+            calol1.addProcessor("processors", "processors","-1","-1");
+            xmlReader1.readRootElement( calol1, "calol1" );
+            calol1.setConfigured();
+
+            std::map<std::string, l1t::Parameter> calol1_conf = calol1.getParameters("processors");
+            std::map<std::string, l1t::Mask>      calol1_rs   ;//= calol1.getMasks   ("processors");
+
+            if( !readCaloLayer1OnlineSettings(m_params_helper, calol1_conf, calol1_rs) )
+                throw std::runtime_error("Parsing error for CaloLayer1");
+
+        } catch ( std::runtime_error &e ){
+            edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << e.what();
+            if( transactionSafe )
+                throw std::runtime_error(std::string("SummaryForFunctionManager: Calo  | Faulty  | ") + e.what());
+            else {
+                edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "returning unmodified prototype of l1t::CaloParams";
+                return std::make_shared< l1t::CaloParams >( *(baseSettings.product()) ) ;
+            }
+        }
+    }
+
+
+    if( exclusiveLayer == 0 || exclusiveLayer == 2 ){
+        try {
+            l1t::TriggerSystem calol2;
+            l1t::XmlConfigParser xmlReader2;
+            xmlReader2.readDOMFromString( calol2_hw_payload );
+            xmlReader2.readRootElement( calol2, "calol2" );
+
+            for(auto &conf : calol2_algo_payloads){ 
+                xmlReader2.readDOMFromString( conf.second );
+                xmlReader2.readRootElement( calol2, "calol2" );
+            }
+
+//            calol2.setSystemId("calol2");
+            calol2.setConfigured();
+
+            std::map<std::string, l1t::Parameter> calol2_conf = calol2.getParameters("MP1");
+            std::map<std::string, l1t::Mask>      calol2_rs   ;//= calol2.getMasks   ("processors");
+
+            if( !readCaloLayer2OnlineSettings(m_params_helper, calol2_conf, calol2_rs) )
+                throw std::runtime_error("Parsing error for CaloLayer2");
+
+        } catch ( std::runtime_error &e ){
+            edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << e.what();
+            if( transactionSafe )
+                throw std::runtime_error(std::string("SummaryForFunctionManager: Calo  | Faulty  | ") + e.what());
+            else {
+                edm::LogError( "L1-O2O: L1TCaloParamsOnlineProd" ) << "returning unmodified prototype of l1t::CaloParams";
+                return std::make_shared< l1t::CaloParams >( *(baseSettings.product()) ) ;
+            }
+        }
+    }
     
-    l1t::CaloParamsHelper m_params_helper(*(baseSettings.product()));
-
-    readCaloLayer1OnlineSettings(m_params_helper, calol1_conf, calol1_rs);
-    readCaloLayer2OnlineSettings(m_params_helper, calol2_conf, calol2_rs);
-
     std::shared_ptr< l1t::CaloParams > retval = std::make_shared< l1t::CaloParams >( m_params_helper ) ;
+    
+    edm::LogInfo( "L1-O2O: L1TCaloParamsOnlineProd" ) << "SummaryForFunctionManager: Calo  | OK      | All looks good";
     return retval;
 }
 
 //define this as a plug-in
 DEFINE_FWK_EVENTSETUP_MODULE(L1TCaloParamsOnlineProd);
+
 

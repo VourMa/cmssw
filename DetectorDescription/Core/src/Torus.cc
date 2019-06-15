@@ -11,20 +11,19 @@
 
 using std::sqrt;
 
-
 DDI::Torus::Torus( double pRMin,
 		   double pRMax,
 		   double pRTor,
 		   double pSPhi,
 		   double pDPhi
 		   )
- : Solid(ddtorus) 
+ : Solid(DDSolidShape::ddtorus) 
 {		 
-  p_.push_back(pRMin); // ......... 0
-  p_.push_back(pRMax); // ......... 1
-  p_.push_back(pRTor); // ......... 2
-  p_.push_back(pSPhi); // ......... 3
-  p_.push_back(pDPhi); // ......... 4
+  p_.emplace_back(pRMin); // ......... 0
+  p_.emplace_back(pRMax); // ......... 1
+  p_.emplace_back(pRTor); // ......... 2
+  p_.emplace_back(pSPhi); // ......... 3
+  p_.emplace_back(pDPhi); // ......... 4
 }
 
 

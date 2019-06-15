@@ -1,4 +1,3 @@
-
 #ifndef __SimTracker_SiPhase2Digitizer_DigitizerUtility_h
 #define __SimTracker_SiPhase2Digitizer_DigitizerUtility_h
 
@@ -18,21 +17,21 @@ namespace DigitizerUtility {
     Amplitude( float amp, const PSimHit* hitp, float frac=0, size_t hitIndex=0, unsigned int tofBin=0) :
       _amp(amp) {
       if (frac > 0) {
-	if (hitp != nullptr) _simInfoList.push_back({frac,new SimHitInfoForLinks(hitp,hitIndex,tofBin)});
-        else _simInfoList.push_back({frac,0});
+	if (hitp != nullptr) _simInfoList.push_back({frac, std::make_unique<SimHitInfoForLinks>(hitp,hitIndex,tofBin)});
+        else _simInfoList.push_back({frac, nullptr});
       }
     }
 
     // can be used as a float by convers.
     operator float() const {return _amp;}
     float ampl() const {return _amp;}
-    const std::vector<std::pair<float,SimHitInfoForLinks*> >& simInfoList() const {return _simInfoList;}
+    const std::vector<std::pair<float, std::unique_ptr<SimHitInfoForLinks> > >& simInfoList() const {return _simInfoList;}
 
     void operator+= (const Amplitude& other) {
       _amp += other._amp;
       // in case of digi from the noise, the MC information need not be there
-      for (auto const & ic : other.simInfoList()) {
-	if (ic.first > -0.5) _simInfoList.push_back({ic.first, ic.second});
+      for (auto const& ic : other.simInfoList()) {
+	if (ic.first > -0.5) _simInfoList.push_back({ic.first, std::make_unique<SimHitInfoForLinks>(*ic.second)});
       }
     }
     void operator+= (const float& amp) {
@@ -47,7 +46,7 @@ namespace DigitizerUtility {
 
   private:
     float _amp;
-    std::vector<std::pair<float,SimHitInfoForLinks*> > _simInfoList;
+    std::vector<std::pair<float, std::unique_ptr<SimHitInfoForLinks> > > _simInfoList;
   };
 
   //*********************************************************
@@ -75,12 +74,12 @@ namespace DigitizerUtility {
   class SignalPoint {
   public:
     SignalPoint(): _pos(0,0), _time(0), _amplitude(0), 
-      _sigma_x(1.), _sigma_y(1.), _hitp(0) {}
+      _sigma_x(1.), _sigma_y(1.), _hitp(nullptr) {}
     
     SignalPoint(float x, float y, float sigma_x, float sigma_y,
 		float t, float a=1.0):
       _pos(x,y), _time(t), _amplitude(a), _sigma_x(sigma_x), 
-      _sigma_y(sigma_y), _hitp(0) {}
+      _sigma_y(sigma_y), _hitp(nullptr) {}
     
     SignalPoint(float x, float y, float sigma_x, float sigma_y,
 		float t, const PSimHit& hit, float a=1.0):

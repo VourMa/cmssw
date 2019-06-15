@@ -59,16 +59,16 @@ using namespace l1tcalo;
 class L1TCaloLayer1 : public edm::EDProducer {
 public:
   explicit L1TCaloLayer1(const edm::ParameterSet&);
-  ~L1TCaloLayer1();
+  ~L1TCaloLayer1() override;
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
 private:
-  virtual void beginJob() override;
-  virtual void produce(edm::Event&, const edm::EventSetup&) override;
-  virtual void endJob() override;
+  void beginJob() override;
+  void produce(edm::Event&, const edm::EventSetup&) override;
+  void endJob() override;
       
-  virtual void beginRun(edm::Run const&, edm::EventSetup const&) override;
+  void beginRun(edm::Run const&, edm::EventSetup const&) override;
 
   //virtual void endRun(edm::Run const&, edm::EventSetup const&) override;
   //virtual void beginLuminosityBlock(edm::LuminosityBlock const&, edm::EventSetup const&) override;
@@ -81,9 +81,13 @@ private:
   edm::EDGetTokenT<HcalTrigPrimDigiCollection> hcalTPSource;
   std::string hcalTPSourceLabel;
   
-  std::vector< std::vector< std::vector < uint32_t > > > ecalLUT;
-  std::vector< std::vector< std::vector < uint32_t > > > hcalLUT;
-  std::vector< std::vector< uint32_t > > hfLUT;
+  std::vector< std::array< std::array< std::array<uint32_t, nEtBins>, nCalSideBins >, nCalEtaBins> > ecalLUT;
+  std::vector< std::array< std::array< std::array<uint32_t, nEtBins>, nCalSideBins >, nCalEtaBins> > hcalLUT;
+  std::vector< std::array< std::array<uint32_t, nEtBins>, nHfEtaBins > > hfLUT;
+
+  std::vector< unsigned int > ePhiMap;
+  std::vector< unsigned int > hPhiMap;
+  std::vector< unsigned int > hfPhiMap;
 
   std::vector< UCTTower* > twrList;
 
@@ -95,6 +99,7 @@ private:
   bool verbose;
   bool unpackHcalMask;
   bool unpackEcalMask;
+  int  fwVersion;
 
   UCTLayer1 *layer1;
 
@@ -117,9 +122,9 @@ L1TCaloLayer1::L1TCaloLayer1(const edm::ParameterSet& iConfig) :
   ecalTPSourceLabel(iConfig.getParameter<edm::InputTag>("ecalToken").label()),
   hcalTPSource(consumes<HcalTrigPrimDigiCollection>(iConfig.getParameter<edm::InputTag>("hcalToken"))),
   hcalTPSourceLabel(iConfig.getParameter<edm::InputTag>("hcalToken").label()),
-  ecalLUT(28, std::vector< std::vector<uint32_t> >(2, std::vector<uint32_t>(256))),
-  hcalLUT(28, std::vector< std::vector<uint32_t> >(2, std::vector<uint32_t>(256))),
-  hfLUT(12, std::vector < uint32_t >(256)),
+  ePhiMap(72*2, 0),
+  hPhiMap(72*2, 0),
+  hfPhiMap(72*2, 0),
   useLSB(iConfig.getParameter<bool>("useLSB")),
   useCalib(iConfig.getParameter<bool>("useCalib")),
   useECALLUT(iConfig.getParameter<bool>("useECALLUT")),
@@ -127,13 +132,13 @@ L1TCaloLayer1::L1TCaloLayer1(const edm::ParameterSet& iConfig) :
   useHFLUT(iConfig.getParameter<bool>("useHFLUT")),
   verbose(iConfig.getParameter<bool>("verbose")), 
   unpackHcalMask(iConfig.getParameter<bool>("unpackHcalMask")),
-  unpackEcalMask(iConfig.getParameter<bool>("unpackEcalMask"))
+  unpackEcalMask(iConfig.getParameter<bool>("unpackEcalMask")),
+  fwVersion(iConfig.getParameter<int>("firmwareVersion"))
 {
   produces<CaloTowerBxCollection>();
   produces<L1CaloRegionCollection>();
 
   // See UCTLayer1.hh for firmware version definitions
-  int fwVersion = iConfig.getParameter<int>("firmwareVersion");
   layer1 = new UCTLayer1(fwVersion);
 
   vector<UCTCrate*> crates = layer1->getCrates();
@@ -158,7 +163,7 @@ L1TCaloLayer1::L1TCaloLayer1(const edm::ParameterSet& iConfig) :
 }
 
 L1TCaloLayer1::~L1TCaloLayer1() {
-  if(layer1 != 0) delete layer1;
+  if(layer1 != nullptr) delete layer1;
 }
 
 //
@@ -199,10 +204,12 @@ L1TCaloLayer1::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
     expectedTotalET += et;
   }
 
+
+ if(hcalTPs.isValid()){
   for ( const auto& hcalTp : *hcalTPs ) {
     if ( unpackHcalMask && ((hcalTp.sample(0).raw()>>13) & 0x1) ) continue;
     int caloEta = hcalTp.id().ieta();
-    uint32_t absCaloEta = abs(caloEta);
+    uint32_t absCaloEta = std::abs(caloEta);
     // Tower 29 is not used by Layer-1
     if(absCaloEta == 29) {
       continue;
@@ -237,6 +244,7 @@ L1TCaloLayer1::produce(edm::Event& iEvent, const edm::EventSetup& iSetup)
       LOG_ERROR << "Illegal Tower: caloEta = " << caloEta << std::endl;
     }
   }
+ }
   
    //Process
   if(!layer1->process()) {
@@ -302,13 +310,28 @@ L1TCaloLayer1::endJob() {
 void
 L1TCaloLayer1::beginRun(const edm::Run& iRun, const edm::EventSetup& iSetup)
 {
-  if(!L1TCaloLayer1FetchLUTs(iSetup, ecalLUT, hcalLUT, hfLUT, useLSB, useCalib, useECALLUT, useHCALLUT, useHFLUT)) {
+  if(!L1TCaloLayer1FetchLUTs(iSetup, ecalLUT, hcalLUT, hfLUT, ePhiMap, hPhiMap, hfPhiMap, useLSB, useCalib, useECALLUT, useHCALLUT, useHFLUT, fwVersion)) {
     LOG_ERROR << "L1TCaloLayer1::beginRun: failed to fetch LUTS - using unity" << std::endl;
+    std::array< std::array< std::array<uint32_t, nEtBins>, nCalSideBins >, nCalEtaBins> eCalLayer1EtaSideEtArray;
+    std::array< std::array< std::array<uint32_t, nEtBins>, nCalSideBins >, nCalEtaBins> hCalLayer1EtaSideEtArray;
+    std::array< std::array<uint32_t, nEtBins>, nHfEtaBins > hfLayer1EtaEtArray;
+    ecalLUT.push_back(eCalLayer1EtaSideEtArray);
+    hcalLUT.push_back(hCalLayer1EtaSideEtArray);
+    hfLUT.push_back(hfLayer1EtaEtArray);
   }
   for(uint32_t twr = 0; twr < twrList.size(); twr++) {
-    twrList[twr]->setECALLUT(&ecalLUT);
-    twrList[twr]->setHCALLUT(&hcalLUT);
-    twrList[twr]->setHFLUT(&hfLUT);
+    // Map goes minus 1 .. 72 plus 1 .. 72 -> 0 .. 143
+    int iphi = twrList[twr]->caloPhi();
+    int ieta = twrList[twr]->caloEta();
+    if (ieta<0) {
+      iphi -= 1;
+    }
+    else {
+      iphi += 71;
+    }
+    twrList[twr]->setECALLUT(&ecalLUT[ePhiMap[iphi]]);
+    twrList[twr]->setHCALLUT(&hcalLUT[hPhiMap[iphi]]);
+    twrList[twr]->setHFLUT(&hfLUT[hfPhiMap[iphi]]);
   }
 }
 

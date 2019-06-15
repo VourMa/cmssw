@@ -3,4 +3,5 @@
   <class pattern="MakeVersionedSelector<*>"/>
   <class pattern="PrintVIDToString<*>"/>
   <class pattern="MakePtrFromCollection<*>"/>
+  <class name="ElectronMVAEstimatorRun2" transient="true"/>
 </lcgdict>
