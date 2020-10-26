@@ -3,17 +3,17 @@
 
 #include "DataFormats/L1TMuon/interface/L1MuCorrelatorHit.h"
 #include "DataFormats/L1TMuon/interface/RegionalMuonCandFwd.h"
-#include "DataFormats/L1TrackTrigger/interface/L1TkMuonParticle.h"
+#include "DataFormats/L1TCorrelator/interface/TkMuon.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 
 class L1TTPSSectorProcessor {
  public:
-  typedef std::vector<edm::Ptr< l1t::L1TkMuonParticle::L1TTTrackType > > TrackPtrVector;
+  typedef std::vector<edm::Ptr< l1t::TkMuon::L1TTTrackType > > TrackPtrVector;
 
   L1TTPSSectorProcessor(const edm::ParameterSet&);
   ~L1TTPSSectorProcessor();
 
-  std::vector<l1t::L1TkMuonParticle> process(const TrackPtrVector& ,const L1MuCorrelatorHitRefVector&);
+  std::vector<l1t::TkMuon> process(const TrackPtrVector& ,const L1MuCorrelatorHitRefVector&);
   uint sector() const {
     return sectorNumber_;
   }
@@ -35,13 +35,13 @@ class L1TTPSSectorProcessor {
   int deltaPhi(int phi1,int phi2);
 
   int stubPhi(const L1MuCorrelatorHitRef&);
-  int trackPhi(const l1t::L1TkMuonParticle&);
-  int trackEta(const l1t::L1TkMuonParticle&);
-  int trackCurv(const l1t::L1TkMuonParticle&);
-  PropagationInfo propagate(const l1t::L1TkMuonParticle&,uint);
-  uint match(l1t::L1TkMuonParticle&,const PropagationInfo&,const L1MuCorrelatorHitRefVector&,uint& pattern);
-  bool processTrack(l1t::L1TkMuonParticle&,const L1MuCorrelatorHitRefVector&);
-  std::vector<l1t::L1TkMuonParticle> clean(const std::vector<l1t::L1TkMuonParticle>&);
+  int trackPhi(const l1t::TkMuon&);
+  int trackEta(const l1t::TkMuon&);
+  int trackCurv(const l1t::TkMuon&);
+  PropagationInfo propagate(const l1t::TkMuon&,uint);
+  uint match(l1t::TkMuon&,const PropagationInfo&,const L1MuCorrelatorHitRefVector&,uint& pattern);
+  bool processTrack(l1t::TkMuon&,const L1MuCorrelatorHitRefVector&);
+  std::vector<l1t::TkMuon> clean(const std::vector<l1t::TkMuon>&);
   uint sectorNumber_;
   std::vector<uint> barrelSectors_;
   std::vector<uint> csc10DegreeChambers_;

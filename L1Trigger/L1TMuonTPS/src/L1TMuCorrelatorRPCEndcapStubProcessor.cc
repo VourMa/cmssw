@@ -81,7 +81,7 @@ L1TMuCorrelatorRPCEndcapStubProcessor::makeStubs(const MuonDigiCollection<RPCDet
   L1MuCorrelatorHitCollection out;
 
   RPCHitCleaner cleaner(digis);
-  cleaner.run(iSetup,true);    
+  cleaner.run(iSetup);    
   RPCDigiCollection cleaned = cleaner.getRPCCollection();
 
    auto chamber = cleaned.begin();

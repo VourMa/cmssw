@@ -27,9 +27,9 @@ L1TTPSSectorProcessor::L1TTPSSectorProcessor(const edm::ParameterSet& iConfig):
 
 L1TTPSSectorProcessor::~L1TTPSSectorProcessor() {}
 
-std::vector<l1t::L1TkMuonParticle> L1TTPSSectorProcessor::process(const TrackPtrVector& tracks,const L1MuCorrelatorHitRefVector& stubsAll) {
+std::vector<l1t::TkMuon> L1TTPSSectorProcessor::process(const TrackPtrVector& tracks,const L1MuCorrelatorHitRefVector& stubsAll) {
   //Output collection
-  std::vector<l1t::L1TkMuonParticle> out;
+  std::vector<l1t::TkMuon> out;
 
   if (verbose_==1) 
     printf("----Filtering the stubs for the sector----\n");
@@ -104,18 +104,18 @@ std::vector<l1t::L1TkMuonParticle> L1TTPSSectorProcessor::process(const TrackPtr
 
   //Now loop on the tracks
   for (const auto& track: tracks) {
-    l1t::L1TkMuonParticle::LorentzVector vec(track->getMomentum().x(),
-					track->getMomentum().y(),
-					track->getMomentum().z(),
-					track->getMomentum().mag());
-    l1t::L1TkMuonParticle muon (vec,track);   
+    l1t::TkMuon::LorentzVector vec(track->momentum().x(),
+					track->momentum().y(),
+					track->momentum().z(),
+					track->momentum().mag());
+    l1t::TkMuon muon (vec,track);   
 
     if (muon.pt()<3.0)
       continue;
 
     //Set muon charge
     int charge=1;
-    if (track->getRInv()<0)
+    if (track->rInv()<0)
       charge=-1;
     muon.setCharge(charge);
     //If not in nonant kill
@@ -133,7 +133,7 @@ std::vector<l1t::L1TkMuonParticle> L1TTPSSectorProcessor::process(const TrackPtr
       out.push_back(muon);
   }
 
-  std::vector<l1t::L1TkMuonParticle> cleaned = clean(out);
+  std::vector<l1t::TkMuon> cleaned = clean(out);
   return cleaned;
 }
 
@@ -154,17 +154,17 @@ int L1TTPSSectorProcessor::stubPhi(const L1MuCorrelatorHitRef& stub ) {
   return deltaPhi(stub->phi(),phiOffset_);
 }
 
-int L1TTPSSectorProcessor::trackPhi(const l1t::L1TkMuonParticle& track) {
+int L1TTPSSectorProcessor::trackPhi(const l1t::TkMuon& track) {
   //add offset code here 
   return deltaPhi(int(track.phi()/phiLSB_),phiOffset_);
 }
 
-int L1TTPSSectorProcessor::trackEta(const l1t::L1TkMuonParticle& track) {
+int L1TTPSSectorProcessor::trackEta(const l1t::TkMuon& track) {
   //add offset code here 
   return int(track.eta()/trackEtaLSB_);
 }
 
-int L1TTPSSectorProcessor::trackCurv(const l1t::L1TkMuonParticle& track) {
+int L1TTPSSectorProcessor::trackCurv(const l1t::TkMuon& track) {
   //add offset code here 
 
   return int(track.charge()/track.pt()/trackCurvLSB_);
@@ -172,7 +172,7 @@ int L1TTPSSectorProcessor::trackCurv(const l1t::L1TkMuonParticle& track) {
 
 
 
-L1TTPSSectorProcessor::PropagationInfo L1TTPSSectorProcessor::propagate(const l1t::L1TkMuonParticle& track,uint propIndex) {
+L1TTPSSectorProcessor::PropagationInfo L1TTPSSectorProcessor::propagate(const l1t::TkMuon& track,uint propIndex) {
   L1TTPSSectorProcessor::PropagationInfo out;
   //first calculate the index
   int eta = trackEta(track);
@@ -318,7 +318,7 @@ L1TTPSSectorProcessor::PropagationInfo L1TTPSSectorProcessor::propagate(const l1
 }
 
 
-uint L1TTPSSectorProcessor::match(l1t::L1TkMuonParticle& muon,const L1TTPSSectorProcessor::PropagationInfo& prop,const L1MuCorrelatorHitRefVector& stubs,uint& pattern) {
+uint L1TTPSSectorProcessor::match(l1t::TkMuon& muon,const L1TTPSSectorProcessor::PropagationInfo& prop,const L1MuCorrelatorHitRefVector& stubs,uint& pattern) {
   if (!prop.valid)
     return 0; 
   //retrieve eta information for matching
@@ -395,7 +395,7 @@ uint L1TTPSSectorProcessor::match(l1t::L1TkMuonParticle& muon,const L1TTPSSector
 
 
 
-bool L1TTPSSectorProcessor::processTrack(l1t::L1TkMuonParticle& muon,const L1MuCorrelatorHitRefVector& stubs) {
+bool L1TTPSSectorProcessor::processTrack(l1t::TkMuon& muon,const L1MuCorrelatorHitRefVector& stubs) {
   //Propagate 12 times maximum and match
   muon.setQuality(288);
   uint pattern=0;
@@ -409,7 +409,7 @@ bool L1TTPSSectorProcessor::processTrack(l1t::L1TkMuonParticle& muon,const L1MuC
   
 
   //Stubs requirements
-  if (muon.getMatchedStubs().size()<2)
+  if (muon.matchedStubs().size()<2)
     return false;
 
 
@@ -422,7 +422,7 @@ bool L1TTPSSectorProcessor::processTrack(l1t::L1TkMuonParticle& muon,const L1MuC
     if ((etaIndex==vetoIndex_[i]) && pattern==vetoPattern_[i])
       return false;
   for (uint i =0 ;i<chiIndex_.size();++i) 
-    if ((etaIndex==chiIndex_[i]) && muon.getTrkPtr()->getChi2Red()>chiCut_[i])
+    if ((etaIndex==chiIndex_[i]) && muon.trkPtr()->chi2Red()>chiCut_[i])
       return false;
 
 
@@ -435,11 +435,11 @@ bool L1TTPSSectorProcessor::processTrack(l1t::L1TkMuonParticle& muon,const L1MuC
 
 
 
-std::vector<l1t::L1TkMuonParticle> L1TTPSSectorProcessor::clean(const std::vector<l1t::L1TkMuonParticle>& muons) {
+std::vector<l1t::TkMuon> L1TTPSSectorProcessor::clean(const std::vector<l1t::TkMuon>& muons) {
   //    return muons;
     if (verbose_==1)
       printf("CROSS CLEANER IN SECTOR\n");
-  std::vector<l1t::L1TkMuonParticle> out;
+  std::vector<l1t::TkMuon> out;
   if (muons.size()<=1)
     return muons;
 
@@ -447,14 +447,14 @@ std::vector<l1t::L1TkMuonParticle> L1TTPSSectorProcessor::clean(const std::vecto
     if (verbose_==1)
       printf("->Muon with pt,eta,phi=%f %f %f\n",muons[i].pt(),muons[i].eta(),muons[i].phi());
     bool keep=true;
-    const L1MuCorrelatorHitRefVector& stubs1 = muons[i].getMatchedStubs();
+    const L1MuCorrelatorHitRefVector& stubs1 = muons[i].matchedStubs();
     if (verbose_==1)
       for (const auto& stub : stubs1)
 	printf("stub %d %d %d %d %d\n",stub->etaRegion(),stub->phiRegion(),stub->depthRegion(),stub->id(),stub->phi());
     for (uint j=0;j<muons.size();++j) {
       if (i==j)
 	continue;
-      const L1MuCorrelatorHitRefVector& stubs2 = muons[j].getMatchedStubs();
+      const L1MuCorrelatorHitRefVector& stubs2 = muons[j].matchedStubs();
       int overlap=0;
       for (const auto& stub1 : stubs1) {
 	for (const auto& stub2 : stubs2) {
@@ -464,7 +464,7 @@ std::vector<l1t::L1TkMuonParticle> L1TTPSSectorProcessor::clean(const std::vecto
 	}
       }
 
-      if ((muons[0].getMatchedStubs().size()-overlap)<2 && (muons[i].quality()<muons[j].quality())) {
+      if ((muons[0].matchedStubs().size()-overlap)<2 && (muons[i].quality()<muons[j].quality())) {
 	keep=false;
 	break;
       }
