@@ -7,6 +7,7 @@
 #include "DataFormats/L1TrackTrigger/interface/TTTypes.h"
 #include "DataFormats/L1TMuon/interface/RegionalMuonCand.h"
 #include "DataFormats/L1TMuon/interface/RegionalMuonCandFwd.h"
+#include "DataFormats/L1TMuon/interface/L1MuCorrelatorHit.h"
 
 namespace l1t {
   class TkMuon : public L1Candidate {
@@ -34,6 +35,7 @@ namespace l1t {
     float trkIsol() const { return theIsolation; }
     float trkzVtx() const { return TrkzVtx_; }
 
+    const L1MuCorrelatorHitRefVector matchedStubs() const { return matchedStubs_; }
     float dR() const { return dR_; }
     int nTracksMatched() const { return nTracksMatch_; }
     double trackCurvature() const { return trackCurvature_; }
@@ -49,6 +51,7 @@ namespace l1t {
     void setTrkIsol(float TrkIsol) { theIsolation = TrkIsol; }
     void setQuality(unsigned int q) { quality_ = q; }
     void setPattern(unsigned int p) { pattern_ = p; }
+    void addStub(const L1MuCorrelatorHitRef&);
 
     void setdR(float dR) { dR_ = dR; }
     void setNTracksMatched(int nTracksMatch) { nTracksMatch_ = nTracksMatch; }
@@ -58,6 +61,9 @@ namespace l1t {
   private:
     // used for the Naive producer
     edm::Ref<l1t::RegionalMuonCandBxCollection> muRef_;
+
+    //Used for Tracker + Stubs algorithm
+    L1MuCorrelatorHitRefVector matchedStubs_;
 
     edm::Ptr<L1TTTrackType> trkPtr_;
 

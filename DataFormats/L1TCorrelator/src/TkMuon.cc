@@ -23,3 +23,7 @@ TkMuon::TkMuon(const LorentzVector& p4, const edm::Ptr<L1TTTrackType>& trackPtr,
     setTrkzVtx(trkPtr()->POCA().z());
   }
 }
+
+void TkMuon::addStub(const L1MuCorrelatorHitRef& stub) {
+      matchedStubs_.push_back(stub);
+}
