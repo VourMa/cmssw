@@ -80,7 +80,7 @@ tpsAlgoSettings = cms.PSet(
 
 l1StubMatchedMuons = cms.EDProducer("L1TTPSProducer",
     srcStubs = cms.InputTag("l1TPSStubs"),
-    srcTracks = cms.InputTag("TTTracksFromTracklet:Level1TTTracks"),
+    srcTracks = cms.InputTag("TTTracksFromTrackletEmulation:Level1TTTracks"),
     maxChi2 = cms.double(100000000),
     minStubs = cms.uint32(4),
     verbose = cms.int32(0),                                    
