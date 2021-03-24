@@ -17,7 +17,7 @@ pfClustersFromHGC3DClusters = cms.EDProducer("PFClusterProducerFromHGC3DClusters
             cms.PSet(name = cms.string("layer50percent"), value = cms.string("layer50percent()")),
             cms.PSet(name = cms.string("triggerCells67percent"), value = cms.string("triggerCells67percent()")),
         ),
-        weightsFile = cms.string("L1Trigger/Phase2L1ParticleFlow/data/hgcal_egID/Photon_vs_Pion_BDTweights.xml.gz"),
+        weightsFile = cms.string("L1Trigger/Phase2L1ParticleFlow/data/hgcal_egID/Photon_vs_Pion_BDTweights_1116.xml.gz"),
         wp = cms.string("0.05")
     ),
     emVsPUID = cms.PSet(
@@ -31,7 +31,7 @@ pfClustersFromHGC3DClusters = cms.EDProducer("PFClusterProducerFromHGC3DClusters
             cms.PSet(name = cms.string("sigmaRRTot"), value = cms.string("sigmaRRTot()")),
             cms.PSet(name = cms.string("triggerCells90percent"), value = cms.string("triggerCells90percent()")),
         ),
-        weightsFile = cms.string("L1Trigger/Phase2L1ParticleFlow/data/hgcal_egID/Photon_Pion_vs_Neutrino_BDTweights.xml.gz"),
+        weightsFile = cms.string("L1Trigger/Phase2L1ParticleFlow/data/hgcal_egID/Photon_Pion_vs_Neutrino_BDTweights_1116.xml.gz"),
         wp = cms.string("0.15")
     ),
     emOnly = cms.bool(False),
