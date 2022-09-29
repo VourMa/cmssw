@@ -32,7 +32,7 @@ public:
         << "  y    = " << view.metadata().addressOf_y() << ",\n"
         << "  z    = " << view.metadata().addressOf_z() << ",\n"
         << "  id   = " << view.metadata().addressOf_id() << ",\n"
-        << "  r    = " << view.metadata().addressOf_r() << '\n';
+        << "  r    = " << view.r() << '\n';
     msg << std::hex << "  [y - x] = 0x"
         << reinterpret_cast<intptr_t>(view.metadata().addressOf_y()) -
                reinterpret_cast<intptr_t>(view.metadata().addressOf_x())

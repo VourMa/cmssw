@@ -8,6 +8,7 @@ process.source = cms.Source('EmptySource')
 process.load('Configuration.StandardSequences.Accelerators_cff')
 
 # enable logging for the AlpakaService and TestAlpakaAnalyzer
+process.MessageLogger.TestProducerCuda = cms.untracked.PSet()
 process.MessageLogger.TestAlpakaAnalyzer = cms.untracked.PSet()
 process.MessageLogger.AlpakaService = cms.untracked.PSet()
 
@@ -89,4 +90,4 @@ process.serial_path = cms.Path(
 
 process.output_path = cms.EndPath(process.output)
 
-process.maxEvents.input = 10
+process.maxEvents.input = 1

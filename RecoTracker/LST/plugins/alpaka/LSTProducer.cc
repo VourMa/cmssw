@@ -1,4 +1,3 @@
-#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
 #include <alpaka/alpaka.hpp>
 
 #include "DataFormats/Portable/interface/Product.h"
@@ -19,6 +18,8 @@
 #include "RecoTracker/LST/interface/LSTPhase2OTHitsInput.h"
 #include "RecoTracker/LST/interface/LSTOutput.h"
 
+#include "SDL/LST.h"
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
   class LSTProducer : public edm::stream::EDProducer<edm::ExternalWork> {
@@ -36,6 +37,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& pixelSeeds = event.get(lstPixelSeedInputToken_);
       auto const& phase2OTHits = event.get(lstPhase2OTHitsInputToken_);
 
+      printf("%d",N_MAX_TRACK_CANDIDATES);
       //sdl_.run(ctx.queue(), pixelSeeds, phase2OTHits);
     }
 
@@ -66,4 +68,3 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
 #include "HeterogeneousCore/AlpakaCore/interface/MakerMacros.h"
 DEFINE_FWK_ALPAKA_MODULE(LSTProducer);
-#endif // ALPAKA_ACC_GPU_CUDA_ENABLED

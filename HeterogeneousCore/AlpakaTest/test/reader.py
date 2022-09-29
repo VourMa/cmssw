@@ -24,4 +24,4 @@ process.cuda_path = cms.Path(process.testAnalyzer)
 
 process.serial_path = cms.Path(process.testAnalyzerSerial)
 
-process.maxEvents.input = 10
+process.maxEvents.input = 1

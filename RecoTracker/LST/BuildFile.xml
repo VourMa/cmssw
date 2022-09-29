@@ -1,4 +1,5 @@
 <use name="DataFormats/Common"/>
+<use name="lst"/>
 <export>
   <lib name="RecoTrackerLST"/>
 </export>

@@ -7,13 +7,20 @@
 #include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
 #include "FWCore/ParameterSet/interface/ParameterSet.h"
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/MessageLogger/interface/MessageLogger.h"
 #include "FWCore/Utilities/interface/EDGetToken.h"
 #include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Utilities/interface/StreamID.h"
 #include "HeterogeneousCore/AlpakaCore/interface/ScopedContext.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 
+#include "RecoTracker/LST/interface/LSTPhase2OTHitsInput.h"
+#include "RecoTracker/LST/interface/LSTPixelSeedInput.h"
+
 #include "TestAlgo.h"
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+#include "SDL/LST.h"
+#endif // ALPAKA_ACC_GPU_CUDA_ENABLED
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
@@ -26,9 +33,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       // create a context based on the EDM stream number
       cms::alpakatools::ScopedContextProduce<Queue> ctx(event.streamID());
 
+      LSTPhase2OTHitsInput phase2OTHits;
+      LSTPixelSeedInput pixelSeeds;
+
       // run the algorithm, potentially asynchronously
       portabletest::TestDeviceCollection deviceProduct{size_, ctx.queue()};
-      algo_.fill(ctx.queue(), deviceProduct);
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+      algo_.fill(ctx.queue(), deviceProduct, N_MAX_TRACK_CANDIDATES);
+      lst_.eventSetup();
+#else
+      algo_.fill(ctx.queue(), deviceProduct,1);
+#endif // ALPAKA_ACC_GPU_CUDA_ENABLED
 
       // put the asynchronous product into the event without waiting
       ctx.emplace(event, deviceToken_, std::move(deviceProduct));
@@ -46,6 +61,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
 
     // implementation of the algorithm
     TestAlgo algo_;
+#ifdef ALPAKA_ACC_GPU_CUDA_ENABLED
+    SDL::LST lst_;
+#endif // ALPAKA_ACC_GPU_CUDA_ENABLED
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE
