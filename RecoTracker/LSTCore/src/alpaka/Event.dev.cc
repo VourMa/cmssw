@@ -227,10 +227,11 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
                                              static_cast<int>(n_max_pixel_segments_per_module)}};
     segmentsDC_.emplace(segments_sizes, queue_);
 
+    auto segmentsOccupancy = segmentsDC_->view<SegmentsOccupancySoA>();
     auto nSegments_view =
-        alpaka::createView(devAcc_, segmentsDC_->view<SegmentsOccupancySoA>().nSegments(), nLowerModules_ + 1);
-    auto totOccupancySegments_view = alpaka::createView(
-        devAcc_, segmentsDC_->view<SegmentsOccupancySoA>().totOccupancySegments(), nLowerModules_ + 1);
+        alpaka::createView(devAcc_, segmentsOccupancy.nSegments(), segmentsOccupancy.metadata().size());
+    auto totOccupancySegments_view =
+        alpaka::createView(devAcc_, segmentsOccupancy.totOccupancySegments(), segmentsOccupancy.metadata().size());
     alpaka::memset(queue_, nSegments_view, 0u);
     alpaka::memset(queue_, totOccupancySegments_view, 0u);
   }
@@ -266,13 +267,14 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
   auto src_view_size = alpaka::createView(cms::alpakatools::host(), &size, (Idx)1u);
   auto src_view_mdSize = alpaka::createView(cms::alpakatools::host(), &mdSize, (Idx)1u);
 
-  SegmentsOccupancy segmentsOccupancy = segmentsDC_->view<SegmentsOccupancySoA>();
-  auto nSegments_view = alpaka::createView(devAcc_, segmentsOccupancy.nSegments(), (Idx)nLowerModules_ + 1);
+  auto segmentsOccupancy = segmentsDC_->view<SegmentsOccupancySoA>();
+  auto nSegments_view =
+      alpaka::createView(devAcc_, segmentsOccupancy.nSegments(), (Idx)segmentsOccupancy.metadata().size());
   auto dst_view_segments = alpaka::createSubView(nSegments_view, (Idx)1u, (Idx)pixelModuleIndex);
   alpaka::memcpy(queue_, dst_view_segments, src_view_size);
 
   auto totOccupancySegments_view =
-      alpaka::createView(devAcc_, segmentsOccupancy.totOccupancySegments(), (Idx)nLowerModules_ + 1);
+      alpaka::createView(devAcc_, segmentsOccupancy.totOccupancySegments(), (Idx)segmentsOccupancy.metadata().size());
   auto dst_view_totOccupancySegments = alpaka::createSubView(totOccupancySegments_view, (Idx)1u, (Idx)pixelModuleIndex);
   alpaka::memcpy(queue_, dst_view_totOccupancySegments, src_view_size);
 
@@ -381,10 +383,11 @@ void Event::createSegmentsWithModuleMap() {
                                              static_cast<int>(n_max_pixel_segments_per_module)}};
     segmentsDC_.emplace(segments_sizes, queue_);
 
+    auto segmentsOccupancy = segmentsDC_->view<SegmentsOccupancySoA>();
     auto nSegments_view =
-        alpaka::createView(devAcc_, segmentsDC_->view<SegmentsOccupancySoA>().nSegments(), nLowerModules_ + 1);
-    auto totOccupancySegments_view = alpaka::createView(
-        devAcc_, segmentsDC_->view<SegmentsOccupancySoA>().totOccupancySegments(), nLowerModules_ + 1);
+        alpaka::createView(devAcc_, segmentsOccupancy.nSegments(), segmentsOccupancy.metadata().size());
+    auto totOccupancySegments_view =
+        alpaka::createView(devAcc_, segmentsOccupancy.totOccupancySegments(), segmentsOccupancy.metadata().size());
     alpaka::memset(queue_, nSegments_view, 0u);
     alpaka::memset(queue_, totOccupancySegments_view, 0u);
   }
