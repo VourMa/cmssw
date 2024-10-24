@@ -8,6 +8,7 @@
 #include "RecoTracker/LSTCore/interface/alpaka/LST.h"
 #include "RecoTracker/LSTCore/interface/Module.h"
 #include "RecoTracker/LSTCore/interface/alpaka/ObjectRangesDeviceCollection.h"
+#include "RecoTracker/LSTCore/interface/alpaka/EndcapGeometryDevDeviceCollection.h"
 
 #include "Hit.h"
 #include "Segment.h"
@@ -78,7 +79,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     const unsigned int nEndCapMap_;
     ModulesBuffer<Device> const& modulesBuffers_;
     PixelMap const& pixelMapping_;
-    EndcapGeometryBuffer<Device> const& endcapGeometryBuffers_;
+    EndcapGeometryDevDeviceCollection const& endcapGeometry_;
 
   public:
     // Constructor used for CMSSW integration. Uses an external queue.
@@ -91,7 +92,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           nEndCapMap_(deviceESData->nEndCapMap),
           modulesBuffers_(deviceESData->modulesBuffers),
           pixelMapping_(*deviceESData->pixelMapping),
-          endcapGeometryBuffers_(deviceESData->endcapGeometryBuffers) {
+          endcapGeometry_(*deviceESData->endcapGeometry) {
       initSync(verbose);
     }
     void resetEventSync();  // synchronizes

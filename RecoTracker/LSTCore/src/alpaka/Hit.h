@@ -103,17 +103,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct HitLoopKernel {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  uint16_t Endcap,                  // Integer corresponding to endcap in module subdets
-                                  uint16_t TwoS,                    // Integer corresponding to TwoS in moduleType
-                                  unsigned int nModules,            // Number of modules
-                                  unsigned int nEndCapMap,          // Number of elements in endcap map
-                                  const unsigned int* geoMapDetId,  // DetId's from endcap map
-                                  const float* geoMapPhi,           // Phi values from endcap map
+                                  uint16_t Endcap,          // Integer corresponding to endcap in module subdets
+                                  uint16_t TwoS,            // Integer corresponding to TwoS in moduleType
+                                  unsigned int nModules,    // Number of modules
+                                  unsigned int nEndCapMap,  // Number of elements in endcap map
+                                  EndcapGeometryDevConst endcapGeometry,
                                   Modules modulesInGPU,
                                   Hits hits,
                                   HitsOccupancy hitsOccupancy,
                                   unsigned int nHits) const  // Total number of hits in event
     {
+      auto geoMapDetId = endcapGeometry.geoMapDetId();  // DetId's from endcap map
+      auto geoMapPhi = endcapGeometry.geoMapPhi();      // Phi values from endcap map
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
       for (unsigned int ihit = globalThreadIdx[2]; ihit < nHits; ihit += gridThreadExtent[2]) {
