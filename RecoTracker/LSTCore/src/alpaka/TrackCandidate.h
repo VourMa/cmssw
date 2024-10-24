@@ -73,19 +73,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   }
 
   ALPAKA_FN_ACC ALPAKA_FN_INLINE int checkPixelHits(
-      unsigned int ix, unsigned int jx, MiniDoubletsConst mds, SegmentsConst segments, Hits const& hitsInGPU) {
+      unsigned int ix, unsigned int jx, MiniDoubletsConst mds, SegmentsConst segments, HitsConst hits) {
     int phits1[Params_pLS::kHits];
     int phits2[Params_pLS::kHits];
 
-    phits1[0] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[ix][0]]];
-    phits1[1] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[ix][1]]];
-    phits1[2] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[ix][0]]];
-    phits1[3] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[ix][1]]];
+    phits1[0] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[ix][0]]];
+    phits1[1] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[ix][1]]];
+    phits1[2] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[ix][0]]];
+    phits1[3] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[ix][1]]];
 
-    phits2[0] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[jx][0]]];
-    phits2[1] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[jx][1]]];
-    phits2[2] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[jx][0]]];
-    phits2[3] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[jx][1]]];
+    phits2[0] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[jx][0]]];
+    phits2[1] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[jx][1]]];
+    phits2[2] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[jx][0]]];
+    phits2[3] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[jx][1]]];
 
     int npMatched = 0;
 
@@ -216,7 +216,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   SegmentsOccupancyConst segmentsOccupancy,
                                   SegmentsPixel segmentsPixel,
                                   MiniDoubletsConst mds,
-                                  Hits hitsInGPU,
+                                  HitsConst hits,
                                   Quintuplets quintupletsInGPU) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
@@ -252,7 +252,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (type == 5)  // pT3
           {
             int pLSIndex = pixelTripletsInGPU.pixelSegmentIndices[innerTrackletIdx];
-            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hitsInGPU);
+            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hits);
             if (npMatched > 0)
               segmentsPixel.isDup()[pixelArrayIndex] = true;
 
@@ -269,7 +269,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (type == 7)  // pT5
           {
             unsigned int pLSIndex = innerTrackletIdx;
-            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hitsInGPU);
+            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hits);
             if (npMatched > 0) {
               segmentsPixel.isDup()[pixelArrayIndex] = true;
             }

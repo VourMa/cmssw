@@ -775,7 +775,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   Modules modulesInGPU,
                                   ObjectOccupancyConst objectOccupancy,
-                                  Hits hitsInGPU,
+                                  HitsConst hits,
                                   MiniDoublets mds,
                                   Segments segments,
                                   SegmentsPixel segmentsPixel,
@@ -796,7 +796,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
         addMDToMemory(acc,
                       mds,
-                      hitsInGPU,
+                      hits,
                       modulesInGPU,
                       hitIndices0[tid],
                       hitIndices1[tid],
@@ -812,7 +812,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                       innerMDIndex);
         addMDToMemory(acc,
                       mds,
-                      hitsInGPU,
+                      hits,
                       modulesInGPU,
                       hitIndices2[tid],
                       hitIndices3[tid],
@@ -828,18 +828,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                       outerMDIndex);
 
         //in outer hits - pt, eta, phi
-        float slope = alpaka::math::sinh(acc, hitsInGPU.ys[mds.outerHitIndices()[innerMDIndex]]);
-        float intercept = hitsInGPU.zs[mds.anchorHitIndices()[innerMDIndex]] -
-                          slope * hitsInGPU.rts[mds.anchorHitIndices()[innerMDIndex]];
-        float score_lsq = (hitsInGPU.rts[mds.anchorHitIndices()[outerMDIndex]] * slope + intercept) -
-                          (hitsInGPU.zs[mds.anchorHitIndices()[outerMDIndex]]);
+        float slope = alpaka::math::sinh(acc, hits.ys()[mds.outerHitIndices()[innerMDIndex]]);
+        float intercept =
+            hits.zs()[mds.anchorHitIndices()[innerMDIndex]] - slope * hits.rts()[mds.anchorHitIndices()[innerMDIndex]];
+        float score_lsq = (hits.rts()[mds.anchorHitIndices()[outerMDIndex]] * slope + intercept) -
+                          (hits.zs()[mds.anchorHitIndices()[outerMDIndex]]);
         score_lsq = score_lsq * score_lsq;
 
         unsigned int hits1[Params_pLS::kHits];
-        hits1[0] = hitsInGPU.idxs[mds.anchorHitIndices()[innerMDIndex]];
-        hits1[1] = hitsInGPU.idxs[mds.anchorHitIndices()[outerMDIndex]];
-        hits1[2] = hitsInGPU.idxs[mds.outerHitIndices()[innerMDIndex]];
-        hits1[3] = hitsInGPU.idxs[mds.outerHitIndices()[outerMDIndex]];
+        hits1[0] = hits.idxs()[mds.anchorHitIndices()[innerMDIndex]];
+        hits1[1] = hits.idxs()[mds.anchorHitIndices()[outerMDIndex]];
+        hits1[2] = hits.idxs()[mds.outerHitIndices()[innerMDIndex]];
+        hits1[3] = hits.idxs()[mds.outerHitIndices()[outerMDIndex]];
         addPixelSegmentToMemory(acc,
                                 segments,
                                 segmentsPixel,

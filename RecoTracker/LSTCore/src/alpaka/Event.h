@@ -45,8 +45,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     //Device stuff
     std::optional<ObjectRangesDeviceCollection> rangesDC_;
-    std::optional<Hits> hitsInGPU_;
-    std::optional<HitsBuffer<Device>> hitsBuffers_;
+    std::optional<HitsDeviceCollection> hitsDC_;
     std::optional<MiniDoubletsDeviceCollection> miniDoubletsDC_;
     std::optional<SegmentsDeviceCollection> segmentsDC_;
     std::optional<Triplets> tripletsInGPU_;
@@ -61,7 +60,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     //CPU interface stuff
     std::optional<ObjectRangesHostCollection> rangesHC_;
-    std::optional<HitsBuffer<DevHost>> hitsInCPU_;
+    std::optional<HitsHostCollection> hitsHC_;
     std::optional<MiniDoubletsHostCollection> miniDoubletsHC_;
     std::optional<SegmentsHostCollection> segmentsHC_;
     std::optional<TripletsBuffer<DevHost>> tripletsInCPU_;
@@ -178,8 +177,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // (has no effect on repeated calls)
     // set to false may allow faster operation with concurrent calls of get*
     // HANDLE WITH CARE
-    HitsBuffer<DevHost>& getHits(bool sync = true);
-    HitsBuffer<DevHost>& getHitsInCMSSW(bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getHits(bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getHitsInCMSSW(bool sync = true);
     template <typename TSoA, typename TDev = Device>
     typename TSoA::ConstView getRanges(bool sync = true);
     template <typename TSoA, typename TDev = Device>

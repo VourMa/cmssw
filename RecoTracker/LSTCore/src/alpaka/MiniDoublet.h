@@ -16,7 +16,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE void addMDToMemory(TAcc const& acc,
                                                     MiniDoublets mds,
-                                                    Hits const& hitsInGPU,
+                                                    HitsConst hits,
                                                     Modules const& modulesInGPU,
                                                     unsigned int lowerHitIdx,
                                                     unsigned int upperHitIdx,
@@ -60,29 +60,29 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     mds.noShiftedDphis()[idx] = noShiftedDphi;
     mds.noShiftedDphiChanges()[idx] = noShiftedDPhiChange;
 
-    mds.anchorX()[idx] = hitsInGPU.xs[anchorHitIndex];
-    mds.anchorY()[idx] = hitsInGPU.ys[anchorHitIndex];
-    mds.anchorZ()[idx] = hitsInGPU.zs[anchorHitIndex];
-    mds.anchorRt()[idx] = hitsInGPU.rts[anchorHitIndex];
-    mds.anchorPhi()[idx] = hitsInGPU.phis[anchorHitIndex];
-    mds.anchorEta()[idx] = hitsInGPU.etas[anchorHitIndex];
-    mds.anchorHighEdgeX()[idx] = hitsInGPU.highEdgeXs[anchorHitIndex];
-    mds.anchorHighEdgeY()[idx] = hitsInGPU.highEdgeYs[anchorHitIndex];
-    mds.anchorLowEdgeX()[idx] = hitsInGPU.lowEdgeXs[anchorHitIndex];
-    mds.anchorLowEdgeY()[idx] = hitsInGPU.lowEdgeYs[anchorHitIndex];
+    mds.anchorX()[idx] = hits.xs()[anchorHitIndex];
+    mds.anchorY()[idx] = hits.ys()[anchorHitIndex];
+    mds.anchorZ()[idx] = hits.zs()[anchorHitIndex];
+    mds.anchorRt()[idx] = hits.rts()[anchorHitIndex];
+    mds.anchorPhi()[idx] = hits.phis()[anchorHitIndex];
+    mds.anchorEta()[idx] = hits.etas()[anchorHitIndex];
+    mds.anchorHighEdgeX()[idx] = hits.highEdgeXs()[anchorHitIndex];
+    mds.anchorHighEdgeY()[idx] = hits.highEdgeYs()[anchorHitIndex];
+    mds.anchorLowEdgeX()[idx] = hits.lowEdgeXs()[anchorHitIndex];
+    mds.anchorLowEdgeY()[idx] = hits.lowEdgeYs()[anchorHitIndex];
     mds.anchorHighEdgePhi()[idx] = alpaka::math::atan2(acc, mds.anchorHighEdgeY()[idx], mds.anchorHighEdgeX()[idx]);
     mds.anchorLowEdgePhi()[idx] = alpaka::math::atan2(acc, mds.anchorLowEdgeY()[idx], mds.anchorLowEdgeX()[idx]);
 
-    mds.outerX()[idx] = hitsInGPU.xs[outerHitIndex];
-    mds.outerY()[idx] = hitsInGPU.ys[outerHitIndex];
-    mds.outerZ()[idx] = hitsInGPU.zs[outerHitIndex];
-    mds.outerRt()[idx] = hitsInGPU.rts[outerHitIndex];
-    mds.outerPhi()[idx] = hitsInGPU.phis[outerHitIndex];
-    mds.outerEta()[idx] = hitsInGPU.etas[outerHitIndex];
-    mds.outerHighEdgeX()[idx] = hitsInGPU.highEdgeXs[outerHitIndex];
-    mds.outerHighEdgeY()[idx] = hitsInGPU.highEdgeYs[outerHitIndex];
-    mds.outerLowEdgeX()[idx] = hitsInGPU.lowEdgeXs[outerHitIndex];
-    mds.outerLowEdgeY()[idx] = hitsInGPU.lowEdgeYs[outerHitIndex];
+    mds.outerX()[idx] = hits.xs()[outerHitIndex];
+    mds.outerY()[idx] = hits.ys()[outerHitIndex];
+    mds.outerZ()[idx] = hits.zs()[outerHitIndex];
+    mds.outerRt()[idx] = hits.rts()[outerHitIndex];
+    mds.outerPhi()[idx] = hits.phis()[outerHitIndex];
+    mds.outerEta()[idx] = hits.etas()[outerHitIndex];
+    mds.outerHighEdgeX()[idx] = hits.highEdgeXs()[outerHitIndex];
+    mds.outerHighEdgeY()[idx] = hits.highEdgeYs()[outerHitIndex];
+    mds.outerLowEdgeX()[idx] = hits.lowEdgeXs()[outerHitIndex];
+    mds.outerLowEdgeY()[idx] = hits.lowEdgeYs()[outerHitIndex];
   }
 
   ALPAKA_FN_ACC ALPAKA_FN_INLINE float isTighterTiltedModules(Modules const& modulesInGPU, uint16_t moduleIndex) {
@@ -695,7 +695,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   Modules modulesInGPU,
-                                  Hits hitsInGPU,
+                                  HitsConst hits,
+                                  HitsOccupancyConst hitsOccupancy,
                                   MiniDoublets mds,
                                   MiniDoubletsOccupancy mdsOccupancy,
                                   ObjectOccupancyConst objectOccupancy) const {
@@ -705,12 +706,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       for (uint16_t lowerModuleIndex = globalThreadIdx[1]; lowerModuleIndex < (*modulesInGPU.nLowerModules);
            lowerModuleIndex += gridThreadExtent[1]) {
         uint16_t upperModuleIndex = modulesInGPU.partnerModuleIndices[lowerModuleIndex];
-        int nLowerHits = hitsInGPU.hitRangesnLower[lowerModuleIndex];
-        int nUpperHits = hitsInGPU.hitRangesnUpper[lowerModuleIndex];
-        if (hitsInGPU.hitRangesLower[lowerModuleIndex] == -1)
+        int nLowerHits = hitsOccupancy.hitRangesnLower()[lowerModuleIndex];
+        int nUpperHits = hitsOccupancy.hitRangesnUpper()[lowerModuleIndex];
+        if (hitsOccupancy.hitRangesLower()[lowerModuleIndex] == -1)
           continue;
-        unsigned int upHitArrayIndex = hitsInGPU.hitRangesUpper[lowerModuleIndex];
-        unsigned int loHitArrayIndex = hitsInGPU.hitRangesLower[lowerModuleIndex];
+        unsigned int upHitArrayIndex = hitsOccupancy.hitRangesUpper()[lowerModuleIndex];
+        unsigned int loHitArrayIndex = hitsOccupancy.hitRangesLower()[lowerModuleIndex];
         int limit = nUpperHits * nLowerHits;
 
         for (int hitIndex = globalThreadIdx[2]; hitIndex < limit; hitIndex += gridThreadExtent[2]) {
@@ -721,15 +722,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (lowerHitIndex >= nLowerHits)
             continue;
           unsigned int lowerHitArrayIndex = loHitArrayIndex + lowerHitIndex;
-          float xLower = hitsInGPU.xs[lowerHitArrayIndex];
-          float yLower = hitsInGPU.ys[lowerHitArrayIndex];
-          float zLower = hitsInGPU.zs[lowerHitArrayIndex];
-          float rtLower = hitsInGPU.rts[lowerHitArrayIndex];
+          float xLower = hits.xs()[lowerHitArrayIndex];
+          float yLower = hits.ys()[lowerHitArrayIndex];
+          float zLower = hits.zs()[lowerHitArrayIndex];
+          float rtLower = hits.rts()[lowerHitArrayIndex];
           unsigned int upperHitArrayIndex = upHitArrayIndex + upperHitIndex;
-          float xUpper = hitsInGPU.xs[upperHitArrayIndex];
-          float yUpper = hitsInGPU.ys[upperHitArrayIndex];
-          float zUpper = hitsInGPU.zs[upperHitArrayIndex];
-          float rtUpper = hitsInGPU.rts[upperHitArrayIndex];
+          float xUpper = hits.xs()[upperHitArrayIndex];
+          float yUpper = hits.ys()[upperHitArrayIndex];
+          float zUpper = hits.zs()[upperHitArrayIndex];
+          float rtUpper = hits.rts()[upperHitArrayIndex];
 
           float dz, dphi, dphichange, shiftedX, shiftedY, shiftedZ, noShiftedDphi, noShiftedDphiChange;
           bool success = runMiniDoubletDefaultAlgo(acc,
@@ -768,7 +769,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
               addMDToMemory(acc,
                             mds,
-                            hitsInGPU,
+                            hits,
                             modulesInGPU,
                             lowerHitArrayIndex,
                             upperHitArrayIndex,
@@ -890,7 +891,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   MiniDoubletsOccupancy mdsOccupancy,
                                   ObjectRanges ranges,
                                   ObjectOccupancyConst objectOccupancy,
-                                  Hits hitsInGPU) const {
+                                  HitsOccupancyConst hitsOccupancy) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -899,7 +900,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (uint16_t i = globalThreadIdx[0]; i < *modulesInGPU.nLowerModules; i += gridThreadExtent[0]) {
-        if (mdsOccupancy.nMDs()[i] == 0 or hitsInGPU.hitRanges[i * 2] == -1) {
+        if (mdsOccupancy.nMDs()[i] == 0 or hitsOccupancy.hitRanges()[i][0] == -1) {
           ranges.mdRanges()[i][0] = -1;
           ranges.mdRanges()[i][1] = -1;
         } else {

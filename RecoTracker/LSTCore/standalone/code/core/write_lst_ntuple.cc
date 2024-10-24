@@ -503,7 +503,7 @@ void setGnnNtupleBranches(Event* event) {
   // Get relevant information
   SegmentsOccupancyConst segmentsOccupancy = event->getSegments<SegmentsOccupancySoA>();
   MiniDoubletsOccupancyConst miniDoublets = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
-  Hits const* hitsEvt = event->getHits().data();
+  auto hitsEvt = event->getHits<HitsSoA>();
   Modules const* modules = event->getModules().data();
   auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
   auto const& trackCandidates = event->getTrackCandidates().const_view();
@@ -582,8 +582,8 @@ void setGnnNtupleBranches(Event* event) {
 
       // Computing line segment pt estimate (assuming beam spot is at zero)
       lst_math::Hit hitA(0, 0, 0);
-      lst_math::Hit hitB(hitsEvt->xs[hits[0]], hitsEvt->ys[hits[0]], hitsEvt->zs[hits[0]]);
-      lst_math::Hit hitC(hitsEvt->xs[hits[2]], hitsEvt->ys[hits[2]], hitsEvt->zs[hits[2]]);
+      lst_math::Hit hitB(hitsEvt.xs()[hits[0]], hitsEvt.ys()[hits[0]], hitsEvt.zs()[hits[0]]);
+      lst_math::Hit hitC(hitsEvt.xs()[hits[2]], hitsEvt.ys()[hits[2]], hitsEvt.zs()[hits[2]]);
       lst_math::Hit center = lst_math::getCenterFromThreePoints(hitA, hitB, hitC);
       float pt = lst_math::ptEstimateFromRadius(center.rt());
       float eta = hitC.eta();
@@ -643,24 +643,24 @@ void setGnnNtupleBranches(Event* event) {
 void setGnnNtupleMiniDoublet(Event* event, unsigned int MD) {
   // Get relevant information
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
-  Hits const* hitsEvt = event->getHits().data();
+  auto hitsEvt = event->getHits<HitsSoA>();
 
   // Get the hit indices
   unsigned int hit0 = miniDoublets.anchorHitIndices()[MD];
   unsigned int hit1 = miniDoublets.outerHitIndices()[MD];
 
   // Get the hit infos
-  const float hit0_x = hitsEvt->xs[hit0];
-  const float hit0_y = hitsEvt->ys[hit0];
-  const float hit0_z = hitsEvt->zs[hit0];
+  const float hit0_x = hitsEvt.xs()[hit0];
+  const float hit0_y = hitsEvt.ys()[hit0];
+  const float hit0_z = hitsEvt.zs()[hit0];
   const float hit0_r = sqrt(hit0_x * hit0_x + hit0_y * hit0_y);
-  const float hit1_x = hitsEvt->xs[hit1];
-  const float hit1_y = hitsEvt->ys[hit1];
-  const float hit1_z = hitsEvt->zs[hit1];
+  const float hit1_x = hitsEvt.xs()[hit1];
+  const float hit1_y = hitsEvt.ys()[hit1];
+  const float hit1_z = hitsEvt.zs()[hit1];
   const float hit1_r = sqrt(hit1_x * hit1_x + hit1_y * hit1_y);
 
   // Do sim matching
-  std::vector<unsigned int> hit_idx = {hitsEvt->idxs[hit0], hitsEvt->idxs[hit1]};
+  std::vector<unsigned int> hit_idx = {hitsEvt.idxs()[hit0], hitsEvt.idxs()[hit1]};
   std::vector<unsigned int> hit_type = {4, 4};
   std::vector<int> simidxs = matchedSimTrkIdxs(hit_idx, hit_type);
 
@@ -668,8 +668,8 @@ void setGnnNtupleMiniDoublet(Event* event, unsigned int MD) {
   int tp_type = getDenomSimTrkType(simidxs);
 
   // Obtain where the actual hit is located in terms of their layer, module, rod, and ring number
-  unsigned int anchitidx = hitsEvt->idxs[hit0];
-  int subdet = trk.ph2_subdet()[hitsEvt->idxs[anchitidx]];
+  unsigned int anchitidx = hitsEvt.idxs()[hit0];
+  int subdet = trk.ph2_subdet()[hitsEvt.idxs()[anchitidx]];
   int is_endcap = subdet == 4;
   int layer =
       trk.ph2_layer()[anchitidx] +
@@ -988,7 +988,7 @@ void printAllObjects(Event* event) {
 void printMDs(Event* event) {
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
   MiniDoubletsOccupancyConst miniDoubletsOccupancy = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
-  Hits const* hitsEvt = event->getHits().data();
+  auto hitsEvt = event->getHits<HitsSoA>();
   Modules const* modules = event->getModules().data();
   auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
 
@@ -998,8 +998,8 @@ void printMDs(Event* event) {
       unsigned int mdIdx = objectOccupancy.miniDoubletModuleIndices()[idx] + iMD;
       unsigned int LowerHitIndex = miniDoublets.anchorHitIndices()[mdIdx];
       unsigned int UpperHitIndex = miniDoublets.outerHitIndices()[mdIdx];
-      unsigned int hit0 = hitsEvt->idxs[LowerHitIndex];
-      unsigned int hit1 = hitsEvt->idxs[UpperHitIndex];
+      unsigned int hit0 = hitsEvt.idxs()[LowerHitIndex];
+      unsigned int hit1 = hitsEvt.idxs()[UpperHitIndex];
       std::cout << "VALIDATION 'MD': "
                 << "MD"
                 << " hit0: " << hit0 << " hit1: " << hit1 << std::endl;
@@ -1012,7 +1012,7 @@ void printLSs(Event* event) {
   SegmentsConst segments = event->getSegments<SegmentsSoA>();
   SegmentsOccupancyConst segmentsOccupancy = event->getSegments<SegmentsOccupancySoA>();
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
-  Hits const* hitsEvt = event->getHits().data();
+  auto hitsEvt = event->getHits<HitsSoA>();
   Modules const* modules = event->getModules().data();
   auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
 
@@ -1028,10 +1028,10 @@ void printLSs(Event* event) {
       unsigned int InnerMiniDoubletUpperHitIndex = miniDoublets.outerHitIndices()[InnerMiniDoubletIndex];
       unsigned int OuterMiniDoubletLowerHitIndex = miniDoublets.anchorHitIndices()[OuterMiniDoubletIndex];
       unsigned int OuterMiniDoubletUpperHitIndex = miniDoublets.outerHitIndices()[OuterMiniDoubletIndex];
-      unsigned int hit0 = hitsEvt->idxs[InnerMiniDoubletLowerHitIndex];
-      unsigned int hit1 = hitsEvt->idxs[InnerMiniDoubletUpperHitIndex];
-      unsigned int hit2 = hitsEvt->idxs[OuterMiniDoubletLowerHitIndex];
-      unsigned int hit3 = hitsEvt->idxs[OuterMiniDoubletUpperHitIndex];
+      unsigned int hit0 = hitsEvt.idxs()[InnerMiniDoubletLowerHitIndex];
+      unsigned int hit1 = hitsEvt.idxs()[InnerMiniDoubletUpperHitIndex];
+      unsigned int hit2 = hitsEvt.idxs()[OuterMiniDoubletLowerHitIndex];
+      unsigned int hit3 = hitsEvt.idxs()[OuterMiniDoubletUpperHitIndex];
       std::cout << "VALIDATION 'LS': "
                 << "LS"
                 << " hit0: " << hit0 << " hit1: " << hit1 << " hit2: " << hit2 << " hit3: " << hit3 << std::endl;
@@ -1045,7 +1045,7 @@ void printpLSs(Event* event) {
   SegmentsConst segments = event->getSegments<SegmentsSoA>();
   SegmentsOccupancyConst segmentsOccupancy = event->getSegments<SegmentsOccupancySoA>();
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
-  Hits const* hitsEvt = event->getHits().data();
+  auto hitsEvt = event->getHits<HitsSoA>();
   Modules const* modules = event->getModules().data();
   auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
 
@@ -1060,10 +1060,10 @@ void printpLSs(Event* event) {
     unsigned int InnerMiniDoubletUpperHitIndex = miniDoublets.outerHitIndices()[InnerMiniDoubletIndex];
     unsigned int OuterMiniDoubletLowerHitIndex = miniDoublets.anchorHitIndices()[OuterMiniDoubletIndex];
     unsigned int OuterMiniDoubletUpperHitIndex = miniDoublets.outerHitIndices()[OuterMiniDoubletIndex];
-    unsigned int hit0 = hitsEvt->idxs[InnerMiniDoubletLowerHitIndex];
-    unsigned int hit1 = hitsEvt->idxs[InnerMiniDoubletUpperHitIndex];
-    unsigned int hit2 = hitsEvt->idxs[OuterMiniDoubletLowerHitIndex];
-    unsigned int hit3 = hitsEvt->idxs[OuterMiniDoubletUpperHitIndex];
+    unsigned int hit0 = hitsEvt.idxs()[InnerMiniDoubletLowerHitIndex];
+    unsigned int hit1 = hitsEvt.idxs()[InnerMiniDoubletUpperHitIndex];
+    unsigned int hit2 = hitsEvt.idxs()[OuterMiniDoubletLowerHitIndex];
+    unsigned int hit3 = hitsEvt.idxs()[OuterMiniDoubletUpperHitIndex];
     std::cout << "VALIDATION 'pLS': "
               << "pLS"
               << " hit0: " << hit0 << " hit1: " << hit1 << " hit2: " << hit2 << " hit3: " << hit3 << std::endl;
@@ -1076,7 +1076,7 @@ void printT3s(Event* event) {
   Triplets const* triplets = event->getTriplets().data();
   SegmentsConst segments = event->getSegments<SegmentsSoA>();
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
-  Hits const* hitsEvt = event->getHits().data();
+  auto hitsEvt = event->getHits<HitsSoA>();
   Modules const* modules = event->getModules().data();
   int nTriplets = 0;
   for (unsigned int i = 0; i < *(modules->nLowerModules); ++i) {
@@ -1098,12 +1098,12 @@ void printT3s(Event* event) {
       unsigned int hit_idx4 = miniDoublets.anchorHitIndices()[OuterSegmentOuterMiniDoubletIndex];
       unsigned int hit_idx5 = miniDoublets.outerHitIndices()[OuterSegmentOuterMiniDoubletIndex];
 
-      unsigned int hit0 = hitsEvt->idxs[hit_idx0];
-      unsigned int hit1 = hitsEvt->idxs[hit_idx1];
-      unsigned int hit2 = hitsEvt->idxs[hit_idx2];
-      unsigned int hit3 = hitsEvt->idxs[hit_idx3];
-      unsigned int hit4 = hitsEvt->idxs[hit_idx4];
-      unsigned int hit5 = hitsEvt->idxs[hit_idx5];
+      unsigned int hit0 = hitsEvt.idxs()[hit_idx0];
+      unsigned int hit1 = hitsEvt.idxs()[hit_idx1];
+      unsigned int hit2 = hitsEvt.idxs()[hit_idx2];
+      unsigned int hit3 = hitsEvt.idxs()[hit_idx3];
+      unsigned int hit4 = hitsEvt.idxs()[hit_idx4];
+      unsigned int hit5 = hitsEvt.idxs()[hit_idx5];
       std::cout << "VALIDATION 'T3': "
                 << "T3"
                 << " hit0: " << hit0 << " hit1: " << hit1 << " hit2: " << hit2 << " hit3: " << hit3 << " hit4: " << hit4
