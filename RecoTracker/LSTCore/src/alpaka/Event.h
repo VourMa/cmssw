@@ -7,6 +7,7 @@
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LST.h"
 #include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/alpaka/ObjectRangesDeviceCollection.h"
 
 #include "Hit.h"
 #include "Segment.h"
@@ -43,8 +44,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     unsigned int nTotalSegments_;
 
     //Device stuff
-    std::optional<ObjectRanges> rangesInGPU_;
-    std::optional<ObjectRangesBuffer<Device>> rangesBuffers_;
+    std::optional<ObjectRangesDeviceCollection> rangesDC_;
     std::optional<Hits> hitsInGPU_;
     std::optional<HitsBuffer<Device>> hitsBuffers_;
     std::optional<MiniDoubletsDeviceCollection> miniDoubletsDC_;
@@ -60,7 +60,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::optional<PixelQuintupletsBuffer<Device>> pixelQuintupletsBuffers_;
 
     //CPU interface stuff
-    std::optional<ObjectRangesBuffer<DevHost>> rangesInCPU_;
+    std::optional<ObjectRangesHostCollection> rangesHC_;
     std::optional<HitsBuffer<DevHost>> hitsInCPU_;
     std::optional<MiniDoubletsHostCollection> miniDoubletsHC_;
     std::optional<SegmentsHostCollection> segmentsHC_;
@@ -180,7 +180,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // HANDLE WITH CARE
     HitsBuffer<DevHost>& getHits(bool sync = true);
     HitsBuffer<DevHost>& getHitsInCMSSW(bool sync = true);
-    ObjectRangesBuffer<DevHost>& getRanges(bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getRanges(bool sync = true);
     template <typename TSoA, typename TDev = Device>
     typename TSoA::ConstView getMiniDoublets(bool sync = true);
     template <typename TSoA, typename TDev = Device>

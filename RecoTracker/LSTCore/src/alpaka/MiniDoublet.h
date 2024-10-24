@@ -8,9 +8,9 @@
 #include "RecoTracker/LSTCore/interface/alpaka/MiniDoubletsDeviceCollection.h"
 #include "RecoTracker/LSTCore/interface/Module.h"
 #include "RecoTracker/LSTCore/interface/EndcapGeometry.h"
+#include "RecoTracker/LSTCore/interface/ObjectRangesSoA.h"
 
 #include "Hit.h"
-#include "ObjectRanges.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   template <typename TAcc>
@@ -698,7 +698,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   Hits hitsInGPU,
                                   MiniDoublets mds,
                                   MiniDoubletsOccupancy mdsOccupancy,
-                                  ObjectRanges rangesInGPU) const {
+                                  ObjectOccupancyConst objectOccupancy) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
@@ -757,14 +757,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (success) {
             int totOccupancyMDs = alpaka::atomicAdd(
                 acc, &mdsOccupancy.totOccupancyMDs()[lowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-            if (totOccupancyMDs >= (rangesInGPU.miniDoubletModuleOccupancy[lowerModuleIndex])) {
+            if (totOccupancyMDs >= (objectOccupancy.miniDoubletModuleOccupancy()[lowerModuleIndex])) {
 #ifdef WARNINGS
               printf("Mini-doublet excess alert! Module index =  %d\n", lowerModuleIndex);
 #endif
             } else {
               int mdModuleIndex =
                   alpaka::atomicAdd(acc, &mdsOccupancy.nMDs()[lowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-              unsigned int mdIndex = rangesInGPU.miniDoubletModuleIndices[lowerModuleIndex] + mdModuleIndex;
+              unsigned int mdIndex = objectOccupancy.miniDoubletModuleIndices()[lowerModuleIndex] + mdModuleIndex;
 
               addMDToMemory(acc,
                             mds,
@@ -791,7 +791,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   struct CreateMDArrayRangesGPU {
     template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, Modules modulesInGPU, ObjectRanges rangesInGPU) const {
+    ALPAKA_FN_ACC void operator()(TAcc const& acc, Modules modulesInGPU, ObjectOccupancy objectOccupancy) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -870,15 +870,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
         unsigned int nTotMDs = alpaka::atomicAdd(acc, &nTotalMDs, occupancy, alpaka::hierarchy::Threads{});
 
-        rangesInGPU.miniDoubletModuleIndices[i] = nTotMDs;
-        rangesInGPU.miniDoubletModuleOccupancy[i] = occupancy;
+        objectOccupancy.miniDoubletModuleIndices()[i] = nTotMDs;
+        objectOccupancy.miniDoubletModuleOccupancy()[i] = occupancy;
       }
 
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        rangesInGPU.miniDoubletModuleIndices[*modulesInGPU.nLowerModules] = nTotalMDs;
-        *rangesInGPU.device_nTotalMDs = nTotalMDs;
+        objectOccupancy.miniDoubletModuleIndices()[*modulesInGPU.nLowerModules] = nTotalMDs;
+        objectOccupancy.nTotalMDs() = nTotalMDs;
       }
     }
   };
@@ -888,7 +888,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   Modules modulesInGPU,
                                   MiniDoubletsOccupancy mdsOccupancy,
-                                  ObjectRanges rangesInGPU,
+                                  ObjectRanges ranges,
+                                  ObjectOccupancyConst objectOccupancy,
                                   Hits hitsInGPU) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
@@ -899,11 +900,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
       for (uint16_t i = globalThreadIdx[0]; i < *modulesInGPU.nLowerModules; i += gridThreadExtent[0]) {
         if (mdsOccupancy.nMDs()[i] == 0 or hitsInGPU.hitRanges[i * 2] == -1) {
-          rangesInGPU.mdRanges[i * 2] = -1;
-          rangesInGPU.mdRanges[i * 2 + 1] = -1;
+          ranges.mdRanges()[i][0] = -1;
+          ranges.mdRanges()[i][1] = -1;
         } else {
-          rangesInGPU.mdRanges[i * 2] = rangesInGPU.miniDoubletModuleIndices[i];
-          rangesInGPU.mdRanges[i * 2 + 1] = rangesInGPU.miniDoubletModuleIndices[i] + mdsOccupancy.nMDs()[i] - 1;
+          ranges.mdRanges()[i][0] = objectOccupancy.miniDoubletModuleIndices()[i];
+          ranges.mdRanges()[i][1] = objectOccupancy.miniDoubletModuleIndices()[i] + mdsOccupancy.nMDs()[i] - 1;
         }
       }
     }
