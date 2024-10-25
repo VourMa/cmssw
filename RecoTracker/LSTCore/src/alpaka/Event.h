@@ -6,9 +6,10 @@
 #include "RecoTracker/LSTCore/interface/TrackCandidatesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LST.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/alpaka/ObjectRangesDeviceCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/EndcapGeometryDevDeviceCollection.h"
+#include "RecoTracker/LSTCore/interface/alpaka/ModulesDeviceCollection.h"
 
 #include "Hit.h"
 #include "Segment.h"
@@ -66,7 +67,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::optional<SegmentsHostCollection> segmentsHC_;
     std::optional<TripletsBuffer<DevHost>> tripletsInCPU_;
     std::optional<TrackCandidatesHostCollection> trackCandidatesHC_;
-    std::optional<ModulesBuffer<DevHost>> modulesInCPU_;
+    std::optional<ModulesHostCollection> modulesHC_;
     std::optional<QuintupletsBuffer<DevHost>> quintupletsInCPU_;
     std::optional<PixelTripletsBuffer<DevHost>> pixelTripletsInCPU_;
     std::optional<PixelQuintupletsBuffer<DevHost>> pixelQuintupletsInCPU_;
@@ -77,7 +78,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     const uint16_t nLowerModules_;
     const unsigned int nPixels_;
     const unsigned int nEndCapMap_;
-    ModulesBuffer<Device> const& modulesBuffers_;
+    ModulesDeviceCollection const& modules_;
     PixelMap const& pixelMapping_;
     EndcapGeometryDevDeviceCollection const& endcapGeometry_;
 
@@ -90,7 +91,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           nLowerModules_(deviceESData->nLowerModules),
           nPixels_(deviceESData->nPixels),
           nEndCapMap_(deviceESData->nEndCapMap),
-          modulesBuffers_(deviceESData->modulesBuffers),
+          modules_(*deviceESData->modules),
           pixelMapping_(*deviceESData->pixelMapping),
           endcapGeometry_(*deviceESData->endcapGeometry) {
       initSync(verbose);
@@ -194,7 +195,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     PixelQuintupletsBuffer<DevHost>& getPixelQuintuplets(bool sync = true);
     const TrackCandidatesHostCollection& getTrackCandidates(bool sync = true);
     const TrackCandidatesHostCollection& getTrackCandidatesInCMSSW(bool sync = true);
-    ModulesBuffer<DevHost>& getModules(bool isFull = false, bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getModules(bool sync = true);
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::lst

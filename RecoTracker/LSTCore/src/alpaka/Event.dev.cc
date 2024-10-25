@@ -74,7 +74,7 @@ void Event::resetEventSync() {
   pixelTripletsInCPU_.reset();
   pixelQuintupletsInCPU_.reset();
   trackCandidatesHC_.reset();
-  modulesInCPU_.reset();
+  modulesHC_.reset();
 }
 
 void Event::addHitToEvent(std::vector<float> const& x,
@@ -140,7 +140,7 @@ void Event::addHitToEvent(std::vector<float> const& x,
                       nModules_,
                       nEndCapMap_,
                       endcapGeometry_.const_view(),
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       hitsDC_->view<HitsSoA>(),
                       hitsDC_->view<HitsOccupancySoA>(),
                       nHits);
@@ -152,7 +152,7 @@ void Event::addHitToEvent(std::vector<float> const& x,
   alpaka::exec<Acc3D>(queue_,
                       module_ranges_workdiv,
                       ModuleRangesKernel{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       hitsDC_->view<HitsOccupancySoA>(),
                       nLowerModules_);
 }
@@ -208,7 +208,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
     alpaka::exec<Acc1D>(queue_,
                         createMDArrayRangesGPU_workDiv,
                         CreateMDArrayRangesGPU{},
-                        *modulesBuffers_.data(),
+                        modules_.const_view<ModulesSoA>(),
                         rangesDC_->view<ObjectOccupancySoA>());
 
     auto nTotalMDs_buf_h = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, (Idx)1u);
@@ -238,7 +238,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
     alpaka::exec<Acc1D>(queue_,
                         createSegmentArrayRanges_workDiv,
                         CreateSegmentArrayRanges{},
-                        *modulesBuffers_.data(),
+                        modules_.const_view<ModulesSoA>(),
                         rangesDC_->view<ObjectOccupancySoA>(),
                         miniDoubletsDC_->const_view<MiniDoubletsSoA>());
 
@@ -325,7 +325,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
   alpaka::exec<Acc3D>(queue_,
                       addPixelSegmentToEvent_workdiv,
                       AddPixelSegmentToEventKernel{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>(),
                       hitsDC_->view<HitsSoA>(),
                       miniDoubletsDC_->view<MiniDoubletsSoA>(),
@@ -359,7 +359,7 @@ void Event::createMiniDoublets() {
   alpaka::exec<Acc1D>(queue_,
                       createMDArrayRangesGPU_workDiv,
                       CreateMDArrayRangesGPU{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       rangesDC_->view<ObjectOccupancySoA>());
 
   auto nTotalMDs_buf_h = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, (Idx)1u);
@@ -390,7 +390,7 @@ void Event::createMiniDoublets() {
   alpaka::exec<Acc3D>(queue_,
                       createMiniDoubletsInGPUv2_workDiv,
                       CreateMiniDoubletsInGPUv2{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       hitsDC_->const_view<HitsSoA>(),
                       hitsDC_->const_view<HitsOccupancySoA>(),
                       miniDoubletsDC_->view<MiniDoubletsSoA>(),
@@ -402,7 +402,7 @@ void Event::createMiniDoublets() {
   alpaka::exec<Acc1D>(queue_,
                       addMiniDoubletRangesToEventExplicit_workDiv,
                       AddMiniDoubletRangesToEventExplicit{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       miniDoubletsDC_->view<MiniDoubletsOccupancySoA>(),
                       rangesDC_->view<ObjectRangesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>(),
@@ -437,7 +437,7 @@ void Event::createSegmentsWithModuleMap() {
   alpaka::exec<Acc3D>(queue_,
                       createSegmentsInGPUv2_workDiv,
                       CreateSegmentsInGPUv2{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsOccupancySoA>(),
                       segmentsDC_->view<SegmentsSoA>(),
@@ -450,7 +450,7 @@ void Event::createSegmentsWithModuleMap() {
   alpaka::exec<Acc1D>(queue_,
                       addSegmentRangesToEventExplicit_workDiv,
                       AddSegmentRangesToEventExplicit{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       segmentsDC_->view<SegmentsOccupancySoA>(),
                       rangesDC_->view<ObjectRangesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>());
@@ -467,7 +467,7 @@ void Event::createTriplets() {
     alpaka::exec<Acc1D>(queue_,
                         createTripletArrayRanges_workDiv,
                         CreateTripletArrayRanges{},
-                        *modulesBuffers_.data(),
+                        modules_.const_view<ModulesSoA>(),
                         rangesDC_->view<ObjectOccupancySoA>(),
                         segmentsDC_->const_view<SegmentsOccupancySoA>());
 
@@ -496,8 +496,11 @@ void Event::createTriplets() {
 
   // ... same for module_nConnectedModules
   // FIXME: replace by ES host data
+  auto modules = modules_.const_view<ModulesSoA>();
   auto module_nConnectedModules_buf_h = cms::alpakatools::make_host_buffer<uint16_t[]>(queue_, nLowerModules_);
-  alpaka::memcpy(queue_, module_nConnectedModules_buf_h, modulesBuffers_.nConnectedModules_buf, nLowerModules_);
+  auto module_nConnectedModules_buf_d =
+      alpaka::createView(devAcc_, modules.nConnectedModules(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_nConnectedModules_buf_h, module_nConnectedModules_buf_d, nLowerModules_);
 
   alpaka::wait(queue_);  // wait for nSegments and module_nConnectedModules before using
 
@@ -530,7 +533,7 @@ void Event::createTriplets() {
   alpaka::exec<Acc3D>(queue_,
                       createTripletsInGPUv2_workDiv,
                       CreateTripletsInGPUv2{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       segmentsDC_->const_view<SegmentsSoA>(),
                       segmentsDC_->const_view<SegmentsOccupancySoA>(),
@@ -545,7 +548,7 @@ void Event::createTriplets() {
   alpaka::exec<Acc1D>(queue_,
                       addTripletRangesToEventExplicit_workDiv,
                       AddTripletRangesToEventExplicit{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       *tripletsInGPU_,
                       rangesDC_->view<ObjectRangesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>());
@@ -570,7 +573,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
   alpaka::exec<Acc3D>(queue_,
                       crossCleanpT3_workDiv,
                       CrossCleanpT3{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>(),
                       *pixelTripletsInGPU_,
                       segmentsDC_->const_view<SegmentsPixelSoA>(),
@@ -614,7 +617,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
   alpaka::exec<Acc3D>(queue_,
                       crossCleanT5_workDiv,
                       CrossCleanT5{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       *quintupletsInGPU_,
                       *pixelQuintupletsInGPU_,
                       *pixelTripletsInGPU_,
@@ -642,7 +645,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
     alpaka::exec<Acc3D>(queue_,
                         checkHitspLS_workDiv,
                         CheckHitspLS{},
-                        *modulesBuffers_.data(),
+                        modules_.const_view<ModulesSoA>(),
                         segmentsDC_->const_view<SegmentsOccupancySoA>(),
                         segmentsDC_->view<SegmentsPixelSoA>(),
                         true);
@@ -656,7 +659,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
   alpaka::exec<Acc3D>(queue_,
                       crossCleanpLS_workDiv,
                       CrossCleanpLS{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>(),
                       *pixelTripletsInGPU_,
                       trackCandidatesDC_->view(),
@@ -803,7 +806,8 @@ void Event::createPixelTriplets() {
   alpaka::exec<Acc3D>(queue_,
                       createPixelTripletsInGPUFromMapv2_workDiv,
                       CreatePixelTripletsInGPUFromMapv2{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
+                      modules_.const_view<ModulesPixelSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       segmentsDC_->const_view<SegmentsSoA>(),
@@ -840,7 +844,7 @@ void Event::createQuintuplets() {
   alpaka::exec<Acc1D>(queue_,
                       createEligibleModulesListForQuintupletsGPU_workDiv,
                       CreateEligibleModulesListForQuintupletsGPU{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       *tripletsInGPU_,
                       rangesDC_->view<ObjectOccupancySoA>());
 
@@ -872,7 +876,7 @@ void Event::createQuintuplets() {
   alpaka::exec<Acc3D>(queue_,
                       createQuintupletsInGPUv2_workDiv,
                       CreateQuintupletsInGPUv2{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       segmentsDC_->const_view<SegmentsSoA>(),
                       *tripletsInGPU_,
@@ -888,7 +892,7 @@ void Event::createQuintuplets() {
   alpaka::exec<Acc3D>(queue_,
                       removeDupQuintupletsInGPUAfterBuild_workDiv,
                       RemoveDupQuintupletsInGPUAfterBuild{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       *quintupletsInGPU_,
                       rangesDC_->const_view<ObjectOccupancySoA>());
 
@@ -897,7 +901,7 @@ void Event::createQuintuplets() {
   alpaka::exec<Acc1D>(queue_,
                       addQuintupletRangesToEventExplicit_workDiv,
                       AddQuintupletRangesToEventExplicit{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
                       *quintupletsInGPU_,
                       rangesDC_->view<ObjectRangesSoA>(),
                       rangesDC_->const_view<ObjectOccupancySoA>());
@@ -917,7 +921,7 @@ void Event::pixelLineSegmentCleaning(bool no_pls_dupclean) {
     alpaka::exec<Acc3D>(queue_,
                         checkHitspLS_workDiv,
                         CheckHitspLS{},
-                        *modulesBuffers_.data(),
+                        modules_.const_view<ModulesSoA>(),
                         segmentsDC_->const_view<SegmentsOccupancySoA>(),
                         segmentsDC_->view<SegmentsPixelSoA>(),
                         false);
@@ -1020,7 +1024,8 @@ void Event::createPixelQuintuplets() {
   alpaka::exec<Acc3D>(queue_,
                       createPixelQuintupletsInGPUFromMapv2_workDiv,
                       CreatePixelQuintupletsInGPUFromMapv2{},
-                      *modulesBuffers_.data(),
+                      modules_.const_view<ModulesSoA>(),
+                      modules_.const_view<ModulesPixelSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       segmentsDC_->const_view<SegmentsSoA>(),
                       segmentsDC_->view<SegmentsPixelSoA>(),
@@ -1069,12 +1074,16 @@ void Event::addMiniDoubletsToEventExplicit() {
   auto nMDs_view = alpaka::createView(devAcc_, mdsOccupancy.nMDs(), nLowerModules_);  // exclude pixel part
   alpaka::memcpy(queue_, nMDsCPU_buf, nMDs_view, nLowerModules_);
 
+  auto modules = modules_.const_view<ModulesSoA>();
+
   // FIXME: replace by ES host data
   auto module_subdets_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_subdets_buf, modulesBuffers_.subdets_buf, nLowerModules_);
+  auto module_subdets_view = alpaka::createView(devAcc_, modules.subdets(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_subdets_buf, module_subdets_view, nLowerModules_);
 
   auto module_layers_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_layers_buf, modulesBuffers_.layers_buf, nLowerModules_);
+  auto module_layers_view = alpaka::createView(devAcc_, modules.layers(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_layers_buf, module_layers_view, nLowerModules_);
 
   auto module_hitRanges_buf = allocBufWrapper<ArrayIx2>(cms::alpakatools::host(), nLowerModules_, queue_);
   auto hits = hitsDC_->view<HitsOccupancySoA>();
@@ -1105,12 +1114,16 @@ void Event::addSegmentsToEventExplicit() {
       alpaka::createView(devAcc_, segmentsDC_->const_view<SegmentsOccupancySoA>().nSegments(), nLowerModules_);
   alpaka::memcpy(queue_, nSegmentsCPU_buf, nSegments_buf, nLowerModules_);
 
+  auto modules = modules_.const_view<ModulesSoA>();
+
   // FIXME: replace by ES host data
   auto module_subdets_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_subdets_buf, modulesBuffers_.subdets_buf, nLowerModules_);
+  auto module_subdets_view = alpaka::createView(devAcc_, modules.subdets(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_subdets_buf, module_subdets_view, nLowerModules_);
 
   auto module_layers_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_layers_buf, modulesBuffers_.layers_buf, nLowerModules_);
+  auto module_layers_view = alpaka::createView(devAcc_, modules.layers(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_layers_buf, module_layers_view, nLowerModules_);
 
   alpaka::wait(queue_);  // wait for inputs before using them
 
@@ -1133,12 +1146,16 @@ void Event::addQuintupletsToEventExplicit() {
   auto nQuintupletsCPU_buf = allocBufWrapper<unsigned int>(cms::alpakatools::host(), nLowerModules_, queue_);
   alpaka::memcpy(queue_, nQuintupletsCPU_buf, quintupletsBuffers_->nQuintuplets_buf);
 
+  auto modules = modules_.const_view<ModulesSoA>();
+
   // FIXME: replace by ES host data
   auto module_subdets_buf = allocBufWrapper<short>(cms::alpakatools::host(), nModules_, queue_);
-  alpaka::memcpy(queue_, module_subdets_buf, modulesBuffers_.subdets_buf, nModules_);
+  auto module_subdets_view = alpaka::createView(devAcc_, modules.subdets(), modules.metadata().size());
+  alpaka::memcpy(queue_, module_subdets_buf, module_subdets_view, nModules_);
 
   auto module_layers_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_layers_buf, modulesBuffers_.layers_buf, nLowerModules_);
+  auto module_layers_view = alpaka::createView(devAcc_, modules.layers(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_layers_buf, module_layers_view, nLowerModules_);
 
   auto module_quintupletModuleIndices_buf = allocBufWrapper<int>(cms::alpakatools::host(), nLowerModules_, queue_);
   auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
@@ -1168,12 +1185,16 @@ void Event::addTripletsToEventExplicit() {
   auto nTripletsCPU_buf = allocBufWrapper<unsigned int>(cms::alpakatools::host(), nLowerModules_, queue_);
   alpaka::memcpy(queue_, nTripletsCPU_buf, tripletsBuffers_->nTriplets_buf);
 
+  auto modules = modules_.const_view<ModulesSoA>();
+
   // FIXME: replace by ES host data
   auto module_subdets_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_subdets_buf, modulesBuffers_.subdets_buf, nLowerModules_);
+  auto module_subdets_view = alpaka::createView(devAcc_, modules.subdets(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_subdets_buf, module_subdets_view, nLowerModules_);
 
   auto module_layers_buf = allocBufWrapper<short>(cms::alpakatools::host(), nLowerModules_, queue_);
-  alpaka::memcpy(queue_, module_layers_buf, modulesBuffers_.layers_buf, nLowerModules_);
+  auto module_layers_view = alpaka::createView(devAcc_, modules.layers(), nLowerModules_);  // only lower modules
+  alpaka::memcpy(queue_, module_layers_buf, module_layers_view, nLowerModules_);
 
   alpaka::wait(queue_);  // wait for inputs before using them
 
@@ -1732,14 +1753,20 @@ const TrackCandidatesHostCollection& Event::getTrackCandidatesInCMSSW(bool sync)
   return trackCandidatesHC_.value();
 }
 
-ModulesBuffer<alpaka_common::DevHost>& Event::getModules(bool isFull, bool sync) {
-  if (!modulesInCPU_) {
-    // The last input here is just a small placeholder for the allocation.
-    modulesInCPU_.emplace(cms::alpakatools::host(), nModules_, nPixels_);
-
-    modulesInCPU_->copyFromSrc(queue_, modulesBuffers_, isFull);
-    if (sync)
-      alpaka::wait(queue_);  // host consumers expect filled data
+template <typename TSoA, typename TDev>
+typename TSoA::ConstView Event::getModules(bool sync) {
+  if constexpr (std::is_same_v<TDev, DevHost>) {
+    return modules_.const_view<TSoA>();
+  } else {
+    if (!modulesHC_) {
+      modulesHC_.emplace(
+          cms::alpakatools::CopyToHost<PortableMultiCollection<TDev, ModulesSoA, ModulesPixelSoA>>::copyAsync(
+              queue_, modules_));
+      if (sync)
+        alpaka::wait(queue_);  // host consumers expect filled data
+    }
+    return modulesHC_->const_view<TSoA>();
   }
-  return modulesInCPU_.value();
 }
+template ModulesConst Event::getModules<ModulesSoA>(bool);
+template ModulesPixelConst Event::getModules<ModulesPixelSoA>(bool);

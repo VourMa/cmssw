@@ -2,7 +2,7 @@
 #define RecoTracker_LSTCore_src_alpaka_Hit_h
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/alpaka/HitsDeviceCollection.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
@@ -80,14 +80,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct ModuleRangesKernel {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   HitsOccupancy hitsOccupancy,
                                   int nLowerModules) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int lowerIndex = globalThreadIdx[2]; lowerIndex < nLowerModules; lowerIndex += gridThreadExtent[2]) {
-        uint16_t upperIndex = modulesInGPU.partnerModuleIndices[lowerIndex];
+        uint16_t upperIndex = modules.partnerModuleIndices()[lowerIndex];
         if (hitsOccupancy.hitRanges()[lowerIndex][0] != -1 && hitsOccupancy.hitRanges()[upperIndex][0] != -1) {
           hitsOccupancy.hitRangesLower()[lowerIndex] = hitsOccupancy.hitRanges()[lowerIndex][0];
           hitsOccupancy.hitRangesUpper()[lowerIndex] = hitsOccupancy.hitRanges()[upperIndex][0];
@@ -108,7 +108,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   unsigned int nModules,    // Number of modules
                                   unsigned int nEndCapMap,  // Number of elements in endcap map
                                   EndcapGeometryDevConst endcapGeometry,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   Hits hits,
                                   HitsOccupancy hitsOccupancy,
                                   unsigned int nHits) const  // Total number of hits in event
@@ -129,12 +129,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
             ((ihit_z > 0) - (ihit_z < 0)) *
             alpaka::math::acosh(
                 acc, alpaka::math::sqrt(acc, ihit_x * ihit_x + ihit_y * ihit_y + ihit_z * ihit_z) / hits.rts()[ihit]);
-        int found_index = binary_search(modulesInGPU.mapdetId, iDetId, nModules);
-        uint16_t lastModuleIndex = modulesInGPU.mapIdx[found_index];
+        int found_index = binary_search(modules.mapdetId(), iDetId, nModules);
+        uint16_t lastModuleIndex = modules.mapIdx()[found_index];
 
         hits.moduleIndices()[ihit] = lastModuleIndex;
 
-        if (modulesInGPU.subdets[lastModuleIndex] == Endcap && modulesInGPU.moduleType[lastModuleIndex] == TwoS) {
+        if (modules.subdets()[lastModuleIndex] == Endcap && modules.moduleType()[lastModuleIndex] == TwoS) {
           found_index = binary_search(geoMapDetId, iDetId, nEndCapMap);
           float phi = geoMapPhi[found_index];
           float cos_phi = alpaka::math::cos(acc, phi);

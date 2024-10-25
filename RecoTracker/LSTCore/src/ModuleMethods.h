@@ -5,7 +5,7 @@
 #include <iostream>
 
 #include "RecoTracker/LSTCore/interface/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/TiltedGeometry.h"
 #include "RecoTracker/LSTCore/interface/EndcapGeometry.h"
 #include "RecoTracker/LSTCore/interface/ModuleConnectionMap.h"
@@ -24,14 +24,53 @@ namespace lst {
     // https://github.com/cms-sw/cmssw/blob/5e809e8e0a625578aa265dc4b128a93830cb5429/Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h#L29
   };
 
-  inline void fillPixelMap(ModulesBuffer<alpaka_common::DevHost>& modulesBuf,
-                           uint16_t nModules,
-                           unsigned int& nPixels,
-                           PixelMap& pixelMapping,
-                           MapPLStoLayer const& pLStoLayer,
-                           ModuleMetaData const& mmd) {
-    pixelMapping.pixelModuleIndex = mmd.detIdToIndex.at(1);
+  bool parseIsLower(bool isInvertedx, unsigned int detId) { return (isInvertedx) ? !(detId & 1) : (detId & 1); }
 
+  unsigned int parsePartnerModuleId(unsigned int detId, bool isLowerx, bool isInvertedx) {
+    return isLowerx ? (isInvertedx ? detId - 1 : detId + 1) : (isInvertedx ? detId + 1 : detId - 1);
+  }
+
+  bool parseIsInverted(short subdet, short side, short module, short layer) {
+    if (subdet == Endcap) {
+      if (side == NegZ) {
+        return module % 2 == 1;
+      } else if (side == PosZ) {
+        return module % 2 == 0;
+      } else {
+        return false;
+      }
+    } else if (subdet == Barrel) {
+      if (side == Center) {
+        if (layer <= 3) {
+          return module % 2 == 1;
+        } else if (layer >= 4) {
+          return module % 2 == 0;
+        } else {
+          return false;
+        }
+      } else if (side == NegZ or side == PosZ) {
+        if (layer <= 2) {
+          return module % 2 == 1;
+        } else if (layer == 3) {
+          return module % 2 == 0;
+        } else {
+          return false;
+        }
+      } else {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  inline std::tuple<unsigned int,
+                    std::vector<unsigned int>,
+                    unsigned int,
+                    std::vector<unsigned int>,
+                    unsigned int,
+                    std::vector<unsigned int>>
+  getConnectedPixels(uint16_t nModules, unsigned int& nPixels, PixelMap& pixelMapping, MapPLStoLayer const& pLStoLayer) {
     std::vector<unsigned int> connectedModuleDetIds;
     std::vector<unsigned int> connectedModuleDetIds_pos;
     std::vector<unsigned int> connectedModuleDetIds_neg;
@@ -77,31 +116,21 @@ namespace lst {
       totalSizes_neg += sizes_neg;
     }
 
-    unsigned int connectedPix_size = totalSizes + totalSizes_pos + totalSizes_neg;
-    nPixels = connectedPix_size;
+    nPixels = totalSizes + totalSizes_pos + totalSizes_neg;
 
-    // Now we re-initialize connectedPixels_buf since nPixels is now known
-    modulesBuf.connectedPixels_buf = cms::alpakatools::make_host_buffer<unsigned int[]>(nPixels);
-    modulesBuf.data_.setData(modulesBuf);
-
-    unsigned int* connectedPixels = modulesBuf.connectedPixels_buf.data();
-
-    for (unsigned int icondet = 0; icondet < totalSizes; icondet++) {
-      connectedPixels[icondet] = mmd.detIdToIndex.at(connectedModuleDetIds[icondet]);
-    }
-    for (unsigned int icondet = 0; icondet < totalSizes_pos; icondet++) {
-      connectedPixels[icondet + totalSizes] = mmd.detIdToIndex.at(connectedModuleDetIds_pos[icondet]);
-    }
-    for (unsigned int icondet = 0; icondet < totalSizes_neg; icondet++) {
-      connectedPixels[icondet + totalSizes + totalSizes_pos] = mmd.detIdToIndex.at(connectedModuleDetIds_neg[icondet]);
-    }
+    return {totalSizes,
+            connectedModuleDetIds,
+            totalSizes_pos,
+            connectedModuleDetIds_pos,
+            totalSizes_neg,
+            connectedModuleDetIds_neg};
   }
 
-  inline void fillConnectedModuleArrayExplicit(ModulesBuffer<alpaka_common::DevHost>& modulesBuf,
+  inline void fillConnectedModuleArrayExplicit(Modules modules,
                                                ModuleMetaData const& mmd,
                                                ModuleConnectionMap const& moduleConnectionMap) {
-    uint16_t* moduleMap = modulesBuf.moduleMap_buf.data();
-    uint16_t* nConnectedModules = modulesBuf.nConnectedModules_buf.data();
+    Params_Modules::ArrayU16xMaxConnected* moduleMap = modules.moduleMap();
+    uint16_t* nConnectedModules = modules.nConnectedModules();
 
     for (auto it = mmd.detIdToIndex.begin(); it != mmd.detIdToIndex.end(); ++it) {
       unsigned int detId = it->first;
@@ -109,14 +138,14 @@ namespace lst {
       auto& connectedModules = moduleConnectionMap.getConnectedModuleDetIds(detId);
       nConnectedModules[index] = connectedModules.size();
       for (uint16_t i = 0; i < nConnectedModules[index]; i++) {
-        moduleMap[index * max_connected_modules + i] = mmd.detIdToIndex.at(connectedModules[i]);
+        moduleMap[index][i] = mmd.detIdToIndex.at(connectedModules[i]);
       }
     }
   }
 
-  inline void fillMapArraysExplicit(ModulesBuffer<alpaka_common::DevHost>& modulesBuf, ModuleMetaData const& mmd) {
-    uint16_t* mapIdx = modulesBuf.mapIdx_buf.data();
-    unsigned int* mapdetId = modulesBuf.mapdetId_buf.data();
+  inline void fillMapArraysExplicit(Modules modules, ModuleMetaData const& mmd) {
+    uint16_t* mapIdx = modules.mapIdx();
+    unsigned int* mapdetId = modules.mapdetId();
 
     unsigned int counter = 0;
     for (auto it = mmd.detIdToIndex.begin(); it != mmd.detIdToIndex.end(); ++it) {
@@ -188,44 +217,54 @@ namespace lst {
     nModules = counter;
   }
 
-  inline ModulesBuffer<alpaka_common::DevHost> loadModulesFromFile(MapPLStoLayer const& pLStoLayer,
-                                                                   const char* moduleMetaDataFilePath,
-                                                                   uint16_t& nModules,
-                                                                   uint16_t& nLowerModules,
-                                                                   unsigned int& nPixels,
-                                                                   PixelMap& pixelMapping,
-                                                                   const EndcapGeometry& endcapGeometry,
-                                                                   const TiltedGeometry& tiltedGeometry,
-                                                                   const ModuleConnectionMap& moduleConnectionMap) {
+  inline std::unique_ptr<ModulesHostCollection> loadModulesFromFile(MapPLStoLayer const& pLStoLayer,
+                                                                    const char* moduleMetaDataFilePath,
+                                                                    uint16_t& nModules,
+                                                                    uint16_t& nLowerModules,
+                                                                    unsigned int& nPixels,
+                                                                    PixelMap& pixelMapping,
+                                                                    const EndcapGeometry& endcapGeometry,
+                                                                    const TiltedGeometry& tiltedGeometry,
+                                                                    const ModuleConnectionMap& moduleConnectionMap) {
     ModuleMetaData mmd;
 
     loadCentroidsFromFile(moduleMetaDataFilePath, mmd, nModules);
 
-    // Initialize modulesBuf, but with nPixels = 0
-    // The fields that require nPixels are re-initialized in fillPixelMap
-    ModulesBuffer<alpaka_common::DevHost> modulesBuf(cms::alpakatools::host(), nModules, 0);
+    // TODO: this whole section could use some refactoring
+    auto [totalSizes,
+          connectedModuleDetIds,
+          totalSizes_pos,
+          connectedModuleDetIds_pos,
+          totalSizes_neg,
+          connectedModuleDetIds_neg] = getConnectedPixels(nModules, nPixels, pixelMapping, pLStoLayer);
+
+    std::array<int, 2> const modules_sizes{{static_cast<int>(nModules), static_cast<int>(nPixels)}};
+
+    auto modulesHC = std::make_unique<ModulesHostCollection>(modules_sizes, cms::alpakatools::host());
+
+    auto modules_view = modulesHC->view<ModulesSoA>();
 
     // Getting the underlying data pointers
-    unsigned int* host_detIds = modulesBuf.detIds_buf.data();
-    short* host_layers = modulesBuf.layers_buf.data();
-    short* host_rings = modulesBuf.rings_buf.data();
-    short* host_rods = modulesBuf.rods_buf.data();
-    short* host_modules = modulesBuf.modules_buf.data();
-    short* host_subdets = modulesBuf.subdets_buf.data();
-    short* host_sides = modulesBuf.sides_buf.data();
-    float* host_eta = modulesBuf.eta_buf.data();
-    float* host_r = modulesBuf.r_buf.data();
-    bool* host_isInverted = modulesBuf.isInverted_buf.data();
-    bool* host_isLower = modulesBuf.isLower_buf.data();
-    bool* host_isAnchor = modulesBuf.isAnchor_buf.data();
-    ModuleType* host_moduleType = modulesBuf.moduleType_buf.data();
-    ModuleLayerType* host_moduleLayerType = modulesBuf.moduleLayerType_buf.data();
-    float* host_dxdys = modulesBuf.dxdys_buf.data();
-    float* host_drdzs = modulesBuf.drdzs_buf.data();
-    uint16_t* host_nModules = modulesBuf.nModules_buf.data();
-    uint16_t* host_nLowerModules = modulesBuf.nLowerModules_buf.data();
-    uint16_t* host_partnerModuleIndices = modulesBuf.partnerModuleIndices_buf.data();
-    int* host_lstLayers = modulesBuf.lstLayers_buf.data();
+    unsigned int* host_detIds = modules_view.detIds();
+    short* host_layers = modules_view.layers();
+    short* host_rings = modules_view.rings();
+    short* host_rods = modules_view.rods();
+    short* host_modules = modules_view.modules();
+    short* host_subdets = modules_view.subdets();
+    short* host_sides = modules_view.sides();
+    float* host_eta = modules_view.eta();
+    float* host_r = modules_view.r();
+    bool* host_isInverted = modules_view.isInverted();
+    bool* host_isLower = modules_view.isLower();
+    bool* host_isAnchor = modules_view.isAnchor();
+    ModuleType* host_moduleType = modules_view.moduleType();
+    ModuleLayerType* host_moduleLayerType = modules_view.moduleLayerType();
+    float* host_dxdys = modules_view.dxdys();
+    float* host_drdzs = modules_view.drdzs();
+    uint16_t* host_nModules = &modules_view.nModules();
+    uint16_t* host_nLowerModules = &modules_view.nLowerModules();
+    uint16_t* host_partnerModuleIndices = modules_view.partnerModuleIndices();
+    int* host_lstLayers = modules_view.lstLayers();
 
     //reassign detIdToIndex indices here
     nLowerModules = (nModules - 1) / 2;
@@ -257,8 +296,8 @@ namespace lst {
         r = 0;
       } else {
         setDerivedQuantities(detId, layer, ring, rod, module, subdet, side, m_x, m_y, m_z, eta, r);
-        isInverted = lst::Modules::parseIsInverted(subdet, side, module, layer);
-        isLower = lst::Modules::parseIsLower(isInverted, detId);
+        isInverted = parseIsInverted(subdet, side, module, layer);
+        isLower = parseIsLower(isInverted, detId);
       }
       if (isLower) {
         index = lowerModuleCounter;
@@ -316,7 +355,7 @@ namespace lst {
       auto& index = it->second;
       if (detId != 1) {
         host_partnerModuleIndices[index] =
-            mmd.detIdToIndex[lst::Modules::parsePartnerModuleId(detId, host_isLower[index], host_isInverted[index])];
+            mmd.detIdToIndex[parsePartnerModuleId(detId, host_isLower[index], host_isInverted[index])];
         //add drdz and slope importing stuff here!
         if (host_drdzs[index] == 0) {
           host_drdzs[index] = host_drdzs[host_partnerModuleIndices[index]];
@@ -327,15 +366,29 @@ namespace lst {
       }
     }
 
-    fillPixelMap(modulesBuf, nModules, nPixels, pixelMapping, pLStoLayer, mmd);
-
     *host_nModules = nModules;
     *host_nLowerModules = nLowerModules;
 
-    fillConnectedModuleArrayExplicit(modulesBuf, mmd, moduleConnectionMap);
-    fillMapArraysExplicit(modulesBuf, mmd);
+    // Fill pixel part
+    pixelMapping.pixelModuleIndex = mmd.detIdToIndex.at(1);
 
-    return modulesBuf;
+    auto modulesPixel_view = modulesHC->view<ModulesPixelSoA>();
+    auto connectedPixels = alpaka::createView(
+        cms::alpakatools::host(), modulesPixel_view.connectedPixels(), modulesPixel_view.metadata().size());
+    for (unsigned int icondet = 0; icondet < totalSizes; icondet++) {
+      connectedPixels[icondet] = mmd.detIdToIndex.at(connectedModuleDetIds[icondet]);
+    }
+    for (unsigned int icondet = 0; icondet < totalSizes_pos; icondet++) {
+      connectedPixels[icondet + totalSizes] = mmd.detIdToIndex.at(connectedModuleDetIds_pos[icondet]);
+    }
+    for (unsigned int icondet = 0; icondet < totalSizes_neg; icondet++) {
+      connectedPixels[icondet + totalSizes + totalSizes_pos] = mmd.detIdToIndex.at(connectedModuleDetIds_neg[icondet]);
+    }
+
+    fillConnectedModuleArrayExplicit(modules_view, mmd, moduleConnectionMap);
+    fillMapArraysExplicit(modules_view, mmd);
+
+    return modulesHC;
   }
 }  // namespace lst
 #endif

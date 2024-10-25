@@ -2,7 +2,7 @@
 #define RecoTracker_LSTCore_src_alpaka_Kernels_h
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/ObjectRangesSoA.h"
 
 #include "Hit.h"
@@ -145,14 +145,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct RemoveDupQuintupletsInGPUAfterBuild {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   Quintuplets quintupletsInGPU,
                                   ObjectOccupancyConst objectOccupancy) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      for (unsigned int lowmod = globalThreadIdx[0]; lowmod < *modulesInGPU.nLowerModules;
-           lowmod += gridThreadExtent[0]) {
+      for (unsigned int lowmod = globalThreadIdx[0]; lowmod < modules.nLowerModules(); lowmod += gridThreadExtent[0]) {
         unsigned int nQuintuplets_lowmod = quintupletsInGPU.nQuintuplets[lowmod];
         int quintupletModuleIndices_lowmod = objectOccupancy.quintupletModuleIndices()[lowmod];
 
@@ -335,14 +334,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CheckHitspLS {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   SegmentsOccupancyConst segmentsOccupancy,
                                   SegmentsPixel segmentsPixel,
                                   bool secondpass) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      int pixelModuleIndex = *modulesInGPU.nLowerModules;
+      int pixelModuleIndex = modules.nLowerModules();
       unsigned int nPixelSegments = segmentsOccupancy.nSegments()[pixelModuleIndex];
 
       if (nPixelSegments > n_max_pixel_segments_per_module)

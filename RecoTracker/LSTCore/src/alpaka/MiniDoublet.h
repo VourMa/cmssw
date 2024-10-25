@@ -6,7 +6,7 @@
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
 #include "RecoTracker/LSTCore/interface/MiniDoubletsSoA.h"
 #include "RecoTracker/LSTCore/interface/alpaka/MiniDoubletsDeviceCollection.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/EndcapGeometry.h"
 #include "RecoTracker/LSTCore/interface/ObjectRangesSoA.h"
 
@@ -17,7 +17,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   ALPAKA_FN_ACC ALPAKA_FN_INLINE void addMDToMemory(TAcc const& acc,
                                                     MiniDoublets mds,
                                                     HitsConst hits,
-                                                    Modules const& modulesInGPU,
+                                                    ModulesConst modules,
                                                     unsigned int lowerHitIdx,
                                                     unsigned int upperHitIdx,
                                                     uint16_t lowerModuleIdx,
@@ -35,7 +35,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     mds.moduleIndices()[idx] = lowerModuleIdx;
     unsigned int anchorHitIndex, outerHitIndex;
-    if (modulesInGPU.moduleType[lowerModuleIdx] == PS and modulesInGPU.moduleLayerType[lowerModuleIdx] == Strip) {
+    if (modules.moduleType()[lowerModuleIdx] == PS and modules.moduleLayerType()[lowerModuleIdx] == Strip) {
       mds.anchorHitIndices()[idx] = upperHitIdx;
       mds.outerHitIndices()[idx] = lowerHitIdx;
 
@@ -85,14 +85,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     mds.outerLowEdgeY()[idx] = hits.lowEdgeYs()[outerHitIndex];
   }
 
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE float isTighterTiltedModules(Modules const& modulesInGPU, uint16_t moduleIndex) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float isTighterTiltedModules(ModulesConst modules, uint16_t moduleIndex) {
     // The "tighter" tilted modules are the subset of tilted modules that have smaller spacing
     // This is the same as what was previously considered as"isNormalTiltedModules"
     // See Figure 9.1 of https://cds.cern.ch/record/2272264/files/CMS-TDR-014.pdf
-    short subdet = modulesInGPU.subdets[moduleIndex];
-    short layer = modulesInGPU.layers[moduleIndex];
-    short side = modulesInGPU.sides[moduleIndex];
-    short rod = modulesInGPU.rods[moduleIndex];
+    short subdet = modules.subdets()[moduleIndex];
+    short layer = modules.layers()[moduleIndex];
+    short side = modules.sides()[moduleIndex];
+    short rod = modules.rods()[moduleIndex];
 
     if (subdet == Barrel) {
       if ((side != Center and layer == 3) or (side == NegZ and layer == 2 and rod > 5) or
@@ -105,7 +105,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       return false;
   }
 
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE float moduleGapSize(Modules const& modulesInGPU, uint16_t moduleIndex) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float moduleGapSize(ModulesConst modules, uint16_t moduleIndex) {
     float miniDeltaTilted[3] = {0.26f, 0.26f, 0.26f};
     float miniDeltaFlat[6] = {0.26f, 0.16f, 0.16f, 0.18f, 0.18f, 0.18f};
     float miniDeltaLooseTilted[3] = {0.4f, 0.4f, 0.4f};
@@ -135,16 +135,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       }
     }
 
-    unsigned int iL = modulesInGPU.layers[moduleIndex] - 1;
-    unsigned int iR = modulesInGPU.rings[moduleIndex] - 1;
-    short subdet = modulesInGPU.subdets[moduleIndex];
-    short side = modulesInGPU.sides[moduleIndex];
+    unsigned int iL = modules.layers()[moduleIndex] - 1;
+    unsigned int iR = modules.rings()[moduleIndex] - 1;
+    short subdet = modules.subdets()[moduleIndex];
+    short side = modules.sides()[moduleIndex];
 
     float moduleSeparation = 0;
 
     if (subdet == Barrel and side == Center) {
       moduleSeparation = miniDeltaFlat[iL];
-    } else if (isTighterTiltedModules(modulesInGPU, moduleIndex)) {
+    } else if (isTighterTiltedModules(modules, moduleIndex)) {
       moduleSeparation = miniDeltaTilted[iL];
     } else if (subdet == Endcap) {
       moduleSeparation = miniDeltaEndcap[iL][iR];
@@ -158,7 +158,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE float dPhiThreshold(
-      TAcc const& acc, float rt, Modules const& modulesInGPU, uint16_t moduleIndex, float dPhi = 0, float dz = 0) {
+      TAcc const& acc, float rt, ModulesConst modules, uint16_t moduleIndex, float dPhi = 0, float dz = 0) {
     // =================================================================
     // Various constants
     // =================================================================
@@ -168,28 +168,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // Computing some components that make up the cut threshold
     // =================================================================
 
-    unsigned int iL = modulesInGPU.layers[moduleIndex] - 1;
+    unsigned int iL = modules.layers()[moduleIndex] - 1;
     const float miniSlope = alpaka::math::asin(acc, alpaka::math::min(acc, rt * k2Rinv1GeVf / ptCut, kSinAlphaMax));
     const float rLayNominal =
-        ((modulesInGPU.subdets[moduleIndex] == Barrel) ? kMiniRminMeanBarrel[iL] : kMiniRminMeanEndcap[iL]);
+        ((modules.subdets()[moduleIndex] == Barrel) ? kMiniRminMeanBarrel[iL] : kMiniRminMeanEndcap[iL]);
     const float miniPVoff = 0.1f / rLayNominal;
-    const float miniMuls = ((modulesInGPU.subdets[moduleIndex] == Barrel) ? kMiniMulsPtScaleBarrel[iL] * 3.f / ptCut
-                                                                          : kMiniMulsPtScaleEndcap[iL] * 3.f / ptCut);
-    const bool isTilted = modulesInGPU.subdets[moduleIndex] == Barrel and modulesInGPU.sides[moduleIndex] != Center;
+    const float miniMuls = ((modules.subdets()[moduleIndex] == Barrel) ? kMiniMulsPtScaleBarrel[iL] * 3.f / ptCut
+                                                                       : kMiniMulsPtScaleEndcap[iL] * 3.f / ptCut);
+    const bool isTilted = modules.subdets()[moduleIndex] == Barrel and modules.sides()[moduleIndex] != Center;
     //the lower module is sent in irrespective of its layer type. We need to fetch the drdz properly
 
     float drdz;
     if (isTilted) {
-      if (modulesInGPU.moduleType[moduleIndex] == PS and modulesInGPU.moduleLayerType[moduleIndex] == Strip) {
-        drdz = modulesInGPU.drdzs[moduleIndex];
+      if (modules.moduleType()[moduleIndex] == PS and modules.moduleLayerType()[moduleIndex] == Strip) {
+        drdz = modules.drdzs()[moduleIndex];
       } else {
-        drdz = modulesInGPU.drdzs[modulesInGPU.partnerModuleIndices[moduleIndex]];
+        drdz = modules.drdzs()[modules.partnerModuleIndices()[moduleIndex]];
       }
     } else {
       drdz = 0;
     }
     const float miniTilt2 = ((isTilted) ? (0.5f * 0.5f) * (kPixelPSZpitch * kPixelPSZpitch) * (drdz * drdz) /
-                                              (1.f + drdz * drdz) / moduleGapSize(modulesInGPU, moduleIndex)
+                                              (1.f + drdz * drdz) / moduleGapSize(modules, moduleIndex)
                                         : 0);
 
     // Compute luminous region requirement for endcap
@@ -199,12 +199,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // Return the threshold value
     // =================================================================
     // Following condition is met if the module is central and flatly lying
-    if (modulesInGPU.subdets[moduleIndex] == Barrel and modulesInGPU.sides[moduleIndex] == Center) {
+    if (modules.subdets()[moduleIndex] == Barrel and modules.sides()[moduleIndex] == Center) {
       return miniSlope + alpaka::math::sqrt(acc, miniMuls * miniMuls + miniPVoff * miniPVoff);
     }
     // Following condition is met if the module is central and tilted
-    else if (modulesInGPU.subdets[moduleIndex] == Barrel and
-             modulesInGPU.sides[moduleIndex] != Center)  //all types of tilted modules
+    else if (modules.subdets()[moduleIndex] == Barrel and
+             modules.sides()[moduleIndex] != Center)  //all types of tilted modules
     {
       return miniSlope +
              alpaka::math::sqrt(acc, miniMuls * miniMuls + miniPVoff * miniPVoff + miniTilt2 * miniSlope * miniSlope);
@@ -217,7 +217,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_INLINE ALPAKA_FN_ACC void shiftStripHits(TAcc const& acc,
-                                                     Modules const& modulesInGPU,
+                                                     ModulesConst modules,
                                                      uint16_t lowerModuleIndex,
                                                      uint16_t upperModuleIndex,
                                                      unsigned int lowerHitIndex,
@@ -267,16 +267,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float drprime_x;  // x-component of drprime
     float drprime_y;  // y-component of drprime
     const float& slope =
-        modulesInGPU.dxdys[lowerModuleIndex];  // The slope of the possible strip hits for a given module in x-y plane
+        modules.dxdys()[lowerModuleIndex];  // The slope of the possible strip hits for a given module in x-y plane
     float absArctanSlope;
     float angleM;  // the angle M is the angle of rotation of the module in x-y plane if the possible strip hits are along the x-axis, then angleM = 0, and if the possible strip hits are along y-axis angleM = 90 degrees
     float absdzprime;  // The distance between the two points after shifting
-    const float& drdz_ = modulesInGPU.drdzs[lowerModuleIndex];
+    const float& drdz_ = modules.drdzs()[lowerModuleIndex];
     // Assign hit pointers based on their hit type
-    if (modulesInGPU.moduleType[lowerModuleIndex] == PS) {
+    if (modules.moduleType()[lowerModuleIndex] == PS) {
       // TODO: This is somewhat of an mystery.... somewhat confused why this is the case
-      if (modulesInGPU.subdets[lowerModuleIndex] == Barrel ? modulesInGPU.moduleLayerType[lowerModuleIndex] != Pixel
-                                                           : modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel) {
+      if (modules.subdets()[lowerModuleIndex] == Barrel ? modules.moduleLayerType()[lowerModuleIndex] != Pixel
+                                                        : modules.moduleLayerType()[lowerModuleIndex] == Pixel) {
         xo = xUpper;
         yo = yUpper;
         xp = xLower;
@@ -301,7 +301,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     }
 
     // If it is endcap some of the math gets simplified (and also computers don't like infinities)
-    isEndcap = modulesInGPU.subdets[lowerModuleIndex] == Endcap;
+    isEndcap = modules.subdets()[lowerModuleIndex] == Endcap;
 
     // NOTE: TODO: Keep in mind that the sin(atan) function can be simplified to something like x / sqrt(1 + x^2) and similar for cos
     // I am not sure how slow sin, atan, cos, functions are in c++. If x / sqrt(1 + x^2) are faster change this later to reduce arithmetic computation time
@@ -313,10 +313,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                    acc,
                    drdz_));  // The tilt module on the positive z-axis has negative drdz slope in r-z plane and vice versa
 
-    moduleSeparation = moduleGapSize(modulesInGPU, lowerModuleIndex);
+    moduleSeparation = moduleGapSize(modules, lowerModuleIndex);
 
     // Sign flips if the pixel is later layer
-    if (modulesInGPU.moduleType[lowerModuleIndex] == PS and modulesInGPU.moduleLayerType[lowerModuleIndex] != Pixel) {
+    if (modules.moduleType()[lowerModuleIndex] == PS and modules.moduleLayerType()[lowerModuleIndex] != Pixel) {
       moduleSeparation *= -1;
     }
 
@@ -368,7 +368,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                 angleA));  // module separation sign is for shifting in radial direction for z-axis direction take care of the sign later
 
     // Depending on which one as closer to the interactin point compute the new z wrt to the pixel properly
-    if (modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel) {
+    if (modules.moduleLayerType()[lowerModuleIndex] == Pixel) {
       abszn = alpaka::math::abs(acc, zp) + absdzprime;
     } else {
       abszn = alpaka::math::abs(acc, zp) - absdzprime;
@@ -383,7 +383,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC bool runMiniDoubletDefaultAlgoBarrel(TAcc const& acc,
-                                                     Modules const& modulesInGPU,
+                                                     ModulesConst modules,
                                                      uint16_t lowerModuleIndex,
                                                      uint16_t upperModuleIndex,
                                                      unsigned int lowerHitIndex,
@@ -405,7 +405,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                      float zUpper,
                                                      float rtUpper) {
     dz = zLower - zUpper;
-    const float dzCut = modulesInGPU.moduleType[lowerModuleIndex] == PS ? 2.f : 10.f;
+    const float dzCut = modules.moduleType()[lowerModuleIndex] == PS ? 2.f : 10.f;
     const float sign = ((dz > 0) - (dz < 0)) * ((zLower > 0) - (zLower < 0));
     const float invertedcrossercut = (alpaka::math::abs(acc, dz) > 2) * sign;
 
@@ -414,20 +414,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     float miniCut = 0;
 
-    miniCut = modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel
-                  ? dPhiThreshold(acc, rtLower, modulesInGPU, lowerModuleIndex)
-                  : dPhiThreshold(acc, rtUpper, modulesInGPU, lowerModuleIndex);
+    miniCut = modules.moduleLayerType()[lowerModuleIndex] == Pixel
+                  ? dPhiThreshold(acc, rtLower, modules, lowerModuleIndex)
+                  : dPhiThreshold(acc, rtUpper, modules, lowerModuleIndex);
 
     // Cut #2: dphi difference
     // Ref to original code: https://github.com/slava77/cms-tkph2-ntuple/blob/184d2325147e6930030d3d1f780136bc2dd29ce6/doubletAnalysis.C#L3085
     float xn = 0.f, yn = 0.f;  // , zn = 0;
     float shiftedRt2;
-    if (modulesInGPU.sides[lowerModuleIndex] != Center)  // If barrel and not center it is tilted
+    if (modules.sides()[lowerModuleIndex] != Center)  // If barrel and not center it is tilted
     {
       // Shift the hits and calculate new xn, yn position
       float shiftedCoords[3];
       shiftStripHits(acc,
-                     modulesInGPU,
+                     modules,
                      lowerModuleIndex,
                      upperModuleIndex,
                      lowerHitIndex,
@@ -445,7 +445,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       yn = shiftedCoords[1];
 
       // Lower or the upper hit needs to be modified depending on which one was actually shifted
-      if (modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel) {
+      if (modules.moduleLayerType()[lowerModuleIndex] == Pixel) {
         shiftedX = xn;
         shiftedY = yn;
         shiftedZ = zUpper;
@@ -474,10 +474,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     // Cut #3: The dphi change going from lower Hit to upper Hit
     // Ref to original code: https://github.com/slava77/cms-tkph2-ntuple/blob/184d2325147e6930030d3d1f780136bc2dd29ce6/doubletAnalysis.C#L3076
-    if (modulesInGPU.sides[lowerModuleIndex] != Center) {
+    if (modules.sides()[lowerModuleIndex] != Center) {
       // When it is tilted, use the new shifted positions
       // TODO: This is somewhat of an mystery.... somewhat confused why this is the case
-      if (modulesInGPU.moduleLayerType[lowerModuleIndex] != Pixel) {
+      if (modules.moduleLayerType()[lowerModuleIndex] != Pixel) {
         // dPhi Change should be calculated so that the upper hit has higher rt.
         // In principle, this kind of check rt_lower < rt_upper should not be necessary because the hit shifting should have taken care of this.
         // (i.e. the strip hit is shifted to be aligned in the line of sight from interaction point to pixel hit of PS module guaranteeing rt ordering)
@@ -510,7 +510,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC bool runMiniDoubletDefaultAlgoEndcap(TAcc const& acc,
-                                                     Modules const& modulesInGPU,
+                                                     ModulesConst modules,
                                                      uint16_t lowerModuleIndex,
                                                      uint16_t upperModuleIndex,
                                                      unsigned int lowerHitIndex,
@@ -544,7 +544,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       return false;
     // Cut #2 : drt cut. The dz difference can't be larger than 1cm. (max separation is 4mm for modules in the endcap)
     // Ref to original code: https://github.com/slava77/cms-tkph2-ntuple/blob/184d2325147e6930030d3d1f780136bc2dd29ce6/doubletAnalysis.C#L3100
-    const float drtCut = modulesInGPU.moduleType[lowerModuleIndex] == PS ? 2.f : 10.f;
+    const float drtCut = modules.moduleType()[lowerModuleIndex] == PS ? 2.f : 10.f;
     drt = rtLower - rtUpper;
     if (alpaka::math::abs(acc, drt) >= drtCut)
       return false;
@@ -553,7 +553,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     float shiftedCoords[3];
     shiftStripHits(acc,
-                   modulesInGPU,
+                   modules,
                    lowerModuleIndex,
                    upperModuleIndex,
                    lowerHitIndex,
@@ -572,9 +572,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     yn = shiftedCoords[1];
     zn = shiftedCoords[2];
 
-    if (modulesInGPU.moduleType[lowerModuleIndex] == PS) {
+    if (modules.moduleType()[lowerModuleIndex] == PS) {
       // Appropriate lower or upper hit is modified after checking which one was actually shifted
-      if (modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel) {
+      if (modules.moduleLayerType()[lowerModuleIndex] == Pixel) {
         shiftedX = xn;
         shiftedY = yn;
         shiftedZ = zUpper;
@@ -597,14 +597,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     // dz needs to change if it is a PS module where the strip hits are shifted in order to properly account for the case when a tilted module falls under "endcap logic"
     // if it was an endcap it will have zero effect
-    if (modulesInGPU.moduleType[lowerModuleIndex] == PS) {
-      dz = modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel ? zLower - zn : zUpper - zn;
+    if (modules.moduleType()[lowerModuleIndex] == PS) {
+      dz = modules.moduleLayerType()[lowerModuleIndex] == Pixel ? zLower - zn : zUpper - zn;
     }
 
     float miniCut = 0;
-    miniCut = modulesInGPU.moduleLayerType[lowerModuleIndex] == Pixel
-                  ? dPhiThreshold(acc, rtLower, modulesInGPU, lowerModuleIndex, dPhi, dz)
-                  : dPhiThreshold(acc, rtUpper, modulesInGPU, lowerModuleIndex, dPhi, dz);
+    miniCut = modules.moduleLayerType()[lowerModuleIndex] == Pixel
+                  ? dPhiThreshold(acc, rtLower, modules, lowerModuleIndex, dPhi, dz)
+                  : dPhiThreshold(acc, rtUpper, modules, lowerModuleIndex, dPhi, dz);
 
     if (alpaka::math::abs(acc, dPhi) >= miniCut)
       return false;
@@ -621,7 +621,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC bool runMiniDoubletDefaultAlgo(TAcc const& acc,
-                                               Modules const& modulesInGPU,
+                                               ModulesConst modules,
                                                uint16_t lowerModuleIndex,
                                                uint16_t upperModuleIndex,
                                                unsigned int lowerHitIndex,
@@ -642,9 +642,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                float yUpper,
                                                float zUpper,
                                                float rtUpper) {
-    if (modulesInGPU.subdets[lowerModuleIndex] == Barrel) {
+    if (modules.subdets()[lowerModuleIndex] == Barrel) {
       return runMiniDoubletDefaultAlgoBarrel(acc,
-                                             modulesInGPU,
+                                             modules,
                                              lowerModuleIndex,
                                              upperModuleIndex,
                                              lowerHitIndex,
@@ -667,7 +667,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                              rtUpper);
     } else {
       return runMiniDoubletDefaultAlgoEndcap(acc,
-                                             modulesInGPU,
+                                             modules,
                                              lowerModuleIndex,
                                              upperModuleIndex,
                                              lowerHitIndex,
@@ -694,7 +694,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CreateMiniDoubletsInGPUv2 {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   HitsConst hits,
                                   HitsOccupancyConst hitsOccupancy,
                                   MiniDoublets mds,
@@ -703,9 +703,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      for (uint16_t lowerModuleIndex = globalThreadIdx[1]; lowerModuleIndex < (*modulesInGPU.nLowerModules);
+      for (uint16_t lowerModuleIndex = globalThreadIdx[1]; lowerModuleIndex < modules.nLowerModules();
            lowerModuleIndex += gridThreadExtent[1]) {
-        uint16_t upperModuleIndex = modulesInGPU.partnerModuleIndices[lowerModuleIndex];
+        uint16_t upperModuleIndex = modules.partnerModuleIndices()[lowerModuleIndex];
         int nLowerHits = hitsOccupancy.hitRangesnLower()[lowerModuleIndex];
         int nUpperHits = hitsOccupancy.hitRangesnUpper()[lowerModuleIndex];
         if (hitsOccupancy.hitRangesLower()[lowerModuleIndex] == -1)
@@ -734,7 +734,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
           float dz, dphi, dphichange, shiftedX, shiftedY, shiftedZ, noShiftedDphi, noShiftedDphiChange;
           bool success = runMiniDoubletDefaultAlgo(acc,
-                                                   modulesInGPU,
+                                                   modules,
                                                    lowerModuleIndex,
                                                    upperModuleIndex,
                                                    lowerHitArrayIndex,
@@ -770,7 +770,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
               addMDToMemory(acc,
                             mds,
                             hits,
-                            modulesInGPU,
+                            modules,
                             lowerHitArrayIndex,
                             upperHitArrayIndex,
                             lowerModuleIndex,
@@ -792,7 +792,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   struct CreateMDArrayRangesGPU {
     template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, Modules modulesInGPU, ObjectOccupancy objectOccupancy) const {
+    ALPAKA_FN_ACC void operator()(TAcc const& acc, ModulesConst modules, ObjectOccupancy objectOccupancy) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -810,11 +810,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       // Create variables outside of the for loop.
       int occupancy, category_number, eta_number;
 
-      for (uint16_t i = globalThreadIdx[0]; i < *modulesInGPU.nLowerModules; i += gridThreadExtent[0]) {
-        short module_rings = modulesInGPU.rings[i];
-        short module_layers = modulesInGPU.layers[i];
-        short module_subdets = modulesInGPU.subdets[i];
-        float module_eta = alpaka::math::abs(acc, modulesInGPU.eta[i]);
+      for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
+        short module_rings = modules.rings()[i];
+        short module_layers = modules.layers()[i];
+        short module_subdets = modules.subdets()[i];
+        float module_eta = alpaka::math::abs(acc, modules.eta()[i]);
 
         if (module_layers <= 3 && module_subdets == 5)
           category_number = 0;
@@ -878,7 +878,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        objectOccupancy.miniDoubletModuleIndices()[*modulesInGPU.nLowerModules] = nTotalMDs;
+        objectOccupancy.miniDoubletModuleIndices()[modules.nLowerModules()] = nTotalMDs;
         objectOccupancy.nTotalMDs() = nTotalMDs;
       }
     }
@@ -887,7 +887,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct AddMiniDoubletRangesToEventExplicit {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   MiniDoubletsOccupancy mdsOccupancy,
                                   ObjectRanges ranges,
                                   ObjectOccupancyConst objectOccupancy,
@@ -899,7 +899,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      for (uint16_t i = globalThreadIdx[0]; i < *modulesInGPU.nLowerModules; i += gridThreadExtent[0]) {
+      for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
         if (mdsOccupancy.nMDs()[i] == 0 or hitsOccupancy.hitRanges()[i][0] == -1) {
           ranges.mdRanges()[i][0] = -1;
           ranges.mdRanges()[i][1] = -1;

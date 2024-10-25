@@ -2,7 +2,7 @@
 #define RecoTracker_LSTCore_src_alpaka_TrackCandidate_h
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/TrackCandidatesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/TrackCandidatesSoA.h"
 #include "RecoTracker/LSTCore/interface/alpaka/TrackCandidatesDeviceCollection.h"
@@ -112,7 +112,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CrossCleanpT3 {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   ObjectOccupancyConst objectOccupancy,
                                   PixelTriplets pixelTripletsInGPU,
                                   SegmentsPixelConst segmentsPixel,
@@ -130,7 +130,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         float eta1 = __H2F(pixelTripletsInGPU.eta_pix[pixelTripletIndex]);
         float phi1 = __H2F(pixelTripletsInGPU.phi_pix[pixelTripletIndex]);
 
-        int pixelModuleIndex = *modulesInGPU.nLowerModules;
+        int pixelModuleIndex = modules.nLowerModules();
         unsigned int prefix = objectOccupancy.segmentModuleIndices()[pixelModuleIndex];
 
         unsigned int nPixelQuintuplets = *pixelQuintupletsInGPU.nPixelQuintuplets;
@@ -153,7 +153,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CrossCleanT5 {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   Quintuplets quintupletsInGPU,
                                   PixelQuintuplets pixelQuintupletsInGPU,
                                   PixelTriplets pixelTripletsInGPU,
@@ -162,7 +162,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int innerInnerInnerLowerModuleArrayIndex = globalThreadIdx[0];
-           innerInnerInnerLowerModuleArrayIndex < *(modulesInGPU.nLowerModules);
+           innerInnerInnerLowerModuleArrayIndex < modules.nLowerModules();
            innerInnerInnerLowerModuleArrayIndex += gridThreadExtent[0]) {
         if (objectOccupancy.quintupletModuleIndices()[innerInnerInnerLowerModuleArrayIndex] == -1)
           continue;
@@ -208,7 +208,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CrossCleanpLS {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   ObjectOccupancyConst objectOccupancy,
                                   PixelTriplets pixelTripletsInGPU,
                                   TrackCandidates cands,
@@ -221,7 +221,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      int pixelModuleIndex = *modulesInGPU.nLowerModules;
+      int pixelModuleIndex = modules.nLowerModules();
       unsigned int nPixels = segmentsOccupancy.nSegments()[pixelModuleIndex];
       for (unsigned int pixelArrayIndex = globalThreadIdx[2]; pixelArrayIndex < nPixels;
            pixelArrayIndex += gridThreadExtent[2]) {

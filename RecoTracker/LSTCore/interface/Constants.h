@@ -88,6 +88,9 @@ namespace lst {
 
   // Defining the constant host device variables right up here
   // Currently pixel tracks treated as LSs with 2 double layers (IT layers 1+2 and 3+4) and 4 hits. To be potentially handled better in the future.
+  struct Params_Modules {
+    using ArrayU16xMaxConnected = edm::StdArray<uint16_t, max_connected_modules>;
+  };
   struct Params_pLS {
     static constexpr int kLayers = 2, kHits = 4;
   };
