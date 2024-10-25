@@ -4,6 +4,8 @@
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 #include "DataFormats/Portable/interface/PortableCollection.h"
 
+#include "RecoTracker/LSTCore/interface/Constants.h"
+
 namespace lst {
 
   GENERATE_SOA_LAYOUT(HitsSoALayout,
@@ -35,8 +37,6 @@ namespace lst {
   using HitsConst = HitsSoA::ConstView;
   using HitsOccupancy = HitsOccupancySoA::View;
   using HitsOccupancyConst = HitsOccupancySoA::ConstView;
-
-  using HitsHostCollection = PortableHostMultiCollection<HitsSoA, HitsOccupancySoA>;
 
 }  // namespace lst
 

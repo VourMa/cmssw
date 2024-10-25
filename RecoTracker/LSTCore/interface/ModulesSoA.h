@@ -4,6 +4,8 @@
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 #include "DataFormats/Portable/interface/PortableCollection.h"
 
+#include "RecoTracker/LSTCore/interface/Constants.h"
+
 namespace lst {
 
   enum SubDet { InnerPixel = 0, Barrel = 5, Endcap = 4 };
@@ -49,8 +51,6 @@ namespace lst {
   using ModulesConst = ModulesSoA::ConstView;
   using ModulesPixel = ModulesPixelSoA::View;
   using ModulesPixelConst = ModulesPixelSoA::ConstView;
-
-  using ModulesHostCollection = PortableHostMultiCollection<ModulesSoA, ModulesPixelSoA>;
 
 }  // namespace lst
 

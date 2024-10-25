@@ -691,7 +691,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     }
   }
 
-  struct CreateMiniDoubletsInGPUv2 {
+  struct CreateMiniDoublets {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,

@@ -4,6 +4,8 @@
 #include "DataFormats/SoATemplate/interface/SoALayout.h"
 #include "DataFormats/Portable/interface/PortableCollection.h"
 
+#include "RecoTracker/LSTCore/interface/Constants.h"
+
 namespace lst {
 
   GENERATE_SOA_LAYOUT(ObjectRangesSoALayout,
@@ -42,8 +44,6 @@ namespace lst {
   using ObjectRangesConst = ObjectRangesSoA::ConstView;
   using ObjectOccupancy = ObjectOccupancySoA::View;
   using ObjectOccupancyConst = ObjectOccupancySoA::ConstView;
-
-  using ObjectRangesHostCollection = PortableHostMultiCollection<ObjectRangesSoA, ObjectOccupancySoA>;
 
 }  // namespace lst
 

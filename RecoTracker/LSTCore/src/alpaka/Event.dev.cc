@@ -386,14 +386,14 @@ void Event::createMiniDoublets() {
     alpaka::memset(queue_, totOccupancyMDs_view, 0u);
   }
 
-  Vec3D const threadsPerBlockCreateMDInGPU{1, 16, 32};
-  Vec3D const blocksPerGridCreateMDInGPU{1, nLowerModules_ / threadsPerBlockCreateMDInGPU[1], 1};
-  WorkDiv3D const createMiniDoubletsInGPUv2_workDiv =
-      createWorkDiv(blocksPerGridCreateMDInGPU, threadsPerBlockCreateMDInGPU, elementsPerThread);
+  Vec3D const threadsPerBlockCreateMD{1, 16, 32};
+  Vec3D const blocksPerGridCreateMD{1, nLowerModules_ / threadsPerBlockCreateMD[1], 1};
+  WorkDiv3D const createMiniDoublets_workDiv =
+      createWorkDiv(blocksPerGridCreateMD, threadsPerBlockCreateMD, elementsPerThread);
 
   alpaka::exec<Acc3D>(queue_,
-                      createMiniDoubletsInGPUv2_workDiv,
-                      CreateMiniDoubletsInGPUv2{},
+                      createMiniDoublets_workDiv,
+                      CreateMiniDoublets{},
                       modules_.const_view<ModulesSoA>(),
                       hitsDC_->const_view<HitsSoA>(),
                       hitsDC_->const_view<HitsOccupancySoA>(),
@@ -435,12 +435,12 @@ void Event::createSegmentsWithModuleMap() {
 
   Vec3D const threadsPerBlockCreateSeg{1, 1, 64};
   Vec3D const blocksPerGridCreateSeg{1, 1, nLowerModules_};
-  WorkDiv3D const createSegmentsInGPUv2_workDiv =
+  WorkDiv3D const createSegments_workDiv =
       createWorkDiv(blocksPerGridCreateSeg, threadsPerBlockCreateSeg, elementsPerThread);
 
   alpaka::exec<Acc3D>(queue_,
-                      createSegmentsInGPUv2_workDiv,
-                      CreateSegmentsInGPUv2{},
+                      createSegments_workDiv,
+                      CreateSegments{},
                       modules_.const_view<ModulesSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       miniDoubletsDC_->const_view<MiniDoubletsOccupancySoA>(),
@@ -691,14 +691,14 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       hitsDC_->const_view<HitsSoA>(),
                       quintupletsDC_->const_view<QuintupletsSoA>());
 
-  Vec3D const threadsPerBlock_addpLSasTrackCandidateInGPU{1, 1, 384};
-  Vec3D const blocksPerGrid_addpLSasTrackCandidateInGPU{1, 1, max_blocks};
-  WorkDiv3D const addpLSasTrackCandidateInGPU_workDiv = createWorkDiv(
-      blocksPerGrid_addpLSasTrackCandidateInGPU, threadsPerBlock_addpLSasTrackCandidateInGPU, elementsPerThread);
+  Vec3D const threadsPerBlock_addpLSasTrackCandidate{1, 1, 384};
+  Vec3D const blocksPerGrid_addpLSasTrackCandidate{1, 1, max_blocks};
+  WorkDiv3D const addpLSasTrackCandidate_workDiv =
+      createWorkDiv(blocksPerGrid_addpLSasTrackCandidate, threadsPerBlock_addpLSasTrackCandidate, elementsPerThread);
 
   alpaka::exec<Acc3D>(queue_,
-                      addpLSasTrackCandidateInGPU_workDiv,
-                      AddpLSasTrackCandidateInGPU{},
+                      addpLSasTrackCandidate_workDiv,
+                      AddpLSasTrackCandidate{},
                       nLowerModules_,
                       trackCandidatesDC_->view(),
                       segmentsDC_->const_view<SegmentsOccupancySoA>(),

@@ -6,6 +6,7 @@
 
 #include "RecoTracker/LSTCore/interface/Constants.h"
 #include "RecoTracker/LSTCore/interface/ModulesSoA.h"
+#include "RecoTracker/LSTCore/interface/ModulesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/TiltedGeometry.h"
 #include "RecoTracker/LSTCore/interface/EndcapGeometry.h"
 #include "RecoTracker/LSTCore/interface/ModuleConnectionMap.h"

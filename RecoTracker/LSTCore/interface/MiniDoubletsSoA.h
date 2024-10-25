@@ -53,8 +53,6 @@ namespace lst {
   using MiniDoubletsOccupancy = MiniDoubletsOccupancySoA::View;
   using MiniDoubletsOccupancyConst = MiniDoubletsOccupancySoA::ConstView;
 
-  using MiniDoubletsHostCollection = PortableHostMultiCollection<MiniDoubletsSoA, MiniDoubletsOccupancySoA>;
-
 }  // namespace lst
 
 #endif

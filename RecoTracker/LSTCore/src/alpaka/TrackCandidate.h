@@ -397,7 +397,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     }
   };
 
-  struct AddpLSasTrackCandidateInGPU {
+  struct AddpLSasTrackCandidate {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   uint16_t nLowerModules,

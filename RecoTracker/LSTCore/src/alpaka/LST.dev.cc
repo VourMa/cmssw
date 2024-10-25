@@ -36,11 +36,11 @@ namespace {
       maxNHits = Params_pLS::kHits;  // pLS
 
     for (unsigned int i = 0; i < maxNHits; i++) {
-      unsigned int hitIdxInGPU = tcHitIndices[i];
+      unsigned int hitIdxDev = tcHitIndices[i];
       unsigned int hitIdx =
           (trackCandidateType == 8)
-              ? hitIdxInGPU
-              : hitIndices[hitIdxInGPU];  // Hit indices are stored differently in the standalone for pLS.
+              ? hitIdxDev
+              : hitIndices[hitIdxDev];  // Hit indices are stored differently in the standalone for pLS.
 
       // For p objects, the 3rd and 4th hit maybe the same,
       // due to the way pLS hits are stored in the standalone.

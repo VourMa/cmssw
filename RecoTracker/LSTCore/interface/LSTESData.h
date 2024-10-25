@@ -2,8 +2,8 @@
 #define RecoTracker_LSTCore_interface_LSTESData_h
 
 #include "RecoTracker/LSTCore/interface/Constants.h"
-#include "RecoTracker/LSTCore/interface/EndcapGeometryDevSoA.h"
-#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
+#include "RecoTracker/LSTCore/interface/EndcapGeometryDevHostCollection.h"
+#include "RecoTracker/LSTCore/interface/ModulesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/PixelMap.h"
 
 #include "HeterogeneousCore/AlpakaInterface/interface/CopyToDevice.h"

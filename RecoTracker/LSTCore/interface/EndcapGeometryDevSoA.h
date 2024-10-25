@@ -13,8 +13,6 @@ namespace lst {
   using EndcapGeometryDev = EndcapGeometryDevSoA::View;
   using EndcapGeometryDevConst = EndcapGeometryDevSoA::ConstView;
 
-  using EndcapGeometryDevHostCollection = PortableHostCollection<EndcapGeometryDevSoA>;
-
 }  // namespace lst
 
 #endif
