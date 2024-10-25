@@ -255,7 +255,7 @@ void LST::getOutput(Event& event) {
   std::vector<short> tc_trackCandidateType;
 
   auto const hits = event.getHitsInCMSSW<HitsSoA>(false);  // sync on next line
-  auto const& trackCandidates = event.getTrackCandidatesInCMSSW().const_view();
+  auto const& trackCandidates = event.getTrackCandidatesInCMSSW();
 
   unsigned int nTrackCandidates = trackCandidates.nTrackCandidates();
 
