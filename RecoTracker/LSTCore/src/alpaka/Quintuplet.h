@@ -2362,13 +2362,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   TripletsOccupancyConst tripletsOccupancy,
                                   Quintuplets quintuplets,
                                   QuintupletsOccupancy quintupletsOccupancy,
-                                  ObjectOccupancyConst objectOccupancy,
+                                  ObjectRangesConst ranges,
                                   uint16_t nEligibleT5Modules) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int iter = globalThreadIdx[0]; iter < nEligibleT5Modules; iter += gridThreadExtent[0]) {
-        uint16_t lowerModule1 = objectOccupancy.indicesOfEligibleT5Modules()[iter];
+        uint16_t lowerModule1 = ranges.indicesOfEligibleT5Modules()[iter];
         short layer2_adjustment;
         int layer = modules.layers()[lowerModule1];
         if (layer == 1) {
@@ -2383,15 +2383,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         unsigned int nInnerTriplets = tripletsOccupancy.nTriplets()[lowerModule1];
         for (unsigned int innerTripletArrayIndex = globalThreadIdx[1]; innerTripletArrayIndex < nInnerTriplets;
              innerTripletArrayIndex += gridThreadExtent[1]) {
-          unsigned int innerTripletIndex =
-              objectOccupancy.tripletModuleIndices()[lowerModule1] + innerTripletArrayIndex;
+          unsigned int innerTripletIndex = ranges.tripletModuleIndices()[lowerModule1] + innerTripletArrayIndex;
           uint16_t lowerModule2 = triplets.lowerModuleIndices()[innerTripletIndex][1];
           uint16_t lowerModule3 = triplets.lowerModuleIndices()[innerTripletIndex][2];
           unsigned int nOuterTriplets = tripletsOccupancy.nTriplets()[lowerModule3];
           for (unsigned int outerTripletArrayIndex = globalThreadIdx[2]; outerTripletArrayIndex < nOuterTriplets;
                outerTripletArrayIndex += gridThreadExtent[2]) {
-            unsigned int outerTripletIndex =
-                objectOccupancy.tripletModuleIndices()[lowerModule3] + outerTripletArrayIndex;
+            unsigned int outerTripletIndex = ranges.tripletModuleIndices()[lowerModule3] + outerTripletArrayIndex;
             uint16_t lowerModule4 = triplets.lowerModuleIndices()[outerTripletIndex][1];
             uint16_t lowerModule5 = triplets.lowerModuleIndices()[outerTripletIndex][2];
 
@@ -2425,7 +2423,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
             if (success) {
               int totOccupancyQuintuplets = alpaka::atomicAdd(
                   acc, &quintupletsOccupancy.totOccupancyQuintuplets()[lowerModule1], 1u, alpaka::hierarchy::Threads{});
-              if (totOccupancyQuintuplets >= objectOccupancy.quintupletModuleOccupancy()[lowerModule1]) {
+              if (totOccupancyQuintuplets >= ranges.quintupletModuleOccupancy()[lowerModule1]) {
 #ifdef WARNINGS
                 printf("Quintuplet excess alert! Module index = %d\n", lowerModule1);
 #endif
@@ -2433,13 +2431,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                 int quintupletModuleIndex = alpaka::atomicAdd(
                     acc, &quintupletsOccupancy.nQuintuplets()[lowerModule1], 1u, alpaka::hierarchy::Threads{});
                 //this if statement should never get executed!
-                if (objectOccupancy.quintupletModuleIndices()[lowerModule1] == -1) {
+                if (ranges.quintupletModuleIndices()[lowerModule1] == -1) {
 #ifdef WARNINGS
                   printf("Quintuplets : no memory for module at module index = %d\n", lowerModule1);
 #endif
                 } else {
-                  unsigned int quintupletIndex =
-                      objectOccupancy.quintupletModuleIndices()[lowerModule1] + quintupletModuleIndex;
+                  unsigned int quintupletIndex = ranges.quintupletModuleIndices()[lowerModule1] + quintupletModuleIndex;
                   float phi = mds.anchorPhi()[segments.mdIndices()[triplets.segmentIndices()[innerTripletIndex][0]]
                                                                   [layer2_adjustment]];
                   float eta = mds.anchorEta()[segments.mdIndices()[triplets.segmentIndices()[innerTripletIndex][0]]
@@ -2488,7 +2485,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
                                   TripletsOccupancyConst tripletsOccupancy,
-                                  ObjectOccupancy objectOccupancy) const {
+                                  ObjectRanges ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -2573,16 +2570,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         }
 
         int nTotQ = alpaka::atomicAdd(acc, &nTotalQuintupletsx, occupancy, alpaka::hierarchy::Threads{});
-        objectOccupancy.quintupletModuleIndices()[i] = nTotQ;
-        objectOccupancy.indicesOfEligibleT5Modules()[nEligibleT5Modules] = i;
-        objectOccupancy.quintupletModuleOccupancy()[i] = occupancy;
+        ranges.quintupletModuleIndices()[i] = nTotQ;
+        ranges.indicesOfEligibleT5Modules()[nEligibleT5Modules] = i;
+        ranges.quintupletModuleOccupancy()[i] = occupancy;
       }
 
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        objectOccupancy.nEligibleT5Modules() = static_cast<uint16_t>(nEligibleT5Modulesx);
-        objectOccupancy.nTotalQuints() = static_cast<unsigned int>(nTotalQuintupletsx);
+        ranges.nEligibleT5Modules() = static_cast<uint16_t>(nEligibleT5Modulesx);
+        ranges.nTotalQuints() = static_cast<unsigned int>(nTotalQuintupletsx);
       }
     }
   };
@@ -2592,8 +2589,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
                                   QuintupletsOccupancyConst quintupletsOccupancy,
-                                  ObjectRanges ranges,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRanges ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -2602,13 +2598,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
-        if (quintupletsOccupancy.nQuintuplets()[i] == 0 or objectOccupancy.quintupletModuleIndices()[i] == -1) {
+        if (quintupletsOccupancy.nQuintuplets()[i] == 0 or ranges.quintupletModuleIndices()[i] == -1) {
           ranges.quintupletRanges()[i][0] = -1;
           ranges.quintupletRanges()[i][1] = -1;
         } else {
-          ranges.quintupletRanges()[i][0] = objectOccupancy.quintupletModuleIndices()[i];
+          ranges.quintupletRanges()[i][0] = ranges.quintupletModuleIndices()[i];
           ranges.quintupletRanges()[i][1] =
-              objectOccupancy.quintupletModuleIndices()[i] + quintupletsOccupancy.nQuintuplets()[i] - 1;
+              ranges.quintupletModuleIndices()[i] + quintupletsOccupancy.nQuintuplets()[i] - 1;
         }
       }
     }

@@ -543,8 +543,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   MiniDoubletsOccupancyConst mdsOccupancy,
                                   Segments segments,
                                   SegmentsOccupancy segmentsOccupancy,
-                                  ObjectRangesConst ranges,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalBlockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);
       auto const blockThreadIdx = alpaka::getIdx<alpaka::Block, alpaka::Threads>(acc);
       auto const gridBlockExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc);
@@ -603,16 +602,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                     &segmentsOccupancy.totOccupancySegments()[innerLowerModuleIndex],
                                     1u,
                                     alpaka::hierarchy::Threads{});
-              if (static_cast<int>(totOccupancySegments) >=
-                  objectOccupancy.segmentModuleOccupancy()[innerLowerModuleIndex]) {
+              if (static_cast<int>(totOccupancySegments) >= ranges.segmentModuleOccupancy()[innerLowerModuleIndex]) {
 #ifdef WARNINGS
                 printf("Segment excess alert! Module index = %d\n", innerLowerModuleIndex);
 #endif
               } else {
                 unsigned int segmentModuleIdx = alpaka::atomicAdd(
                     acc, &segmentsOccupancy.nSegments()[innerLowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-                unsigned int segmentIdx =
-                    objectOccupancy.segmentModuleIndices()[innerLowerModuleIndex] + segmentModuleIdx;
+                unsigned int segmentIdx = ranges.segmentModuleIndices()[innerLowerModuleIndex] + segmentModuleIdx;
 
                 addSegmentToMemory(segments,
                                    innerMDIndex,
@@ -640,7 +637,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
-                                  ObjectOccupancy objectOccupancy,
+                                  ObjectRanges ranges,
                                   MiniDoubletsConst mds) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
@@ -661,8 +658,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
       for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
         if (modules.nConnectedModules()[i] == 0) {
-          objectOccupancy.segmentModuleIndices()[i] = nTotalSegments;
-          objectOccupancy.segmentModuleOccupancy()[i] = 0;
+          ranges.segmentModuleIndices()[i] = nTotalSegments;
+          ranges.segmentModuleOccupancy()[i] = 0;
           continue;
         }
 
@@ -727,15 +724,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         }
 
         int nTotSegs = alpaka::atomicAdd(acc, &nTotalSegments, occupancy, alpaka::hierarchy::Threads{});
-        objectOccupancy.segmentModuleIndices()[i] = nTotSegs;
-        objectOccupancy.segmentModuleOccupancy()[i] = occupancy;
+        ranges.segmentModuleIndices()[i] = nTotSegs;
+        ranges.segmentModuleOccupancy()[i] = occupancy;
       }
 
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        objectOccupancy.segmentModuleIndices()[modules.nLowerModules()] = nTotalSegments;
-        objectOccupancy.nTotalSegs() = nTotalSegments;
+        ranges.segmentModuleIndices()[modules.nLowerModules()] = nTotalSegments;
+        ranges.nTotalSegs() = nTotalSegments;
       }
     }
   };
@@ -745,8 +742,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
                                   SegmentsOccupancyConst segmentsOccupancy,
-                                  ObjectRanges ranges,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRanges ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -759,9 +755,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           ranges.segmentRanges()[i][0] = -1;
           ranges.segmentRanges()[i][1] = -1;
         } else {
-          ranges.segmentRanges()[i][0] = objectOccupancy.segmentModuleIndices()[i];
-          ranges.segmentRanges()[i][1] =
-              objectOccupancy.segmentModuleIndices()[i] + segmentsOccupancy.nSegments()[i] - 1;
+          ranges.segmentRanges()[i][0] = ranges.segmentModuleIndices()[i];
+          ranges.segmentRanges()[i][1] = ranges.segmentModuleIndices()[i] + segmentsOccupancy.nSegments()[i] - 1;
         }
       }
     }
@@ -771,7 +766,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
-                                  ObjectOccupancyConst objectOccupancy,
+                                  ObjectRangesConst ranges,
                                   HitsConst hits,
                                   MiniDoublets mds,
                                   Segments segments,
@@ -787,9 +782,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int tid = globalThreadIdx[2]; tid < size; tid += gridThreadExtent[2]) {
-        unsigned int innerMDIndex = objectOccupancy.miniDoubletModuleIndices()[pixelModuleIndex] + 2 * (tid);
-        unsigned int outerMDIndex = objectOccupancy.miniDoubletModuleIndices()[pixelModuleIndex] + 2 * (tid) + 1;
-        unsigned int pixelSegmentIndex = objectOccupancy.segmentModuleIndices()[pixelModuleIndex] + tid;
+        unsigned int innerMDIndex = ranges.miniDoubletModuleIndices()[pixelModuleIndex] + 2 * (tid);
+        unsigned int outerMDIndex = ranges.miniDoubletModuleIndices()[pixelModuleIndex] + 2 * (tid) + 1;
+        unsigned int pixelSegmentIndex = ranges.segmentModuleIndices()[pixelModuleIndex] + tid;
 
         addMDToMemory(acc,
                       mds,

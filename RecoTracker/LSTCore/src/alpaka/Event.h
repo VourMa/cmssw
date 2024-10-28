@@ -187,8 +187,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     typename TSoA::ConstView getHits(bool sync = true);
     template <typename TSoA, typename TDev = Device>
     typename TSoA::ConstView getHitsInCMSSW(bool sync = true);
-    template <typename TSoA, typename TDev = Device>
-    typename TSoA::ConstView getRanges(bool sync = true);
+    template <typename TDev = Device>
+    ObjectRangesConst getRanges(bool sync = true);
     template <typename TSoA, typename TDev = Device>
     typename TSoA::ConstView getMiniDoublets(bool sync = true);
     template <typename TSoA, typename TDev = Device>

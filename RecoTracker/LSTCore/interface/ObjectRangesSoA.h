@@ -9,19 +9,10 @@
 namespace lst {
 
   GENERATE_SOA_LAYOUT(ObjectRangesSoALayout,
-                      SOA_COLUMN(ArrayIx2, hitRanges),
-                      SOA_COLUMN(int, hitRangesLower),
-                      SOA_COLUMN(int, hitRangesUpper),
-                      SOA_COLUMN(int8_t, hitRangesnLower),
-                      SOA_COLUMN(int8_t, hitRangesnUpper),
                       SOA_COLUMN(ArrayIx2, mdRanges),
                       SOA_COLUMN(ArrayIx2, segmentRanges),
-                      SOA_COLUMN(ArrayIx2, trackletRanges),
                       SOA_COLUMN(ArrayIx2, tripletRanges),
-                      SOA_COLUMN(ArrayIx2, quintupletRanges))
-
-  // triplets and quintuplets end up with an ununsed pixel entry at the end
-  GENERATE_SOA_LAYOUT(ObjectOccupancySoALayout,
+                      SOA_COLUMN(ArrayIx2, quintupletRanges),
                       SOA_COLUMN(int, miniDoubletModuleIndices),
                       SOA_COLUMN(int, miniDoubletModuleOccupancy),
                       SOA_COLUMN(int, segmentModuleIndices),
@@ -38,12 +29,9 @@ namespace lst {
                       SOA_SCALAR(uint16_t, nEligibleT5Modules))
 
   using ObjectRangesSoA = ObjectRangesSoALayout<>;
-  using ObjectOccupancySoA = ObjectOccupancySoALayout<>;
 
   using ObjectRanges = ObjectRangesSoA::View;
   using ObjectRangesConst = ObjectRangesSoA::ConstView;
-  using ObjectOccupancy = ObjectOccupancySoA::View;
-  using ObjectOccupancyConst = ObjectOccupancySoA::ConstView;
 
 }  // namespace lst
 

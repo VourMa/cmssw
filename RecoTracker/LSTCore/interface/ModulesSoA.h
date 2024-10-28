@@ -24,8 +24,6 @@ namespace lst {
                       SOA_COLUMN(uint16_t, nConnectedModules),
                       SOA_COLUMN(float, drdzs),
                       SOA_COLUMN(float, dxdys),
-                      SOA_SCALAR(uint16_t, nModules),
-                      SOA_SCALAR(uint16_t, nLowerModules),
                       SOA_COLUMN(uint16_t, partnerModuleIndices),
                       SOA_COLUMN(short, layers),
                       SOA_COLUMN(short, rings),
@@ -40,7 +38,9 @@ namespace lst {
                       SOA_COLUMN(bool, isAnchor),
                       SOA_COLUMN(ModuleType, moduleType),
                       SOA_COLUMN(ModuleLayerType, moduleLayerType),
-                      SOA_COLUMN(int, lstLayers))
+                      SOA_COLUMN(int, lstLayers),
+                      SOA_SCALAR(uint16_t, nModules),
+                      SOA_SCALAR(uint16_t, nLowerModules))
 
   GENERATE_SOA_LAYOUT(ModulesPixelSoALayout, SOA_COLUMN(unsigned int, connectedPixels))
 

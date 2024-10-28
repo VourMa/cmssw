@@ -30,9 +30,9 @@ std::tuple<std::vector<unsigned int>, std::vector<unsigned int>> convertHitsToHi
 std::vector<unsigned int> getPixelHitsFrompLS(Event* event, unsigned int pLS) {
   SegmentsConst segments = event->getSegments<SegmentsSoA>();
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
   auto modulesEvt = event->getModules<ModulesSoA>();
-  const unsigned int pLS_offset = objectOccupancy.segmentModuleIndices()[modulesEvt.nLowerModules()];
+  const unsigned int pLS_offset = ranges.segmentModuleIndices()[modulesEvt.nLowerModules()];
   unsigned int MD_1 = segments.mdIndices()[pLS + pLS_offset][0];
   unsigned int MD_2 = segments.mdIndices()[pLS + pLS_offset][1];
   unsigned int hit_1 = miniDoublets.anchorHitIndices()[MD_1];
@@ -226,9 +226,9 @@ std::tuple<std::vector<unsigned int>, std::vector<unsigned int>> getHitIdxsAndHi
 //____________________________________________________________________________________________
 unsigned int getPixelLSFrompT3(Event* event, unsigned int pT3) {
   auto const pixelTriplets = event->getPixelTriplets();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
   auto modulesEvt = event->getModules<ModulesSoA>();
-  const unsigned int pLS_offset = objectOccupancy.segmentModuleIndices()[modulesEvt.nLowerModules()];
+  const unsigned int pLS_offset = ranges.segmentModuleIndices()[modulesEvt.nLowerModules()];
   return pixelTriplets.pixelSegmentIndices()[pT3] - pLS_offset;
 }
 
@@ -315,9 +315,9 @@ std::tuple<std::vector<unsigned int>, std::vector<unsigned int>> getHitIdxsAndHi
 //____________________________________________________________________________________________
 unsigned int getPixelLSFrompT5(Event* event, unsigned int pT5) {
   auto const pixelQuintuplets = event->getPixelQuintuplets();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
   auto modulesEvt = event->getModules<ModulesSoA>();
-  const unsigned int pLS_offset = objectOccupancy.segmentModuleIndices()[modulesEvt.nLowerModules()];
+  const unsigned int pLS_offset = ranges.segmentModuleIndices()[modulesEvt.nLowerModules()];
   return pixelQuintuplets.pixelSegmentIndices()[pT5] - pLS_offset;
 }
 

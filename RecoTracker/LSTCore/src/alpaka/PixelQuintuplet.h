@@ -556,7 +556,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runPixelQuintupletDefaultAlgo(TAcc const& acc,
                                                                     ModulesConst modules,
-                                                                    ObjectOccupancyConst objectOccupancy,
+                                                                    ObjectRangesConst ranges,
                                                                     MiniDoubletsConst mds,
                                                                     SegmentsConst segments,
                                                                     SegmentsPixelConst segmentsPixel,
@@ -580,7 +580,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     if (not runPixelTripletDefaultAlgo(acc,
                                        modules,
-                                       objectOccupancy,
+                                       ranges,
                                        mds,
                                        segments,
                                        segmentsPixel,
@@ -715,7 +715,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   unsigned int* connectedPixelSize,
                                   unsigned int* connectedPixelIndex,
                                   unsigned int nPixelSegments,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalBlockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridBlockExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc);
@@ -739,14 +739,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (nOuterQuintuplets == 0)
             continue;
 
-          unsigned int pixelSegmentIndex = objectOccupancy.segmentModuleIndices()[pixelModuleIndex] + i_pLS;
+          unsigned int pixelSegmentIndex = ranges.segmentModuleIndices()[pixelModuleIndex] + i_pLS;
 
           //fetch the quintuplet
           for (unsigned int outerQuintupletArrayIndex = globalThreadIdx[2];
                outerQuintupletArrayIndex < nOuterQuintuplets;
                outerQuintupletArrayIndex += gridThreadExtent[2]) {
             unsigned int quintupletIndex =
-                objectOccupancy.quintupletModuleIndices()[quintupletLowerModuleIndex] + outerQuintupletArrayIndex;
+                ranges.quintupletModuleIndices()[quintupletLowerModuleIndex] + outerQuintupletArrayIndex;
 
             if (quintuplets.isDup()[quintupletIndex])
               continue;
@@ -755,7 +755,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
             bool success = runPixelQuintupletDefaultAlgo(acc,
                                                          modules,
-                                                         objectOccupancy,
+                                                         ranges,
                                                          mds,
                                                          segments,
                                                          segmentsPixel,

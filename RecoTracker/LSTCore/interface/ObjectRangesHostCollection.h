@@ -5,6 +5,6 @@
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
 
 namespace lst {
-  using ObjectRangesHostCollection = PortableHostMultiCollection<ObjectRangesSoA, ObjectOccupancySoA>;
+  using ObjectRangesHostCollection = PortableHostCollection<ObjectRangesSoA>;
 }  // namespace lst
 #endif

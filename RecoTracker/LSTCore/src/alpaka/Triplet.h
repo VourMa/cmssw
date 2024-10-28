@@ -671,7 +671,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   Triplets triplets,
                                   TripletsOccupancy tripletsOccupancy,
                                   ObjectRangesConst ranges,
-                                  ObjectOccupancyConst objectOccupancy,
                                   uint16_t* index_gpu,
                                   uint16_t nonZeroModules) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
@@ -729,7 +728,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                     1u,
                                     alpaka::hierarchy::Threads{});
               if (static_cast<int>(totOccupancyTriplets) >=
-                  objectOccupancy.tripletModuleOccupancy()[innerInnerLowerModuleIndex]) {
+                  ranges.tripletModuleOccupancy()[innerInnerLowerModuleIndex]) {
 #ifdef WARNINGS
                 printf("Triplet excess alert! Module index = %d\n", innerInnerLowerModuleIndex);
 #endif
@@ -737,7 +736,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                 unsigned int tripletModuleIndex = alpaka::atomicAdd(
                     acc, &tripletsOccupancy.nTriplets()[innerInnerLowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
                 unsigned int tripletIndex =
-                    objectOccupancy.tripletModuleIndices()[innerInnerLowerModuleIndex] + tripletModuleIndex;
+                    ranges.tripletModuleIndices()[innerInnerLowerModuleIndex] + tripletModuleIndex;
                 addTripletToMemory(modules,
                                    mds,
                                    segments,
@@ -769,7 +768,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
-                                  ObjectOccupancy objectOccupancy,
+                                  ObjectRanges ranges,
                                   SegmentsOccupancyConst segmentsOccupancy) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
@@ -790,8 +789,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
       for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
         if (segmentsOccupancy.nSegments()[i] == 0) {
-          objectOccupancy.tripletModuleIndices()[i] = nTotalTriplets;
-          objectOccupancy.tripletModuleOccupancy()[i] = 0;
+          ranges.tripletModuleIndices()[i] = nTotalTriplets;
+          ranges.tripletModuleOccupancy()[i] = 0;
           continue;
         }
 
@@ -855,15 +854,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 #endif
         }
 
-        objectOccupancy.tripletModuleOccupancy()[i] = occupancy;
+        ranges.tripletModuleOccupancy()[i] = occupancy;
         unsigned int nTotT = alpaka::atomicAdd(acc, &nTotalTriplets, occupancy, alpaka::hierarchy::Threads{});
-        objectOccupancy.tripletModuleIndices()[i] = nTotT;
+        ranges.tripletModuleIndices()[i] = nTotT;
       }
 
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        objectOccupancy.nTotalTrips() = nTotalTriplets;
+        ranges.nTotalTrips() = nTotalTriplets;
       }
     }
   };
@@ -873,8 +872,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
                                   TripletsOccupancyConst tripletsOccupancy,
-                                  ObjectRanges ranges,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRanges ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -885,11 +883,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
         if (tripletsOccupancy.nTriplets()[i] == 0) {
           ranges.tripletRanges()[i][0] = -1;
-          ranges.tripletRanges()[i][0] = -1;
+          ranges.tripletRanges()[i][1] = -1;
         } else {
-          ranges.tripletRanges()[i][0] = objectOccupancy.tripletModuleIndices()[i];
-          ranges.tripletRanges()[i][1] =
-              objectOccupancy.tripletModuleIndices()[i] + tripletsOccupancy.nTriplets()[i] - 1;
+          ranges.tripletRanges()[i][0] = ranges.tripletModuleIndices()[i];
+          ranges.tripletRanges()[i][1] = ranges.tripletModuleIndices()[i] + tripletsOccupancy.nTriplets()[i] - 1;
         }
       }
     }

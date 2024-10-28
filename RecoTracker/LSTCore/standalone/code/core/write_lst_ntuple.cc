@@ -367,7 +367,7 @@ void setPixelQuintupletOutputBranches(Event* event) {
 void setQuintupletOutputBranches(Event* event) {
   auto const quintuplets = event->getQuintuplets<QuintupletsSoA>();
   auto const quintupletsOccupancy = event->getQuintuplets<QuintupletsOccupancySoA>();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
   auto modules = event->getModules<ModulesSoA>();
   int n_accepted_simtrk = ana.tx->getBranch<std::vector<int>>("sim_TC_matched").size();
 
@@ -377,7 +377,7 @@ void setQuintupletOutputBranches(Event* event) {
   for (unsigned int lowerModuleIdx = 0; lowerModuleIdx < modules.nLowerModules(); ++lowerModuleIdx) {
     int nQuintuplets = quintupletsOccupancy.nQuintuplets()[lowerModuleIdx];
     for (unsigned int idx = 0; idx < nQuintuplets; idx++) {
-      unsigned int quintupletIndex = objectOccupancy.quintupletModuleIndices()[lowerModuleIdx] + idx;
+      unsigned int quintupletIndex = ranges.quintupletModuleIndices()[lowerModuleIdx] + idx;
       float pt = __H2F(quintuplets.innerRadius()[quintupletIndex]) * k2Rinv1GeVf * 2;
       float eta = __H2F(quintuplets.eta()[quintupletIndex]);
       float phi = __H2F(quintuplets.phi()[quintupletIndex]);
@@ -505,7 +505,7 @@ void setGnnNtupleBranches(Event* event) {
   MiniDoubletsOccupancyConst miniDoublets = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
   auto hitsEvt = event->getHits<HitsSoA>();
   auto modules = event->getModules<ModulesSoA>();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
   auto const& trackCandidates = event->getTrackCandidates();
 
   std::set<unsigned int> mds_used_in_sg;
@@ -558,7 +558,7 @@ void setGnnNtupleBranches(Event* event) {
     // Loop over segments
     for (unsigned int jdx = 0; jdx < segmentsOccupancy.nSegments()[idx]; jdx++) {
       // Get the actual index to the segments using ranges
-      unsigned int sgIdx = objectOccupancy.segmentModuleIndices()[idx] + jdx;
+      unsigned int sgIdx = ranges.segmentModuleIndices()[idx] + jdx;
 
       // Get the hit indices
       std::vector<unsigned int> MDs = getMDsFromLS(event, sgIdx);
@@ -945,14 +945,14 @@ std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned 
 //________________________________________________________________________________________________________________________________
 void printHitMultiplicities(Event* event) {
   auto modules = event->getModules<ModulesSoA>();
-  auto ranges = event->getRanges<ObjectRangesSoA>();
+  auto hitRanges = event->getHits<HitsRangesSoA>();
 
   int nHits = 0;
   for (unsigned int idx = 0; idx <= modules.nLowerModules();
        idx++)  // "<=" because cheating to include pixel track candidate lower module
   {
-    nHits += ranges.hitRanges()[2 * idx][1] - ranges.hitRanges()[2 * idx][0] + 1;
-    nHits += ranges.hitRanges()[2 * idx + 1][1] - ranges.hitRanges()[2 * idx + 1][0] + 1;
+    nHits += hitRanges.hitRanges()[2 * idx][1] - hitRanges.hitRanges()[2 * idx][0] + 1;
+    nHits += hitRanges.hitRanges()[2 * idx + 1][1] - hitRanges.hitRanges()[2 * idx + 1][0] + 1;
   }
   std::cout << " nHits: " << nHits << std::endl;
 }
@@ -990,12 +990,12 @@ void printMDs(Event* event) {
   MiniDoubletsOccupancyConst miniDoubletsOccupancy = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
   auto hitsEvt = event->getHits<HitsSoA>();
   auto modules = event->getModules<ModulesSoA>();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
 
   // Then obtain the lower module index
   for (unsigned int idx = 0; idx <= modules.nLowerModules(); ++idx) {
     for (unsigned int iMD = 0; iMD < miniDoubletsOccupancy.nMDs()[idx]; iMD++) {
-      unsigned int mdIdx = objectOccupancy.miniDoubletModuleIndices()[idx] + iMD;
+      unsigned int mdIdx = ranges.miniDoubletModuleIndices()[idx] + iMD;
       unsigned int LowerHitIndex = miniDoublets.anchorHitIndices()[mdIdx];
       unsigned int UpperHitIndex = miniDoublets.outerHitIndices()[mdIdx];
       unsigned int hit0 = hitsEvt.idxs()[LowerHitIndex];
@@ -1014,14 +1014,14 @@ void printLSs(Event* event) {
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
   auto hitsEvt = event->getHits<HitsSoA>();
   auto modules = event->getModules<ModulesSoA>();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
 
   int nSegments = 0;
   for (unsigned int i = 0; i < modules.nLowerModules(); ++i) {
     unsigned int idx = i;  //modules->lowerModuleIndices[i];
     nSegments += segmentsOccupancy.nSegments()[idx];
     for (unsigned int jdx = 0; jdx < segmentsOccupancy.nSegments()[idx]; jdx++) {
-      unsigned int sgIdx = objectOccupancy.segmentModuleIndices()[idx] + jdx;
+      unsigned int sgIdx = ranges.segmentModuleIndices()[idx] + jdx;
       unsigned int InnerMiniDoubletIndex = segments.mdIndices()[sgIdx][0];
       unsigned int OuterMiniDoubletIndex = segments.mdIndices()[sgIdx][1];
       unsigned int InnerMiniDoubletLowerHitIndex = miniDoublets.anchorHitIndices()[InnerMiniDoubletIndex];
@@ -1047,13 +1047,13 @@ void printpLSs(Event* event) {
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
   auto hitsEvt = event->getHits<HitsSoA>();
   auto modules = event->getModules<ModulesSoA>();
-  auto objectOccupancy = event->getRanges<ObjectOccupancySoA>();
+  auto ranges = event->getRanges();
 
   unsigned int i = modules.nLowerModules();
   unsigned int idx = i;  //modules->lowerModuleIndices[i];
   int npLS = segmentsOccupancy.nSegments()[idx];
   for (unsigned int jdx = 0; jdx < segmentsOccupancy.nSegments()[idx]; jdx++) {
-    unsigned int sgIdx = objectOccupancy.segmentModuleIndices()[idx] + jdx;
+    unsigned int sgIdx = ranges.segmentModuleIndices()[idx] + jdx;
     unsigned int InnerMiniDoubletIndex = segments.mdIndices()[sgIdx][0];
     unsigned int OuterMiniDoubletIndex = segments.mdIndices()[sgIdx][1];
     unsigned int InnerMiniDoubletLowerHitIndex = miniDoublets.anchorHitIndices()[InnerMiniDoubletIndex];

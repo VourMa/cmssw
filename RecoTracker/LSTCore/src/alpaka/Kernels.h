@@ -144,13 +144,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   ModulesConst modules,
                                   Quintuplets quintuplets,
                                   QuintupletsOccupancyConst quintupletsOccupancy,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (unsigned int lowmod = globalThreadIdx[0]; lowmod < modules.nLowerModules(); lowmod += gridThreadExtent[0]) {
         unsigned int nQuintuplets_lowmod = quintupletsOccupancy.nQuintuplets()[lowmod];
-        int quintupletModuleIndices_lowmod = objectOccupancy.quintupletModuleIndices()[lowmod];
+        int quintupletModuleIndices_lowmod = ranges.quintupletModuleIndices()[lowmod];
 
         for (unsigned int ix1 = globalThreadIdx[1]; ix1 < nQuintuplets_lowmod; ix1 += gridThreadExtent[1]) {
           unsigned int ix = quintupletModuleIndices_lowmod + ix1;
@@ -193,28 +193,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   Quintuplets quintuplets,
                                   QuintupletsOccupancyConst quintupletsOccupancy,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      for (unsigned int lowmodIdx1 = globalThreadIdx[1]; lowmodIdx1 < objectOccupancy.nEligibleT5Modules();
+      for (unsigned int lowmodIdx1 = globalThreadIdx[1]; lowmodIdx1 < ranges.nEligibleT5Modules();
            lowmodIdx1 += gridThreadExtent[1]) {
-        uint16_t lowmod1 = objectOccupancy.indicesOfEligibleT5Modules()[lowmodIdx1];
+        uint16_t lowmod1 = ranges.indicesOfEligibleT5Modules()[lowmodIdx1];
         unsigned int nQuintuplets_lowmod1 = quintupletsOccupancy.nQuintuplets()[lowmod1];
         if (nQuintuplets_lowmod1 == 0)
           continue;
 
-        unsigned int quintupletModuleIndices_lowmod1 = objectOccupancy.quintupletModuleIndices()[lowmod1];
+        unsigned int quintupletModuleIndices_lowmod1 = ranges.quintupletModuleIndices()[lowmod1];
 
-        for (unsigned int lowmodIdx2 = globalThreadIdx[2] + lowmodIdx1;
-             lowmodIdx2 < objectOccupancy.nEligibleT5Modules();
+        for (unsigned int lowmodIdx2 = globalThreadIdx[2] + lowmodIdx1; lowmodIdx2 < ranges.nEligibleT5Modules();
              lowmodIdx2 += gridThreadExtent[2]) {
-          uint16_t lowmod2 = objectOccupancy.indicesOfEligibleT5Modules()[lowmodIdx2];
+          uint16_t lowmod2 = ranges.indicesOfEligibleT5Modules()[lowmodIdx2];
           unsigned int nQuintuplets_lowmod2 = quintupletsOccupancy.nQuintuplets()[lowmod2];
           if (nQuintuplets_lowmod2 == 0)
             continue;
 
-          unsigned int quintupletModuleIndices_lowmod2 = objectOccupancy.quintupletModuleIndices()[lowmod2];
+          unsigned int quintupletModuleIndices_lowmod2 = ranges.quintupletModuleIndices()[lowmod2];
 
           for (unsigned int ix1 = 0; ix1 < nQuintuplets_lowmod1; ix1 += 1) {
             unsigned int ix = quintupletModuleIndices_lowmod1 + ix1;

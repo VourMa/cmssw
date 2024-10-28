@@ -6,7 +6,7 @@
 #include "RecoTracker/LSTCore/interface/ObjectRangesSoA.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
-  using ObjectRangesDeviceCollection = PortableCollection2<ObjectRangesSoA, ObjectOccupancySoA>;
+  using ObjectRangesDeviceCollection = PortableCollection<ObjectRangesSoA>;
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::lst
 
 #endif

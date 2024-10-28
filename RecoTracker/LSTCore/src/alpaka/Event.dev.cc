@@ -94,16 +94,12 @@ void Event::addHitToEvent(std::vector<float> const& x,
     std::array<int, 2> const hits_sizes{{static_cast<int>(nHits), static_cast<int>(nModules_)}};
     hitsDC_.emplace(hits_sizes, queue_);
 
-    auto hitsOccupancy = hitsDC_->view<HitsOccupancySoA>();
-    auto hitRanges_view = alpaka::createView(devAcc_, hitsOccupancy.hitRanges(), hitsOccupancy.metadata().size());
-    auto hitRangesLower_view =
-        alpaka::createView(devAcc_, hitsOccupancy.hitRangesLower(), hitsOccupancy.metadata().size());
-    auto hitRangesUpper_view =
-        alpaka::createView(devAcc_, hitsOccupancy.hitRangesUpper(), hitsOccupancy.metadata().size());
-    auto hitRangesnLower_view =
-        alpaka::createView(devAcc_, hitsOccupancy.hitRangesnLower(), hitsOccupancy.metadata().size());
-    auto hitRangesnUpper_view =
-        alpaka::createView(devAcc_, hitsOccupancy.hitRangesnUpper(), hitsOccupancy.metadata().size());
+    auto hitsRanges = hitsDC_->view<HitsRangesSoA>();
+    auto hitRanges_view = alpaka::createView(devAcc_, hitsRanges.hitRanges(), hitsRanges.metadata().size());
+    auto hitRangesLower_view = alpaka::createView(devAcc_, hitsRanges.hitRangesLower(), hitsRanges.metadata().size());
+    auto hitRangesUpper_view = alpaka::createView(devAcc_, hitsRanges.hitRangesUpper(), hitsRanges.metadata().size());
+    auto hitRangesnLower_view = alpaka::createView(devAcc_, hitsRanges.hitRangesnLower(), hitsRanges.metadata().size());
+    auto hitRangesnUpper_view = alpaka::createView(devAcc_, hitsRanges.hitRangesnUpper(), hitsRanges.metadata().size());
     alpaka::memset(queue_, hitRanges_view, 0xff);
     alpaka::memset(queue_, hitRangesLower_view, 0xff);
     alpaka::memset(queue_, hitRangesUpper_view, 0xff);
@@ -112,8 +108,7 @@ void Event::addHitToEvent(std::vector<float> const& x,
   }
 
   if (!rangesDC_) {
-    std::array<int, 2> const ranges_sizes{{static_cast<int>(nModules_), static_cast<int>(nLowerModules_ + 1)}};
-    rangesDC_.emplace(ranges_sizes, queue_);
+    rangesDC_.emplace(nLowerModules_ + 1, queue_);
     auto buf = rangesDC_->buffer();
     alpaka::memset(queue_, buf, 0xff);
   }
@@ -146,7 +141,7 @@ void Event::addHitToEvent(std::vector<float> const& x,
                       endcapGeometry_.const_view(),
                       modules_.const_view<ModulesSoA>(),
                       hitsDC_->view<HitsSoA>(),
-                      hitsDC_->view<HitsOccupancySoA>(),
+                      hitsDC_->view<HitsRangesSoA>(),
                       nHits);
 
   Vec3D const threadsPerBlock2{1, 1, 256};
@@ -157,7 +152,7 @@ void Event::addHitToEvent(std::vector<float> const& x,
                       module_ranges_workdiv,
                       ModuleRangesKernel{},
                       modules_.const_view<ModulesSoA>(),
-                      hitsDC_->view<HitsOccupancySoA>(),
+                      hitsDC_->view<HitsRangesSoA>(),
                       nLowerModules_);
 }
 
@@ -195,7 +190,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
 
   if (!miniDoubletsDC_) {
     // Create a view for the element nLowerModules_ inside rangesOccupancy->miniDoubletModuleOccupancy
-    auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+    auto rangesOccupancy = rangesDC_->view();
     auto miniDoubletModuleOccupancy_view = alpaka::createView(
         devAcc_, rangesOccupancy.miniDoubletModuleOccupancy(), (Idx)rangesOccupancy.metadata().size());
     auto dst_view_miniDoubletModuleOccupancy =
@@ -213,7 +208,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
                         createMDArrayRangesGPU_workDiv,
                         CreateMDArrayRangesGPU{},
                         modules_.const_view<ModulesSoA>(),
-                        rangesDC_->view<ObjectOccupancySoA>());
+                        rangesDC_->view());
 
     auto nTotalMDs_buf_h = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, (Idx)1u);
     auto nTotalMDs_buf_d = alpaka::createView(devAcc_, &rangesOccupancy.nTotalMDs(), (Idx)1u);
@@ -243,10 +238,10 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
                         createSegmentArrayRanges_workDiv,
                         CreateSegmentArrayRanges{},
                         modules_.const_view<ModulesSoA>(),
-                        rangesDC_->view<ObjectOccupancySoA>(),
+                        rangesDC_->view(),
                         miniDoubletsDC_->const_view<MiniDoubletsSoA>());
 
-    auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+    auto rangesOccupancy = rangesDC_->view();
     auto nTotalSegments_view_h = alpaka::createView(cms::alpakatools::host(), &nTotalSegments_, (Idx)1u);
     auto nTotalSegments_view_d = alpaka::createView(devAcc_, &rangesOccupancy.nTotalSegs(), (Idx)1u);
     alpaka::memcpy(queue_, nTotalSegments_view_h, nTotalSegments_view_d);
@@ -330,7 +325,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
                       addPixelSegmentToEvent_workdiv,
                       AddPixelSegmentToEventKernel{},
                       modules_.const_view<ModulesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
+                      rangesDC_->const_view(),
                       hitsDC_->view<HitsSoA>(),
                       miniDoubletsDC_->view<MiniDoubletsSoA>(),
                       segmentsDC_->view<SegmentsSoA>(),
@@ -346,7 +341,7 @@ void Event::addPixelSegmentToEvent(std::vector<unsigned int> const& hitIndices0,
 
 void Event::createMiniDoublets() {
   // Create a view for the element nLowerModules_ inside rangesOccupancy->miniDoubletModuleOccupancy
-  auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+  auto rangesOccupancy = rangesDC_->view();
   auto miniDoubletModuleOccupancy_view =
       alpaka::createView(devAcc_, rangesOccupancy.miniDoubletModuleOccupancy(), (Idx)rangesOccupancy.metadata().size());
   auto dst_view_miniDoubletModuleOccupancy =
@@ -364,7 +359,7 @@ void Event::createMiniDoublets() {
                       createMDArrayRangesGPU_workDiv,
                       CreateMDArrayRangesGPU{},
                       modules_.const_view<ModulesSoA>(),
-                      rangesDC_->view<ObjectOccupancySoA>());
+                      rangesDC_->view());
 
   auto nTotalMDs_buf_h = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, (Idx)1u);
   auto nTotalMDs_buf_d = alpaka::createView(devAcc_, &rangesOccupancy.nTotalMDs(), (Idx)1u);
@@ -396,10 +391,10 @@ void Event::createMiniDoublets() {
                       CreateMiniDoublets{},
                       modules_.const_view<ModulesSoA>(),
                       hitsDC_->const_view<HitsSoA>(),
-                      hitsDC_->const_view<HitsOccupancySoA>(),
+                      hitsDC_->const_view<HitsRangesSoA>(),
                       miniDoubletsDC_->view<MiniDoubletsSoA>(),
                       miniDoubletsDC_->view<MiniDoubletsOccupancySoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   WorkDiv1D const addMiniDoubletRangesToEventExplicit_workDiv = createWorkDiv<Vec1D>({1}, {1024}, {1});
 
@@ -408,9 +403,8 @@ void Event::createMiniDoublets() {
                       AddMiniDoubletRangesToEventExplicit{},
                       modules_.const_view<ModulesSoA>(),
                       miniDoubletsDC_->view<MiniDoubletsOccupancySoA>(),
-                      rangesDC_->view<ObjectRangesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
-                      hitsDC_->const_view<HitsOccupancySoA>());
+                      rangesDC_->view(),
+                      hitsDC_->const_view<HitsRangesSoA>());
 
   if (addObjects_) {
     addMiniDoubletsToEventExplicit();
@@ -446,8 +440,7 @@ void Event::createSegmentsWithModuleMap() {
                       miniDoubletsDC_->const_view<MiniDoubletsOccupancySoA>(),
                       segmentsDC_->view<SegmentsSoA>(),
                       segmentsDC_->view<SegmentsOccupancySoA>(),
-                      rangesDC_->const_view<ObjectRangesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   WorkDiv1D const addSegmentRangesToEventExplicit_workDiv = createWorkDiv<Vec1D>({1}, {1024}, {1});
 
@@ -456,8 +449,7 @@ void Event::createSegmentsWithModuleMap() {
                       AddSegmentRangesToEventExplicit{},
                       modules_.const_view<ModulesSoA>(),
                       segmentsDC_->view<SegmentsOccupancySoA>(),
-                      rangesDC_->view<ObjectRangesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->view());
 
   if (addObjects_) {
     addSegmentsToEventExplicit();
@@ -472,11 +464,11 @@ void Event::createTriplets() {
                         createTripletArrayRanges_workDiv,
                         CreateTripletArrayRanges{},
                         modules_.const_view<ModulesSoA>(),
-                        rangesDC_->view<ObjectOccupancySoA>(),
+                        rangesDC_->view(),
                         segmentsDC_->const_view<SegmentsOccupancySoA>());
 
     // TODO: Why are we pulling this back down only to put it back on the device in a new struct?
-    auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+    auto rangesOccupancy = rangesDC_->view();
     auto maxTriplets_buf_h = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, (Idx)1u);
     auto maxTriplets_buf_d = alpaka::createView(devAcc_, &rangesOccupancy.nTotalTrips(), (Idx)1u);
     alpaka::memcpy(queue_, maxTriplets_buf_h, maxTriplets_buf_d);
@@ -556,8 +548,7 @@ void Event::createTriplets() {
                       segmentsDC_->const_view<SegmentsOccupancySoA>(),
                       tripletsDC_->view<TripletsSoA>(),
                       tripletsDC_->view<TripletsOccupancySoA>(),
-                      rangesDC_->const_view<ObjectRangesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
+                      rangesDC_->const_view(),
                       index_gpu_buf.data(),
                       nonZeroModules);
 
@@ -568,8 +559,7 @@ void Event::createTriplets() {
                       AddTripletRangesToEventExplicit{},
                       modules_.const_view<ModulesSoA>(),
                       tripletsDC_->const_view<TripletsOccupancySoA>(),
-                      rangesDC_->view<ObjectRangesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->view());
 
   if (addObjects_) {
     addTripletsToEventExplicit();
@@ -592,7 +582,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       crossCleanpT3_workDiv,
                       CrossCleanpT3{},
                       modules_.const_view<ModulesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
+                      rangesDC_->const_view(),
                       pixelTripletsDC_->view(),
                       segmentsDC_->const_view<SegmentsPixelSoA>(),
                       pixelQuintupletsDC_->const_view());
@@ -606,10 +596,10 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       pixelTripletsDC_->const_view(),
                       trackCandidatesDC_->view(),
                       segmentsDC_->const_view<SegmentsPixelSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   // Pull nEligibleT5Modules from the device.
-  auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+  auto rangesOccupancy = rangesDC_->view();
   auto nEligibleModules_buf_h = cms::alpakatools::make_host_buffer<uint16_t[]>(queue_, 1u);
   auto nEligibleModules_buf_d = alpaka::createView(devAcc_, &rangesOccupancy.nEligibleT5Modules(), (Idx)1u);
   alpaka::memcpy(queue_, nEligibleModules_buf_h, nEligibleModules_buf_d);
@@ -626,7 +616,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       RemoveDupQuintupletsBeforeTC{},
                       quintupletsDC_->view<QuintupletsSoA>(),
                       quintupletsDC_->view<QuintupletsOccupancySoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   Vec3D const threadsPerBlock_crossCleanT5{32, 1, 32};
   Vec3D const blocksPerGrid_crossCleanT5{(13296 / 32) + 1, 1, max_blocks};
@@ -641,7 +631,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       quintupletsDC_->const_view<QuintupletsOccupancySoA>(),
                       pixelQuintupletsDC_->const_view(),
                       pixelTripletsDC_->const_view(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   Vec3D const threadsPerBlock_addT5asTrackCandidate{1, 8, 128};
   Vec3D const blocksPerGrid_addT5asTrackCandidate{1, 8, 10};
@@ -655,7 +645,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       quintupletsDC_->const_view<QuintupletsSoA>(),
                       quintupletsDC_->const_view<QuintupletsOccupancySoA>(),
                       trackCandidatesDC_->view(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   if (!no_pls_dupclean) {
     Vec3D const threadsPerBlockCheckHitspLS{1, 16, 16};
@@ -681,7 +671,7 @@ void Event::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets) {
                       crossCleanpLS_workDiv,
                       CrossCleanpLS{},
                       modules_.const_view<ModulesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
+                      rangesDC_->const_view(),
                       pixelTripletsDC_->const_view(),
                       trackCandidatesDC_->view(),
                       segmentsDC_->const_view<SegmentsSoA>(),
@@ -831,7 +821,7 @@ void Event::createPixelTriplets() {
                       CreatePixelTripletsFromMap{},
                       modules_.const_view<ModulesSoA>(),
                       modules_.const_view<ModulesPixelSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
+                      rangesDC_->const_view(),
                       miniDoubletsDC_->const_view<MiniDoubletsSoA>(),
                       segmentsDC_->const_view<SegmentsSoA>(),
                       segmentsDC_->const_view<SegmentsPixelSoA>(),
@@ -870,11 +860,11 @@ void Event::createQuintuplets() {
                       CreateEligibleModulesListForQuintuplets{},
                       modules_.const_view<ModulesSoA>(),
                       tripletsDC_->const_view<TripletsOccupancySoA>(),
-                      rangesDC_->view<ObjectOccupancySoA>());
+                      rangesDC_->view());
 
   auto nEligibleT5Modules_buf = allocBufWrapper<uint16_t>(cms::alpakatools::host(), 1, queue_);
   auto nTotalQuintuplets_buf = allocBufWrapper<unsigned int>(cms::alpakatools::host(), 1, queue_);
-  auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+  auto rangesOccupancy = rangesDC_->view();
   auto nEligibleT5Modules_view_d = alpaka::createView(devAcc_, &rangesOccupancy.nEligibleT5Modules(), (Idx)1u);
   auto nTotalQuintuplets_view_d = alpaka::createView(devAcc_, &rangesOccupancy.nTotalQuints(), (Idx)1u);
   alpaka::memcpy(queue_, nEligibleT5Modules_buf, nEligibleT5Modules_view_d);
@@ -918,7 +908,7 @@ void Event::createQuintuplets() {
                       tripletsDC_->const_view<TripletsOccupancySoA>(),
                       quintupletsDC_->view<QuintupletsSoA>(),
                       quintupletsDC_->view<QuintupletsOccupancySoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>(),
+                      rangesDC_->const_view(),
                       nEligibleT5Modules);
 
   Vec3D const threadsPerBlockDupQuint{1, 16, 16};
@@ -932,7 +922,7 @@ void Event::createQuintuplets() {
                       modules_.const_view<ModulesSoA>(),
                       quintupletsDC_->view<QuintupletsSoA>(),
                       quintupletsDC_->const_view<QuintupletsOccupancySoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   WorkDiv1D const addQuintupletRangesToEventExplicit_workDiv = createWorkDiv<Vec1D>({1}, {1024}, {1});
 
@@ -941,8 +931,7 @@ void Event::createQuintuplets() {
                       AddQuintupletRangesToEventExplicit{},
                       modules_.const_view<ModulesSoA>(),
                       quintupletsDC_->const_view<QuintupletsOccupancySoA>(),
-                      rangesDC_->view<ObjectRangesSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->view());
 
   if (addObjects_) {
     addQuintupletsToEventExplicit();
@@ -1077,7 +1066,7 @@ void Event::createPixelQuintuplets() {
                       connectedPixelSize_dev_buf.data(),
                       connectedPixelIndex_dev_buf.data(),
                       nInnerSegments,
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
   Vec3D const threadsPerBlockDupPix{1, 16, 16};
   Vec3D const blocksPerGridDupPix{1, max_blocks, 1};
@@ -1098,7 +1087,7 @@ void Event::createPixelQuintuplets() {
                       pixelQuintupletsDC_->const_view(),
                       trackCandidatesDC_->view(),
                       segmentsDC_->const_view<SegmentsPixelSoA>(),
-                      rangesDC_->const_view<ObjectOccupancySoA>());
+                      rangesDC_->const_view());
 
 #ifdef WARNINGS
   auto nPixelQuintuplets_buf = allocBufWrapper<unsigned int>(cms::alpakatools::host(), 1, queue_);
@@ -1129,7 +1118,7 @@ void Event::addMiniDoubletsToEventExplicit() {
   alpaka::memcpy(queue_, module_layers_buf, module_layers_view, nLowerModules_);
 
   auto module_hitRanges_buf = allocBufWrapper<ArrayIx2>(cms::alpakatools::host(), nLowerModules_, queue_);
-  auto hits = hitsDC_->view<HitsOccupancySoA>();
+  auto hits = hitsDC_->view<HitsRangesSoA>();
   auto hitRanges_view = alpaka::createView(devAcc_, hits.hitRanges(), nLowerModules_);  // only lower modules
   alpaka::memcpy(queue_, module_hitRanges_buf, hitRanges_view, nLowerModules_);
 
@@ -1203,7 +1192,7 @@ void Event::addQuintupletsToEventExplicit() {
   alpaka::memcpy(queue_, module_layers_buf, module_layers_view, nLowerModules_);
 
   auto module_quintupletModuleIndices_buf = allocBufWrapper<int>(cms::alpakatools::host(), nLowerModules_, queue_);
-  auto rangesOccupancy = rangesDC_->view<ObjectOccupancySoA>();
+  auto rangesOccupancy = rangesDC_->view();
   auto quintupletModuleIndices_view_d =
       alpaka::createView(devAcc_, rangesOccupancy.quintupletModuleIndices(), nLowerModules_);
   alpaka::memcpy(queue_, module_quintupletModuleIndices_buf, quintupletModuleIndices_view_d);
@@ -1475,7 +1464,7 @@ typename TSoA::ConstView Event::getHits(bool sync)  //std::shared_ptr should tak
     return hitsDC_->const_view<TSoA>();
   } else {
     if (!hitsHC_) {
-      hitsHC_.emplace(cms::alpakatools::CopyToHost<PortableMultiCollection<TDev, HitsSoA, HitsOccupancySoA>>::copyAsync(
+      hitsHC_.emplace(cms::alpakatools::CopyToHost<PortableMultiCollection<TDev, HitsSoA, HitsRangesSoA>>::copyAsync(
           queue_, *hitsDC_));
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
@@ -1484,7 +1473,7 @@ typename TSoA::ConstView Event::getHits(bool sync)  //std::shared_ptr should tak
   }
 }
 template HitsConst Event::getHits<HitsSoA>(bool);
-template HitsOccupancyConst Event::getHits<HitsOccupancySoA>(bool);
+template HitsRangesConst Event::getHits<HitsRangesSoA>(bool);
 
 template <typename TSoA, typename TDev>
 typename TSoA::ConstView Event::getHitsInCMSSW(bool sync) {
@@ -1507,25 +1496,23 @@ typename TSoA::ConstView Event::getHitsInCMSSW(bool sync) {
   }
 }
 template HitsConst Event::getHitsInCMSSW<HitsSoA>(bool);
-template HitsOccupancyConst Event::getHitsInCMSSW<HitsOccupancySoA>(bool);
+template HitsRangesConst Event::getHitsInCMSSW<HitsRangesSoA>(bool);
 
-template <typename TSoA, typename TDev>
-typename TSoA::ConstView Event::getRanges(bool sync) {
+template <typename TDev>
+ObjectRangesConst Event::getRanges(bool sync) {
   if constexpr (std::is_same_v<TDev, DevHost>) {
-    return rangesDC_->const_view<TSoA>();
+    return rangesDC_->const_view();
   } else {
     if (!rangesHC_) {
       rangesHC_.emplace(
-          cms::alpakatools::CopyToHost<PortableMultiCollection<TDev, ObjectRangesSoA, ObjectOccupancySoA>>::copyAsync(
-              queue_, *rangesDC_));
+          cms::alpakatools::CopyToHost<PortableDeviceCollection<ObjectRangesSoA, TDev>>::copyAsync(queue_, *rangesDC_));
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
-    return rangesHC_->const_view<TSoA>();
+    return rangesHC_->const_view();
   }
 }
-template ObjectRangesConst Event::getRanges<ObjectRangesSoA>(bool);
-template ObjectOccupancyConst Event::getRanges<ObjectOccupancySoA>(bool);
+template ObjectRangesConst Event::getRanges<>(bool);
 
 template <typename TSoA, typename TDev>
 typename TSoA::ConstView Event::getMiniDoublets(bool sync) {

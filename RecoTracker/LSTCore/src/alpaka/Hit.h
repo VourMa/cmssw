@@ -81,20 +81,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
-                                  HitsOccupancy hitsOccupancy,
+                                  HitsRanges hitsRanges,
                                   int nLowerModules) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int lowerIndex = globalThreadIdx[2]; lowerIndex < nLowerModules; lowerIndex += gridThreadExtent[2]) {
         uint16_t upperIndex = modules.partnerModuleIndices()[lowerIndex];
-        if (hitsOccupancy.hitRanges()[lowerIndex][0] != -1 && hitsOccupancy.hitRanges()[upperIndex][0] != -1) {
-          hitsOccupancy.hitRangesLower()[lowerIndex] = hitsOccupancy.hitRanges()[lowerIndex][0];
-          hitsOccupancy.hitRangesUpper()[lowerIndex] = hitsOccupancy.hitRanges()[upperIndex][0];
-          hitsOccupancy.hitRangesnLower()[lowerIndex] =
-              hitsOccupancy.hitRanges()[lowerIndex][1] - hitsOccupancy.hitRanges()[lowerIndex][0] + 1;
-          hitsOccupancy.hitRangesnUpper()[lowerIndex] =
-              hitsOccupancy.hitRanges()[upperIndex][1] - hitsOccupancy.hitRanges()[upperIndex][0] + 1;
+        if (hitsRanges.hitRanges()[lowerIndex][0] != -1 && hitsRanges.hitRanges()[upperIndex][0] != -1) {
+          hitsRanges.hitRangesLower()[lowerIndex] = hitsRanges.hitRanges()[lowerIndex][0];
+          hitsRanges.hitRangesUpper()[lowerIndex] = hitsRanges.hitRanges()[upperIndex][0];
+          hitsRanges.hitRangesnLower()[lowerIndex] =
+              hitsRanges.hitRanges()[lowerIndex][1] - hitsRanges.hitRanges()[lowerIndex][0] + 1;
+          hitsRanges.hitRangesnUpper()[lowerIndex] =
+              hitsRanges.hitRanges()[upperIndex][1] - hitsRanges.hitRanges()[upperIndex][0] + 1;
         }
       }
     }
@@ -110,7 +110,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   EndcapGeometryDevConst endcapGeometry,
                                   ModulesConst modules,
                                   Hits hits,
-                                  HitsOccupancy hitsOccupancy,
+                                  HitsRanges hitsRanges,
                                   unsigned int nHits) const  // Total number of hits in event
     {
       auto geoMapDetId = endcapGeometry.geoMapDetId();  // DetId's from endcap map
@@ -146,19 +146,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         }
         // Need to set initial value if index hasn't been seen before.
         int old = alpaka::atomicCas(acc,
-                                    &(hitsOccupancy.hitRanges()[lastModuleIndex][0]),
+                                    &(hitsRanges.hitRanges()[lastModuleIndex][0]),
                                     -1,
                                     static_cast<int>(ihit),
                                     alpaka::hierarchy::Threads{});
         // For subsequent visits, stores the min value.
         if (old != -1)
-          alpaka::atomicMin(acc,
-                            &hitsOccupancy.hitRanges()[lastModuleIndex][0],
-                            static_cast<int>(ihit),
-                            alpaka::hierarchy::Threads{});
+          alpaka::atomicMin(
+              acc, &hitsRanges.hitRanges()[lastModuleIndex][0], static_cast<int>(ihit), alpaka::hierarchy::Threads{});
 
         alpaka::atomicMax(
-            acc, &hitsOccupancy.hitRanges()[lastModuleIndex][1], static_cast<int>(ihit), alpaka::hierarchy::Threads{});
+            acc, &hitsRanges.hitRanges()[lastModuleIndex][1], static_cast<int>(ihit), alpaka::hierarchy::Threads{});
       }
     }
   };

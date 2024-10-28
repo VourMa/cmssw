@@ -696,22 +696,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   ModulesConst modules,
                                   HitsConst hits,
-                                  HitsOccupancyConst hitsOccupancy,
+                                  HitsRangesConst hitsRanges,
                                   MiniDoublets mds,
                                   MiniDoubletsOccupancy mdsOccupancy,
-                                  ObjectOccupancyConst objectOccupancy) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (uint16_t lowerModuleIndex = globalThreadIdx[1]; lowerModuleIndex < modules.nLowerModules();
            lowerModuleIndex += gridThreadExtent[1]) {
         uint16_t upperModuleIndex = modules.partnerModuleIndices()[lowerModuleIndex];
-        int nLowerHits = hitsOccupancy.hitRangesnLower()[lowerModuleIndex];
-        int nUpperHits = hitsOccupancy.hitRangesnUpper()[lowerModuleIndex];
-        if (hitsOccupancy.hitRangesLower()[lowerModuleIndex] == -1)
+        int nLowerHits = hitsRanges.hitRangesnLower()[lowerModuleIndex];
+        int nUpperHits = hitsRanges.hitRangesnUpper()[lowerModuleIndex];
+        if (hitsRanges.hitRangesLower()[lowerModuleIndex] == -1)
           continue;
-        unsigned int upHitArrayIndex = hitsOccupancy.hitRangesUpper()[lowerModuleIndex];
-        unsigned int loHitArrayIndex = hitsOccupancy.hitRangesLower()[lowerModuleIndex];
+        unsigned int upHitArrayIndex = hitsRanges.hitRangesUpper()[lowerModuleIndex];
+        unsigned int loHitArrayIndex = hitsRanges.hitRangesLower()[lowerModuleIndex];
         int limit = nUpperHits * nLowerHits;
 
         for (int hitIndex = globalThreadIdx[2]; hitIndex < limit; hitIndex += gridThreadExtent[2]) {
@@ -758,14 +758,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (success) {
             int totOccupancyMDs = alpaka::atomicAdd(
                 acc, &mdsOccupancy.totOccupancyMDs()[lowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-            if (totOccupancyMDs >= (objectOccupancy.miniDoubletModuleOccupancy()[lowerModuleIndex])) {
+            if (totOccupancyMDs >= (ranges.miniDoubletModuleOccupancy()[lowerModuleIndex])) {
 #ifdef WARNINGS
               printf("Mini-doublet excess alert! Module index =  %d\n", lowerModuleIndex);
 #endif
             } else {
               int mdModuleIndex =
                   alpaka::atomicAdd(acc, &mdsOccupancy.nMDs()[lowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-              unsigned int mdIndex = objectOccupancy.miniDoubletModuleIndices()[lowerModuleIndex] + mdModuleIndex;
+              unsigned int mdIndex = ranges.miniDoubletModuleIndices()[lowerModuleIndex] + mdModuleIndex;
 
               addMDToMemory(acc,
                             mds,
@@ -792,7 +792,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   struct CreateMDArrayRangesGPU {
     template <typename TAcc>
-    ALPAKA_FN_ACC void operator()(TAcc const& acc, ModulesConst modules, ObjectOccupancy objectOccupancy) const {
+    ALPAKA_FN_ACC void operator()(TAcc const& acc, ModulesConst modules, ObjectRanges ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -871,15 +871,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
         unsigned int nTotMDs = alpaka::atomicAdd(acc, &nTotalMDs, occupancy, alpaka::hierarchy::Threads{});
 
-        objectOccupancy.miniDoubletModuleIndices()[i] = nTotMDs;
-        objectOccupancy.miniDoubletModuleOccupancy()[i] = occupancy;
+        ranges.miniDoubletModuleIndices()[i] = nTotMDs;
+        ranges.miniDoubletModuleOccupancy()[i] = occupancy;
       }
 
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        objectOccupancy.miniDoubletModuleIndices()[modules.nLowerModules()] = nTotalMDs;
-        objectOccupancy.nTotalMDs() = nTotalMDs;
+        ranges.miniDoubletModuleIndices()[modules.nLowerModules()] = nTotalMDs;
+        ranges.nTotalMDs() = nTotalMDs;
       }
     }
   };
@@ -890,8 +890,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   ModulesConst modules,
                                   MiniDoubletsOccupancy mdsOccupancy,
                                   ObjectRanges ranges,
-                                  ObjectOccupancyConst objectOccupancy,
-                                  HitsOccupancyConst hitsOccupancy) const {
+                                  HitsRangesConst hitsRanges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -900,12 +899,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
-        if (mdsOccupancy.nMDs()[i] == 0 or hitsOccupancy.hitRanges()[i][0] == -1) {
+        if (mdsOccupancy.nMDs()[i] == 0 or hitsRanges.hitRanges()[i][0] == -1) {
           ranges.mdRanges()[i][0] = -1;
           ranges.mdRanges()[i][1] = -1;
         } else {
-          ranges.mdRanges()[i][0] = objectOccupancy.miniDoubletModuleIndices()[i];
-          ranges.mdRanges()[i][1] = objectOccupancy.miniDoubletModuleIndices()[i] + mdsOccupancy.nMDs()[i] - 1;
+          ranges.mdRanges()[i][0] = ranges.miniDoubletModuleIndices()[i];
+          ranges.mdRanges()[i][1] = ranges.miniDoubletModuleIndices()[i] + mdsOccupancy.nMDs()[i] - 1;
         }
       }
     }
