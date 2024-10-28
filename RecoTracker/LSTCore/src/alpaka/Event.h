@@ -3,13 +3,16 @@
 
 #include <optional>
 
-#include "RecoTracker/LSTCore/interface/MiniDoubletsSoA.h"
+#include "RecoTracker/LSTCore/interface/HitsHostCollection.h"
+#include "RecoTracker/LSTCore/interface/MiniDoubletsHostCollection.h"
 #include "RecoTracker/LSTCore/interface/PixelQuintupletsHostCollection.h"
 #include "RecoTracker/LSTCore/interface/PixelTripletsHostCollection.h"
 #include "RecoTracker/LSTCore/interface/QuintupletsHostCollection.h"
-#include "RecoTracker/LSTCore/interface/SegmentsSoA.h"
+#include "RecoTracker/LSTCore/interface/SegmentsHostCollection.h"
 #include "RecoTracker/LSTCore/interface/TrackCandidatesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/TripletsHostCollection.h"
+#include "RecoTracker/LSTCore/interface/ObjectRangesHostCollection.h"
+#include "RecoTracker/LSTCore/interface/ModulesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LST.h"
 #include "RecoTracker/LSTCore/interface/alpaka/MiniDoubletsDeviceCollection.h"
@@ -19,7 +22,9 @@
 #include "RecoTracker/LSTCore/interface/alpaka/SegmentsDeviceCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/TrackCandidatesDeviceCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/TripletsDeviceCollection.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/alpaka/ModulesDeviceCollection.h"
+#include "RecoTracker/LSTCore/interface/alpaka/ObjectRangesDeviceCollection.h"
+#include "RecoTracker/LSTCore/interface/alpaka/EndcapGeometryDevDeviceCollection.h"
 
 #include "Hit.h"
 #include "Kernels.h"
@@ -49,10 +54,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     unsigned int nTotalSegments_;
 
     //Device stuff
-    std::optional<ObjectRanges> rangesInGPU_;
-    std::optional<ObjectRangesBuffer<Device>> rangesBuffers_;
-    std::optional<Hits> hitsInGPU_;
-    std::optional<HitsBuffer<Device>> hitsBuffers_;
+    std::optional<ObjectRangesDeviceCollection> rangesDC_;
+    std::optional<HitsDeviceCollection> hitsDC_;
     std::optional<MiniDoubletsDeviceCollection> miniDoubletsDC_;
     std::optional<SegmentsDeviceCollection> segmentsDC_;
     std::optional<TripletsDeviceCollection> tripletsDC_;
@@ -62,13 +65,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::optional<PixelQuintupletsDeviceCollection> pixelQuintupletsDC_;
 
     //CPU interface stuff
-    std::optional<ObjectRangesBuffer<DevHost>> rangesInCPU_;
-    std::optional<HitsBuffer<DevHost>> hitsInCPU_;
+    std::optional<ObjectRangesHostCollection> rangesHC_;
+    std::optional<HitsHostCollection> hitsHC_;
     std::optional<MiniDoubletsHostCollection> miniDoubletsHC_;
     std::optional<SegmentsHostCollection> segmentsHC_;
     std::optional<TripletsHostCollection> tripletsHC_;
     std::optional<TrackCandidatesHostCollection> trackCandidatesHC_;
-    std::optional<ModulesBuffer<DevHost>> modulesInCPU_;
+    std::optional<ModulesHostCollection> modulesHC_;
     std::optional<QuintupletsHostCollection> quintupletsHC_;
     std::optional<PixelTripletsHostCollection> pixelTripletsHC_;
     std::optional<PixelQuintupletsHostCollection> pixelQuintupletsHC_;
@@ -79,9 +82,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     const uint16_t nLowerModules_;
     const unsigned int nPixels_;
     const unsigned int nEndCapMap_;
-    ModulesBuffer<Device> const& modulesBuffers_;
+    ModulesDeviceCollection const& modules_;
     PixelMap const& pixelMapping_;
-    EndcapGeometryBuffer<Device> const& endcapGeometryBuffers_;
+    EndcapGeometryDevDeviceCollection const& endcapGeometry_;
 
   public:
     // Constructor used for CMSSW integration. Uses an external queue.
@@ -92,9 +95,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           nLowerModules_(deviceESData->nLowerModules),
           nPixels_(deviceESData->nPixels),
           nEndCapMap_(deviceESData->nEndCapMap),
-          modulesBuffers_(deviceESData->modulesBuffers),
+          modules_(*deviceESData->modules),
           pixelMapping_(*deviceESData->pixelMapping),
-          endcapGeometryBuffers_(deviceESData->endcapGeometryBuffers) {
+          endcapGeometry_(*deviceESData->endcapGeometry) {
       initSync(verbose);
     }
     void resetEventSync();  // synchronizes
@@ -180,9 +183,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // (has no effect on repeated calls)
     // set to false may allow faster operation with concurrent calls of get*
     // HANDLE WITH CARE
-    HitsBuffer<DevHost>& getHits(bool sync = true);
-    HitsBuffer<DevHost>& getHitsInCMSSW(bool sync = true);
-    ObjectRangesBuffer<DevHost>& getRanges(bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getHits(bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getHitsInCMSSW(bool sync = true);
+    template <typename TDev = Device>
+    ObjectRangesConst getRanges(bool sync = true);
     template <typename TSoA, typename TDev = Device>
     typename TSoA::ConstView getMiniDoublets(bool sync = true);
     template <typename TSoA, typename TDev = Device>
@@ -202,7 +208,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     const TrackCandidatesConst& getTrackCandidatesInCMSSW(bool sync = true) {
       return getTrackCandidatesWithSelection(true, sync);
     }
-    ModulesBuffer<DevHost>& getModules(bool isFull = false, bool sync = true);
+    template <typename TSoA, typename TDev = Device>
+    typename TSoA::ConstView getModules(bool sync = true);
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::lst

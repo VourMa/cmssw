@@ -2,17 +2,49 @@
 #define RecoTracker_LSTCore_src_alpaka_PixelTriplet_h
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
+#include "RecoTracker/LSTCore/interface/ObjectRangesSoA.h"
 #include "RecoTracker/LSTCore/interface/MiniDoubletsSoA.h"
 #include "RecoTracker/LSTCore/interface/PixelTripletsSoA.h"
 #include "RecoTracker/LSTCore/interface/QuintupletsSoA.h"
 #include "RecoTracker/LSTCore/interface/SegmentsSoA.h"
 #include "RecoTracker/LSTCore/interface/TripletsSoA.h"
 
-#include "Hit.h"
-#include "ObjectRanges.h"
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
+
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runTripletDefaultAlgoPPBB(TAcc const& acc,
+                                                                ModulesConst modules,
+                                                                ObjectRangesConst ranges,
+                                                                MiniDoubletsConst mds,
+                                                                SegmentsConst segments,
+                                                                SegmentsPixelConst segmentsPixel,
+                                                                uint16_t pixelModuleIndex,
+                                                                uint16_t outerInnerLowerModuleIndex,
+                                                                uint16_t outerOuterLowerModuleIndex,
+                                                                unsigned int innerSegmentIndex,
+                                                                unsigned int outerSegmentIndex,
+                                                                unsigned int firstMDIndex,
+                                                                unsigned int secondMDIndex,
+                                                                unsigned int thirdMDIndex,
+                                                                unsigned int fourthMDIndex);
+  template <typename TAcc>
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runTripletDefaultAlgoPPEE(TAcc const& acc,
+                                                                ModulesConst modules,
+                                                                ObjectRangesConst ranges,
+                                                                MiniDoubletsConst mds,
+                                                                SegmentsConst segments,
+                                                                SegmentsPixelConst segmentsPixel,
+                                                                uint16_t pixelModuleIndex,
+                                                                uint16_t outerInnerLowerModuleIndex,
+                                                                uint16_t outerOuterLowerModuleIndex,
+                                                                unsigned int innerSegmentIndex,
+                                                                unsigned int outerSegmentIndex,
+                                                                unsigned int firstMDIndex,
+                                                                unsigned int secondMDIndex,
+                                                                unsigned int thirdMDIndex,
+                                                                unsigned int fourthMDIndex);
+
   ALPAKA_FN_ACC ALPAKA_FN_INLINE void addPixelTripletToMemory(MiniDoubletsConst mds,
                                                               SegmentsConst segments,
                                                               TripletsConst triplets,
@@ -80,8 +112,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runPixelTrackletDefaultAlgopT3(TAcc const& acc,
-                                                                     Modules const& modulesInGPU,
-                                                                     ObjectRanges const& rangesInGPU,
+                                                                     ModulesConst modules,
+                                                                     ObjectRangesConst ranges,
                                                                      MiniDoubletsConst mds,
                                                                      SegmentsConst segments,
                                                                      SegmentsPixelConst segmentsPixel,
@@ -90,8 +122,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                                      uint16_t outerOuterLowerModuleIndex,
                                                                      unsigned int innerSegmentIndex,
                                                                      unsigned int outerSegmentIndex) {
-    short outerInnerLowerModuleSubdet = modulesInGPU.subdets[outerInnerLowerModuleIndex];
-    short outerOuterLowerModuleSubdet = modulesInGPU.subdets[outerOuterLowerModuleIndex];
+    short outerInnerLowerModuleSubdet = modules.subdets()[outerInnerLowerModuleIndex];
+    short outerOuterLowerModuleSubdet = modules.subdets()[outerOuterLowerModuleIndex];
 
     unsigned int firstMDIndex = segments.mdIndices()[innerSegmentIndex][0];
     unsigned int secondMDIndex = segments.mdIndices()[innerSegmentIndex][1];
@@ -102,8 +134,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     if (outerInnerLowerModuleSubdet == Barrel and
         (outerOuterLowerModuleSubdet == Barrel or outerOuterLowerModuleSubdet == Endcap)) {
       return runTripletDefaultAlgoPPBB(acc,
-                                       modulesInGPU,
-                                       rangesInGPU,
+                                       modules,
+                                       ranges,
                                        mds,
                                        segments,
                                        segmentsPixel,
@@ -118,8 +150,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                        fourthMDIndex);
     } else if (outerInnerLowerModuleSubdet == Endcap and outerOuterLowerModuleSubdet == Endcap) {
       return runTripletDefaultAlgoPPEE(acc,
-                                       modulesInGPU,
-                                       rangesInGPU,
+                                       modules,
+                                       ranges,
                                        mds,
                                        segments,
                                        segmentsPixel,
@@ -136,20 +168,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     return false;
   };
 
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passPT3RZChiSquaredCuts(Modules const& modulesInGPU,
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passPT3RZChiSquaredCuts(ModulesConst modules,
                                                               uint16_t lowerModuleIndex1,
                                                               uint16_t lowerModuleIndex2,
                                                               uint16_t lowerModuleIndex3,
                                                               float rzChiSquared) {
     const int layer1 =
-        modulesInGPU.layers[lowerModuleIndex1] + 6 * (modulesInGPU.subdets[lowerModuleIndex1] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex1] == Endcap and modulesInGPU.moduleType[lowerModuleIndex1] == TwoS);
+        modules.layers()[lowerModuleIndex1] + 6 * (modules.subdets()[lowerModuleIndex1] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex1] == Endcap and modules.moduleType()[lowerModuleIndex1] == TwoS);
     const int layer2 =
-        modulesInGPU.layers[lowerModuleIndex2] + 6 * (modulesInGPU.subdets[lowerModuleIndex2] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex2] == Endcap and modulesInGPU.moduleType[lowerModuleIndex2] == TwoS);
+        modules.layers()[lowerModuleIndex2] + 6 * (modules.subdets()[lowerModuleIndex2] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex2] == Endcap and modules.moduleType()[lowerModuleIndex2] == TwoS);
     const int layer3 =
-        modulesInGPU.layers[lowerModuleIndex3] + 6 * (modulesInGPU.subdets[lowerModuleIndex3] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex3] == Endcap and modulesInGPU.moduleType[lowerModuleIndex3] == TwoS);
+        modules.layers()[lowerModuleIndex3] + 6 * (modules.subdets()[lowerModuleIndex3] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex3] == Endcap and modules.moduleType()[lowerModuleIndex3] == TwoS);
 
     if (layer1 == 8 and layer2 == 9 and layer3 == 10) {
       return rzChiSquared < 13.6067f;
@@ -236,7 +268,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   //TODO: merge this one and the pT5 function later into a single function
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE float computePT3RPhiChiSquared(TAcc const& acc,
-                                                                Modules const& modulesInGPU,
+                                                                ModulesConst modules,
                                                                 uint16_t* lowerModuleIndices,
                                                                 float g,
                                                                 float f,
@@ -249,11 +281,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float inv1 = kWidthPS / kWidth2S;
     float inv2 = kPixelPSZpitch / kWidth2S;
     for (size_t i = 0; i < 3; i++) {
-      ModuleType moduleType = modulesInGPU.moduleType[lowerModuleIndices[i]];
-      short moduleSubdet = modulesInGPU.subdets[lowerModuleIndices[i]];
-      short moduleSide = modulesInGPU.sides[lowerModuleIndices[i]];
-      float drdz = modulesInGPU.drdzs[lowerModuleIndices[i]];
-      slopes[i] = modulesInGPU.dxdys[lowerModuleIndices[i]];
+      ModuleType moduleType = modules.moduleType()[lowerModuleIndices[i]];
+      short moduleSubdet = modules.subdets()[lowerModuleIndices[i]];
+      short moduleSide = modules.sides()[lowerModuleIndices[i]];
+      float drdz = modules.drdzs()[lowerModuleIndices[i]];
+      slopes[i] = modules.dxdys()[lowerModuleIndices[i]];
       //category 1 - barrel PS flat
       if (moduleSubdet == Barrel and moduleType == PS and moduleSide == Center) {
         delta1[i] = inv1;
@@ -317,20 +349,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   };
 
   //90pc threshold
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passPT3RPhiChiSquaredCuts(Modules const& modulesInGPU,
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passPT3RPhiChiSquaredCuts(ModulesConst modules,
                                                                 uint16_t lowerModuleIndex1,
                                                                 uint16_t lowerModuleIndex2,
                                                                 uint16_t lowerModuleIndex3,
                                                                 float chiSquared) {
     const int layer1 =
-        modulesInGPU.layers[lowerModuleIndex1] + 6 * (modulesInGPU.subdets[lowerModuleIndex1] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex1] == Endcap and modulesInGPU.moduleType[lowerModuleIndex1] == TwoS);
+        modules.layers()[lowerModuleIndex1] + 6 * (modules.subdets()[lowerModuleIndex1] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex1] == Endcap and modules.moduleType()[lowerModuleIndex1] == TwoS);
     const int layer2 =
-        modulesInGPU.layers[lowerModuleIndex2] + 6 * (modulesInGPU.subdets[lowerModuleIndex2] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex2] == Endcap and modulesInGPU.moduleType[lowerModuleIndex2] == TwoS);
+        modules.layers()[lowerModuleIndex2] + 6 * (modules.subdets()[lowerModuleIndex2] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex2] == Endcap and modules.moduleType()[lowerModuleIndex2] == TwoS);
     const int layer3 =
-        modulesInGPU.layers[lowerModuleIndex3] + 6 * (modulesInGPU.subdets[lowerModuleIndex3] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex3] == Endcap and modulesInGPU.moduleType[lowerModuleIndex3] == TwoS);
+        modules.layers()[lowerModuleIndex3] + 6 * (modules.subdets()[lowerModuleIndex3] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex3] == Endcap and modules.moduleType()[lowerModuleIndex3] == TwoS);
 
     if (layer1 == 8 and layer2 == 9 and layer3 == 10) {
       return chiSquared < 7.003f;
@@ -361,20 +393,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     return true;
   };
 
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passPT3RPhiChiSquaredInwardsCuts(Modules const& modulesInGPU,
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passPT3RPhiChiSquaredInwardsCuts(ModulesConst modules,
                                                                        uint16_t lowerModuleIndex1,
                                                                        uint16_t lowerModuleIndex2,
                                                                        uint16_t lowerModuleIndex3,
                                                                        float chiSquared) {
     const int layer1 =
-        modulesInGPU.layers[lowerModuleIndex1] + 6 * (modulesInGPU.subdets[lowerModuleIndex1] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex1] == Endcap and modulesInGPU.moduleType[lowerModuleIndex1] == TwoS);
+        modules.layers()[lowerModuleIndex1] + 6 * (modules.subdets()[lowerModuleIndex1] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex1] == Endcap and modules.moduleType()[lowerModuleIndex1] == TwoS);
     const int layer2 =
-        modulesInGPU.layers[lowerModuleIndex2] + 6 * (modulesInGPU.subdets[lowerModuleIndex2] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex2] == Endcap and modulesInGPU.moduleType[lowerModuleIndex2] == TwoS);
+        modules.layers()[lowerModuleIndex2] + 6 * (modules.subdets()[lowerModuleIndex2] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex2] == Endcap and modules.moduleType()[lowerModuleIndex2] == TwoS);
     const int layer3 =
-        modulesInGPU.layers[lowerModuleIndex3] + 6 * (modulesInGPU.subdets[lowerModuleIndex3] == Endcap) +
-        5 * (modulesInGPU.subdets[lowerModuleIndex3] == Endcap and modulesInGPU.moduleType[lowerModuleIndex3] == TwoS);
+        modules.layers()[lowerModuleIndex3] + 6 * (modules.subdets()[lowerModuleIndex3] == Endcap) +
+        5 * (modules.subdets()[lowerModuleIndex3] == Endcap and modules.moduleType()[lowerModuleIndex3] == TwoS);
 
     if (layer1 == 7 and layer2 == 8 and layer3 == 9)  // endcap layer 1,2,3, ps
     {
@@ -527,18 +559,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool passRadiusCriterion(TAcc const& acc,
-                                                          Modules const& modulesInGPU,
+                                                          ModulesConst modules,
                                                           float pixelRadius,
                                                           float pixelRadiusError,
                                                           float tripletRadius,
                                                           int16_t lowerModuleIndex,
                                                           uint16_t middleModuleIndex,
                                                           uint16_t upperModuleIndex) {
-    if (modulesInGPU.subdets[lowerModuleIndex] == Endcap) {
+    if (modules.subdets()[lowerModuleIndex] == Endcap) {
       return passRadiusCriterionEEE(acc, pixelRadius, pixelRadiusError, tripletRadius);
-    } else if (modulesInGPU.subdets[middleModuleIndex] == Endcap) {
+    } else if (modules.subdets()[middleModuleIndex] == Endcap) {
       return passRadiusCriterionBEE(acc, pixelRadius, pixelRadiusError, tripletRadius);
-    } else if (modulesInGPU.subdets[upperModuleIndex] == Endcap) {
+    } else if (modules.subdets()[upperModuleIndex] == Endcap) {
       return passRadiusCriterionBBE(acc, pixelRadius, pixelRadiusError, tripletRadius);
     } else {
       return passRadiusCriterionBBB(acc, pixelRadius, pixelRadiusError, tripletRadius);
@@ -547,7 +579,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE float computePT3RZChiSquared(TAcc const& acc,
-                                                              Modules const& modulesInGPU,
+                                                              ModulesConst modules,
                                                               const uint16_t* lowerModuleIndices,
                                                               const float* rtPix,
                                                               const float* xPix,
@@ -579,9 +611,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       float zsi = zs[i] / 100;
       float rtsi = rts[i] / 100;
       uint16_t lowerModuleIndex = lowerModuleIndices[i];
-      const int moduleType = modulesInGPU.moduleType[lowerModuleIndex];
-      const int moduleSide = modulesInGPU.sides[lowerModuleIndex];
-      const int moduleSubdet = modulesInGPU.subdets[lowerModuleIndex];
+      const int moduleType = modules.moduleType()[lowerModuleIndex];
+      const int moduleSide = modules.sides()[lowerModuleIndex];
+      const int moduleSubdet = modules.subdets()[lowerModuleIndex];
 
       // calculation is detailed documented here https://indico.cern.ch/event/1185895/contributions/4982756/attachments/2526561/4345805/helix%20pT3%20summarize.pdf
       float diffr, diffz;
@@ -623,7 +655,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
       //special dispensation to tilted PS modules!
       if (moduleType == 0 and moduleSubdet == Barrel and moduleSide != Center) {
-        float drdz = modulesInGPU.drdzs[lowerModuleIndex];
+        float drdz = modules.drdzs()[lowerModuleIndex];
         error2 /= (1 + drdz * drdz);
       }
       RMSE += (residual * residual) / error2;
@@ -636,8 +668,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runPixelTripletDefaultAlgo(TAcc const& acc,
-                                                                 Modules const& modulesInGPU,
-                                                                 ObjectRanges const& rangesInGPU,
+                                                                 ModulesConst modules,
+                                                                 ObjectRangesConst ranges,
                                                                  MiniDoubletsConst mds,
                                                                  SegmentsConst segments,
                                                                  SegmentsPixelConst segmentsPixel,
@@ -662,8 +694,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     {
       // pixel segment vs inner segment of the triplet
       if (not runPixelTrackletDefaultAlgopT3(acc,
-                                             modulesInGPU,
-                                             rangesInGPU,
+                                             modules,
+                                             ranges,
                                              mds,
                                              segments,
                                              segmentsPixel,
@@ -676,8 +708,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
       //pixel segment vs outer segment of triplet
       if (not runPixelTrackletDefaultAlgopT3(acc,
-                                             modulesInGPU,
-                                             rangesInGPU,
+                                             modules,
+                                             ranges,
                                              mds,
                                              segments,
                                              segmentsPixel,
@@ -690,7 +722,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     }
 
     //pt matching between the pixel ptin and the triplet circle pt
-    unsigned int pixelSegmentArrayIndex = pixelSegmentIndex - rangesInGPU.segmentModuleIndices[pixelModuleIndex];
+    unsigned int pixelSegmentArrayIndex = pixelSegmentIndex - ranges.segmentModuleIndices()[pixelModuleIndex];
     float pixelSegmentPt = segmentsPixel.ptIn()[pixelSegmentArrayIndex];
     float pixelSegmentPtError = segmentsPixel.ptErr()[pixelSegmentArrayIndex];
     float pixelSegmentPx = segmentsPixel.px()[pixelSegmentArrayIndex];
@@ -725,7 +757,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     f = triplets.centerY()[tripletIndex];
 
     if (not passRadiusCriterion(acc,
-                                modulesInGPU,
+                                modules,
                                 pixelRadius,
                                 pixelRadiusError,
                                 tripletRadius,
@@ -747,7 +779,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       float zPix[Params_pLS::kLayers] = {mds.anchorZ()[pixelInnerMDIndex], mds.anchorZ()[pixelOuterMDIndex]};
 
       rzChiSquared = computePT3RZChiSquared(acc,
-                                            modulesInGPU,
+                                            modules,
                                             lowerModuleIndices,
                                             rtPix,
                                             xPix,
@@ -762,19 +794,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                             pixelSegmentPy,
                                             pixelSegmentPz,
                                             pixelSegmentCharge);
-      if (not passPT3RZChiSquaredCuts(
-              modulesInGPU, lowerModuleIndex, middleModuleIndex, upperModuleIndex, rzChiSquared))
+      if (not passPT3RZChiSquaredCuts(modules, lowerModuleIndex, middleModuleIndex, upperModuleIndex, rzChiSquared))
         return false;
     } else {
       rzChiSquared = -1;
     }
 
-    rPhiChiSquared =
-        computePT3RPhiChiSquared(acc, modulesInGPU, lowerModuleIndices, pixelG, pixelF, pixelRadiusPCA, xs, ys);
+    rPhiChiSquared = computePT3RPhiChiSquared(acc, modules, lowerModuleIndices, pixelG, pixelF, pixelRadiusPCA, xs, ys);
 
     if (runChiSquaredCuts and pixelSegmentPt < 5.0f) {
-      if (not passPT3RPhiChiSquaredCuts(
-              modulesInGPU, lowerModuleIndex, middleModuleIndex, upperModuleIndex, rPhiChiSquared))
+      if (not passPT3RPhiChiSquaredCuts(modules, lowerModuleIndex, middleModuleIndex, upperModuleIndex, rPhiChiSquared))
         return false;
     }
 
@@ -784,7 +813,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     if (runChiSquaredCuts and pixelSegmentPt < 5.0f) {
       if (not passPT3RPhiChiSquaredInwardsCuts(
-              modulesInGPU, lowerModuleIndex, middleModuleIndex, upperModuleIndex, rPhiChiSquaredInwards))
+              modules, lowerModuleIndex, middleModuleIndex, upperModuleIndex, rPhiChiSquaredInwards))
         return false;
     }
     centerX = 0;
@@ -795,8 +824,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CreatePixelTripletsFromMap {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  ObjectRanges rangesInGPU,
+                                  ModulesConst modules,
+                                  ModulesPixelConst modulesPixel,
+                                  ObjectRangesConst ranges,
                                   MiniDoubletsConst mds,
                                   SegmentsConst segments,
                                   SegmentsPixelConst segmentsPixel,
@@ -817,26 +847,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         for (unsigned int iLSModule = connectedPixelIndex[i_pLS] + globalBlockIdx[0]; iLSModule < iLSModule_max;
              iLSModule += gridBlockExtent[0]) {
           uint16_t tripletLowerModuleIndex =
-              modulesInGPU
-                  .connectedPixels[iLSModule];  //connected pixels will have the appropriate lower module index by default!
+              modulesPixel.connectedPixels()
+                  [iLSModule];  //connected pixels will have the appropriate lower module index by default!
 #ifdef WARNINGS
-          if (tripletLowerModuleIndex >= *modulesInGPU.nLowerModules) {
-            printf("tripletLowerModuleIndex %d >= modulesInGPU.nLowerModules %d \n",
+          if (tripletLowerModuleIndex >= modules.nLowerModules()) {
+            printf("tripletLowerModuleIndex %d >= modules.nLowerModules %d \n",
                    tripletLowerModuleIndex,
-                   *modulesInGPU.nLowerModules);
+                   modules.nLowerModules());
             continue;  //sanity check
           }
 #endif
           //Removes 2S-2S :FIXME: filter these out in the pixel map
-          if (modulesInGPU.moduleType[tripletLowerModuleIndex] == TwoS)
+          if (modules.moduleType()[tripletLowerModuleIndex] == TwoS)
             continue;
 
-          uint16_t pixelModuleIndex = *modulesInGPU.nLowerModules;
+          uint16_t pixelModuleIndex = modules.nLowerModules();
           unsigned int nOuterTriplets = tripletsOccupancy.nTriplets()[tripletLowerModuleIndex];
           if (nOuterTriplets == 0)
             continue;
 
-          unsigned int pixelSegmentIndex = rangesInGPU.segmentModuleIndices[pixelModuleIndex] + i_pLS;
+          unsigned int pixelSegmentIndex = ranges.segmentModuleIndices()[pixelModuleIndex] + i_pLS;
 
           if (segmentsPixel.isDup()[i_pLS])
             continue;
@@ -844,10 +874,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
             continue;  //don't make pT3s for those pixels that are part of pT5
 
           short layer2_adjustment;
-          if (modulesInGPU.layers[tripletLowerModuleIndex] == 1) {
+          if (modules.layers()[tripletLowerModuleIndex] == 1) {
             layer2_adjustment = 1;
           }  //get upper segment to be in second layer
-          else if (modulesInGPU.layers[tripletLowerModuleIndex] == 2) {
+          else if (modules.layers()[tripletLowerModuleIndex] == 2) {
             layer2_adjustment = 0;
           }  // get lower segment to be in second layer
           else {
@@ -858,8 +888,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           for (unsigned int outerTripletArrayIndex = globalThreadIdx[2]; outerTripletArrayIndex < nOuterTriplets;
                outerTripletArrayIndex += gridThreadExtent[2]) {
             unsigned int outerTripletIndex =
-                rangesInGPU.tripletModuleIndices[tripletLowerModuleIndex] + outerTripletArrayIndex;
-            if (modulesInGPU.moduleType[triplets.lowerModuleIndices()[outerTripletIndex][1]] == TwoS)
+                ranges.tripletModuleIndices()[tripletLowerModuleIndex] + outerTripletArrayIndex;
+            if (modules.moduleType()[triplets.lowerModuleIndices()[outerTripletIndex][1]] == TwoS)
               continue;  //REMOVES PS-2S
 
             if (triplets.partOfPT5()[outerTripletIndex])
@@ -867,8 +897,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
             float pixelRadius, tripletRadius, rPhiChiSquared, rzChiSquared, rPhiChiSquaredInwards, centerX, centerY;
             bool success = runPixelTripletDefaultAlgo(acc,
-                                                      modulesInGPU,
-                                                      rangesInGPU,
+                                                      modules,
+                                                      ranges,
                                                       mds,
                                                       segments,
                                                       segmentsPixel,
@@ -1033,8 +1063,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runTripletDefaultAlgoPPBB(TAcc const& acc,
-                                                                Modules const& modulesInGPU,
-                                                                ObjectRanges const& rangesInGPU,
+                                                                ModulesConst modules,
+                                                                ObjectRangesConst ranges,
                                                                 MiniDoubletsConst mds,
                                                                 SegmentsConst segments,
                                                                 SegmentsPixelConst segmentsPixel,
@@ -1049,7 +1079,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                                 unsigned int fourthMDIndex) {
     float dPhi, betaIn, betaOut, pt_beta, zLo, zHi, zLoPointed, zHiPointed, dPhiCut, betaOutCut;
 
-    bool isPS_OutLo = (modulesInGPU.moduleType[outerInnerLowerModuleIndex] == PS);
+    bool isPS_OutLo = (modules.moduleType()[outerInnerLowerModuleIndex] == PS);
 
     float rt_InLo = mds.anchorRt()[firstMDIndex];
     float rt_InUp = mds.anchorRt()[secondMDIndex];
@@ -1074,7 +1104,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     if (alpaka::math::abs(acc, deltaPhi(acc, x_InUp, y_InUp, x_OutLo, y_OutLo)) > 0.5f * float(M_PI))
       return false;
 
-    unsigned int pixelSegmentArrayIndex = innerSegmentIndex - rangesInGPU.segmentModuleIndices[pixelModuleIndex];
+    unsigned int pixelSegmentArrayIndex = innerSegmentIndex - ranges.segmentModuleIndices()[pixelModuleIndex];
     float ptIn = segmentsPixel.ptIn()[pixelSegmentArrayIndex];
     float ptSLo = ptIn;
     float px = segmentsPixel.px()[pixelSegmentArrayIndex];
@@ -1155,8 +1185,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float alpha_InLo = __H2F(segments.dPhiChanges()[innerSegmentIndex]);
     float alpha_OutLo = __H2F(segments.dPhiChanges()[outerSegmentIndex]);
 
-    bool isEC_lastLayer = modulesInGPU.subdets[outerOuterLowerModuleIndex] == Endcap and
-                          modulesInGPU.moduleType[outerOuterLowerModuleIndex] == TwoS;
+    bool isEC_lastLayer = modules.subdets()[outerOuterLowerModuleIndex] == Endcap and
+                          modules.moduleType()[outerOuterLowerModuleIndex] == TwoS;
 
     float alpha_OutUp, alpha_OutUp_highEdge, alpha_OutUp_lowEdge;
     alpha_OutUp = deltaPhi(acc, x_OutUp, y_OutUp, x_OutUp - x_OutLo, y_OutUp - y_OutLo);
@@ -1291,8 +1321,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runTripletDefaultAlgoPPEE(TAcc const& acc,
-                                                                Modules const& modulesInGPU,
-                                                                ObjectRanges const& rangesInGPU,
+                                                                ModulesConst modules,
+                                                                ObjectRangesConst ranges,
                                                                 MiniDoubletsConst mds,
                                                                 SegmentsConst segments,
                                                                 SegmentsPixelConst segmentsPixel,
@@ -1307,7 +1337,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                                 unsigned int fourthMDIndex) {
     float dPhi, betaIn, betaOut, pt_beta, rtLo, rtHi, dPhiCut, betaOutCut;
 
-    bool isPS_OutLo = (modulesInGPU.moduleType[outerInnerLowerModuleIndex] == PS);
+    bool isPS_OutLo = (modules.moduleType()[outerInnerLowerModuleIndex] == PS);
 
     float z_InUp = mds.anchorZ()[secondMDIndex];
     float z_OutLo = mds.anchorZ()[thirdMDIndex];
@@ -1330,7 +1360,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float y_OutLo = mds.anchorY()[thirdMDIndex];
     float y_OutUp = mds.anchorY()[fourthMDIndex];
 
-    unsigned int pixelSegmentArrayIndex = innerSegmentIndex - rangesInGPU.segmentModuleIndices[pixelModuleIndex];
+    unsigned int pixelSegmentArrayIndex = innerSegmentIndex - ranges.segmentModuleIndices()[pixelModuleIndex];
 
     float ptIn = segmentsPixel.ptIn()[pixelSegmentArrayIndex];
     float ptSLo = ptIn;
@@ -1351,7 +1381,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     const float dzDrtScale = alpaka::math::tan(acc, slope) / slope;  //FIXME: need approximate value
 
     const float dLum = alpaka::math::copysign(acc, kDeltaZLum, z_InUp);
-    bool isOutSgInnerMDPS = modulesInGPU.moduleType[outerInnerLowerModuleIndex] == PS;
+    bool isOutSgInnerMDPS = modules.moduleType()[outerInnerLowerModuleIndex] == PS;
 
     const float rtGeom1 = isOutSgInnerMDPS
                               ? kPixelPSZpitch
@@ -1417,8 +1447,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float alpha_InLo = __H2F(segments.dPhiChanges()[innerSegmentIndex]);
     float alpha_OutLo = __H2F(segments.dPhiChanges()[outerSegmentIndex]);
 
-    bool isEC_lastLayer = modulesInGPU.subdets[outerOuterLowerModuleIndex] == Endcap and
-                          modulesInGPU.moduleType[outerOuterLowerModuleIndex] == TwoS;
+    bool isEC_lastLayer = modules.subdets()[outerOuterLowerModuleIndex] == Endcap and
+                          modules.moduleType()[outerOuterLowerModuleIndex] == TwoS;
 
     float alpha_OutUp, alpha_OutUp_highEdge, alpha_OutUp_lowEdge;
 

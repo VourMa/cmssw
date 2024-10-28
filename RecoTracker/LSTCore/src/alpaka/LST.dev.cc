@@ -36,11 +36,11 @@ namespace {
       maxNHits = Params_pLS::kHits;  // pLS
 
     for (unsigned int i = 0; i < maxNHits; i++) {
-      unsigned int hitIdxInGPU = tcHitIndices[i];
+      unsigned int hitIdxDev = tcHitIndices[i];
       unsigned int hitIdx =
           (trackCandidateType == 8)
-              ? hitIdxInGPU
-              : hitIndices[hitIdxInGPU];  // Hit indices are stored differently in the standalone for pLS.
+              ? hitIdxDev
+              : hitIndices[hitIdxDev];  // Hit indices are stored differently in the standalone for pLS.
 
       // For p objects, the 3rd and 4th hit maybe the same,
       // due to the way pLS hits are stored in the standalone.
@@ -254,15 +254,14 @@ void LST::getOutput(Event& event) {
   std::vector<int> tc_seedIdx;
   std::vector<short> tc_trackCandidateType;
 
-  HitsBuffer<alpaka::DevCpu>& hitsBuffer = event.getHitsInCMSSW(false);  // sync on next line
+  auto const hits = event.getHitsInCMSSW<HitsSoA>(false);  // sync on next line
   auto const& trackCandidates = event.getTrackCandidatesInCMSSW();
 
   unsigned int nTrackCandidates = trackCandidates.nTrackCandidates();
 
   for (unsigned int idx = 0; idx < nTrackCandidates; idx++) {
     short trackCandidateType = trackCandidates.trackCandidateType()[idx];
-    std::vector<unsigned int> hit_idx =
-        getHitIdxs(trackCandidateType, trackCandidates.hitIndices()[idx], hitsBuffer.data()->idxs);
+    std::vector<unsigned int> hit_idx = getHitIdxs(trackCandidateType, trackCandidates.hitIndices()[idx], hits.idxs());
 
     tc_hitIdxs.push_back(hit_idx);
     tc_len.push_back(hit_idx.size());

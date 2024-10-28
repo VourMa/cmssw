@@ -2,7 +2,7 @@
 #define RecoTracker_LSTCore_src_alpaka_TrackCandidate_h
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/MiniDoubletsSoA.h"
 #include "RecoTracker/LSTCore/interface/PixelQuintupletsSoA.h"
 #include "RecoTracker/LSTCore/interface/PixelTripletsSoA.h"
@@ -12,7 +12,6 @@
 #include "RecoTracker/LSTCore/interface/TripletsSoA.h"
 
 #include "Hit.h"
-#include "ObjectRanges.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   ALPAKA_FN_ACC ALPAKA_FN_INLINE void addpLSTrackCandidateToMemory(TrackCandidates& cands,
@@ -72,19 +71,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   }
 
   ALPAKA_FN_ACC ALPAKA_FN_INLINE int checkPixelHits(
-      unsigned int ix, unsigned int jx, MiniDoubletsConst mds, SegmentsConst segments, Hits const& hitsInGPU) {
+      unsigned int ix, unsigned int jx, MiniDoubletsConst mds, SegmentsConst segments, HitsConst hits) {
     int phits1[Params_pLS::kHits];
     int phits2[Params_pLS::kHits];
 
-    phits1[0] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[ix][0]]];
-    phits1[1] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[ix][1]]];
-    phits1[2] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[ix][0]]];
-    phits1[3] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[ix][1]]];
+    phits1[0] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[ix][0]]];
+    phits1[1] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[ix][1]]];
+    phits1[2] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[ix][0]]];
+    phits1[3] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[ix][1]]];
 
-    phits2[0] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[jx][0]]];
-    phits2[1] = hitsInGPU.idxs[mds.anchorHitIndices()[segments.mdIndices()[jx][1]]];
-    phits2[2] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[jx][0]]];
-    phits2[3] = hitsInGPU.idxs[mds.outerHitIndices()[segments.mdIndices()[jx][1]]];
+    phits2[0] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[jx][0]]];
+    phits2[1] = hits.idxs()[mds.anchorHitIndices()[segments.mdIndices()[jx][1]]];
+    phits2[2] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[jx][0]]];
+    phits2[3] = hits.idxs()[mds.outerHitIndices()[segments.mdIndices()[jx][1]]];
 
     int npMatched = 0;
 
@@ -111,8 +110,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CrossCleanpT3 {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  ObjectRanges rangesInGPU,
+                                  ModulesConst modules,
+                                  ObjectRangesConst ranges,
                                   PixelTriplets pixelTriplets,
                                   SegmentsPixelConst segmentsPixel,
                                   PixelQuintupletsConst pixelQuintuplets) const {
@@ -129,8 +128,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         float eta1 = __H2F(pixelTriplets.eta_pix()[pixelTripletIndex]);
         float phi1 = __H2F(pixelTriplets.phi_pix()[pixelTripletIndex]);
 
-        int pixelModuleIndex = *modulesInGPU.nLowerModules;
-        unsigned int prefix = rangesInGPU.segmentModuleIndices[pixelModuleIndex];
+        int pixelModuleIndex = modules.nLowerModules();
+        unsigned int prefix = ranges.segmentModuleIndices()[pixelModuleIndex];
 
         unsigned int nPixelQuintuplets = pixelQuintuplets.nPixelQuintuplets();
         for (unsigned int pixelQuintupletIndex = globalThreadIdx[1]; pixelQuintupletIndex < nPixelQuintuplets;
@@ -152,26 +151,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CrossCleanT5 {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
+                                  ModulesConst modules,
                                   Quintuplets quintuplets,
                                   QuintupletsOccupancyConst quintupletsOccupancy,
                                   PixelQuintupletsConst pixelQuintuplets,
                                   PixelTripletsConst pixelTriplets,
-                                  ObjectRanges rangesInGPU) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int innerInnerInnerLowerModuleArrayIndex = globalThreadIdx[0];
-           innerInnerInnerLowerModuleArrayIndex < *(modulesInGPU.nLowerModules);
+           innerInnerInnerLowerModuleArrayIndex < modules.nLowerModules();
            innerInnerInnerLowerModuleArrayIndex += gridThreadExtent[0]) {
-        if (rangesInGPU.quintupletModuleIndices[innerInnerInnerLowerModuleArrayIndex] == -1)
+        if (ranges.quintupletModuleIndices()[innerInnerInnerLowerModuleArrayIndex] == -1)
           continue;
 
         unsigned int nQuints = quintupletsOccupancy.nQuintuplets()[innerInnerInnerLowerModuleArrayIndex];
         for (unsigned int innerObjectArrayIndex = globalThreadIdx[1]; innerObjectArrayIndex < nQuints;
              innerObjectArrayIndex += gridThreadExtent[1]) {
           unsigned int quintupletIndex =
-              rangesInGPU.quintupletModuleIndices[innerInnerInnerLowerModuleArrayIndex] + innerObjectArrayIndex;
+              ranges.quintupletModuleIndices()[innerInnerInnerLowerModuleArrayIndex] + innerObjectArrayIndex;
 
           // Don't add duplicate T5s or T5s that are accounted in pT5s
           if (quintuplets.isDup()[quintupletIndex] or quintuplets.partOfPT5()[quintupletIndex])
@@ -208,20 +207,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CrossCleanpLS {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  ObjectRanges rangesInGPU,
+                                  ModulesConst modules,
+                                  ObjectRangesConst ranges,
                                   PixelTripletsConst pixelTriplets,
                                   TrackCandidates cands,
                                   SegmentsConst segments,
                                   SegmentsOccupancyConst segmentsOccupancy,
                                   SegmentsPixel segmentsPixel,
                                   MiniDoubletsConst mds,
-                                  Hits hitsInGPU,
+                                  HitsConst hits,
                                   QuintupletsConst quintuplets) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      int pixelModuleIndex = *modulesInGPU.nLowerModules;
+      int pixelModuleIndex = modules.nLowerModules();
       unsigned int nPixels = segmentsOccupancy.nSegments()[pixelModuleIndex];
       for (unsigned int pixelArrayIndex = globalThreadIdx[2]; pixelArrayIndex < nPixels;
            pixelArrayIndex += gridThreadExtent[2]) {
@@ -230,7 +229,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
         float eta1 = segmentsPixel.eta()[pixelArrayIndex];
         float phi1 = segmentsPixel.phi()[pixelArrayIndex];
-        unsigned int prefix = rangesInGPU.segmentModuleIndices[pixelModuleIndex];
+        unsigned int prefix = ranges.segmentModuleIndices()[pixelModuleIndex];
 
         unsigned int nTrackCandidates = cands.nTrackCandidates();
         for (unsigned int trackCandidateIndex = globalThreadIdx[1]; trackCandidateIndex < nTrackCandidates;
@@ -252,7 +251,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (type == 5)  // pT3
           {
             int pLSIndex = pixelTriplets.pixelSegmentIndices()[innerTrackletIdx];
-            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hitsInGPU);
+            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hits);
             if (npMatched > 0)
               segmentsPixel.isDup()[pixelArrayIndex] = true;
 
@@ -269,7 +268,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           if (type == 7)  // pT5
           {
             unsigned int pLSIndex = innerTrackletIdx;
-            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hitsInGPU);
+            int npMatched = checkPixelHits(prefix + pixelArrayIndex, pLSIndex, mds, segments, hits);
             if (npMatched > 0) {
               segmentsPixel.isDup()[pixelArrayIndex] = true;
             }
@@ -295,7 +294,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   PixelTripletsConst pixelTriplets,
                                   TrackCandidates cands,
                                   SegmentsPixelConst segmentsPixel,
-                                  ObjectRanges rangesInGPU) const {
+                                  ObjectRangesConst ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -304,7 +303,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       unsigned int nPixelTriplets = pixelTriplets.nPixelTriplets();
-      unsigned int pLS_offset = rangesInGPU.segmentModuleIndices[nLowerModules];
+      unsigned int pLS_offset = ranges.segmentModuleIndices()[nLowerModules];
       for (unsigned int pixelTripletIndex = globalThreadIdx[0]; pixelTripletIndex < nPixelTriplets;
            pixelTripletIndex += gridThreadExtent[0]) {
         if ((pixelTriplets.isDup()[pixelTripletIndex]))
@@ -351,17 +350,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   QuintupletsConst quintuplets,
                                   QuintupletsOccupancyConst quintupletsOccupancy,
                                   TrackCandidates cands,
-                                  ObjectRanges rangesInGPU) const {
+                                  ObjectRangesConst ranges) const {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int idx = globalThreadIdx[1]; idx < nLowerModules; idx += gridThreadExtent[1]) {
-        if (rangesInGPU.quintupletModuleIndices[idx] == -1)
+        if (ranges.quintupletModuleIndices()[idx] == -1)
           continue;
 
         unsigned int nQuints = quintupletsOccupancy.nQuintuplets()[idx];
         for (unsigned int jdx = globalThreadIdx[2]; jdx < nQuints; jdx += gridThreadExtent[2]) {
-          unsigned int quintupletIndex = rangesInGPU.quintupletModuleIndices[idx] + jdx;
+          unsigned int quintupletIndex = ranges.quintupletModuleIndices()[idx] + jdx;
           if (quintuplets.isDup()[quintupletIndex] or quintuplets.partOfPT5()[quintupletIndex])
             continue;
           if (!(quintuplets.tightCutFlag()[quintupletIndex]))
@@ -398,7 +397,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     }
   };
 
-  struct AddpLSasTrackCandidateInGPU {
+  struct AddpLSasTrackCandidate {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
                                   uint16_t nLowerModules,
@@ -446,7 +445,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                   PixelQuintupletsConst pixelQuintuplets,
                                   TrackCandidates cands,
                                   SegmentsPixelConst segmentsPixel,
-                                  ObjectRanges rangesInGPU) const {
+                                  ObjectRangesConst ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -455,7 +454,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       int nPixelQuintuplets = pixelQuintuplets.nPixelQuintuplets();
-      unsigned int pLS_offset = rangesInGPU.segmentModuleIndices[nLowerModules];
+      unsigned int pLS_offset = ranges.segmentModuleIndices()[nLowerModules];
       for (int pixelQuintupletIndex = globalThreadIdx[0]; pixelQuintupletIndex < nPixelQuintuplets;
            pixelQuintupletIndex += gridThreadExtent[0]) {
         if (pixelQuintuplets.isDup()[pixelQuintupletIndex])

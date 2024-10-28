@@ -60,8 +60,6 @@ namespace lst {
   using SegmentsPixel = SegmentsPixelSoA::View;
   using SegmentsPixelConst = SegmentsPixelSoA::ConstView;
 
-  using SegmentsHostCollection = PortableHostMultiCollection<SegmentsSoA, SegmentsOccupancySoA, SegmentsPixelSoA>;
-
 }  // namespace lst
 
 #endif
