@@ -4,187 +4,25 @@
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/SegmentsSoA.h"
+#include "RecoTracker/LSTCore/interface/alpaka/SegmentsDeviceCollection.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
 #include "RecoTracker/LSTCore/interface/EndcapGeometry.h"
+#include "RecoTracker/LSTCore/interface/ObjectRangesSoA.h"
 
 #include "MiniDoublet.h"
 #include "Hit.h"
-#include "ObjectRanges.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
-  struct Segments {
-    FPX* dPhis;
-    FPX* dPhiMins;
-    FPX* dPhiMaxs;
-    FPX* dPhiChanges;
-    FPX* dPhiChangeMins;
-    FPX* dPhiChangeMaxs;
-    uint16_t* innerLowerModuleIndices;
-    uint16_t* outerLowerModuleIndices;
-    unsigned int* seedIdx;
-    unsigned int* mdIndices;
-    unsigned int* nMemoryLocations;
-    unsigned int* innerMiniDoubletAnchorHitIndices;
-    unsigned int* outerMiniDoubletAnchorHitIndices;
-    int* charge;
-    int* superbin;
-    unsigned int* nSegments;             //number of segments per inner lower module
-    unsigned int* totOccupancySegments;  //number of segments per inner lower module
-    uint4* pLSHitsIdxs;
-    PixelType* pixelType;
-    char* isQuad;
-    char* isDup;
-    bool* partOfPT5;
-    float* ptIn;
-    float* ptErr;
-    float* px;
-    float* py;
-    float* pz;
-    float* etaErr;
-    float* eta;
-    float* phi;
-    float* score;
-    float* circleCenterX;
-    float* circleCenterY;
-    float* circleRadius;
 
-    template <typename TBuff>
-    void setData(TBuff& buf) {
-      dPhis = buf.dPhis_buf.data();
-      dPhiMins = buf.dPhiMins_buf.data();
-      dPhiMaxs = buf.dPhiMaxs_buf.data();
-      dPhiChanges = buf.dPhiChanges_buf.data();
-      dPhiChangeMins = buf.dPhiChangeMins_buf.data();
-      dPhiChangeMaxs = buf.dPhiChangeMaxs_buf.data();
-      innerLowerModuleIndices = buf.innerLowerModuleIndices_buf.data();
-      outerLowerModuleIndices = buf.outerLowerModuleIndices_buf.data();
-      seedIdx = buf.seedIdx_buf.data();
-      mdIndices = buf.mdIndices_buf.data();
-      nMemoryLocations = buf.nMemoryLocations_buf.data();
-      innerMiniDoubletAnchorHitIndices = buf.innerMiniDoubletAnchorHitIndices_buf.data();
-      outerMiniDoubletAnchorHitIndices = buf.outerMiniDoubletAnchorHitIndices_buf.data();
-      charge = buf.charge_buf.data();
-      superbin = buf.superbin_buf.data();
-      nSegments = buf.nSegments_buf.data();
-      totOccupancySegments = buf.totOccupancySegments_buf.data();
-      pLSHitsIdxs = buf.pLSHitsIdxs_buf.data();
-      pixelType = buf.pixelType_buf.data();
-      isQuad = buf.isQuad_buf.data();
-      isDup = buf.isDup_buf.data();
-      partOfPT5 = buf.partOfPT5_buf.data();
-      ptIn = buf.ptIn_buf.data();
-      ptErr = buf.ptErr_buf.data();
-      px = buf.px_buf.data();
-      py = buf.py_buf.data();
-      pz = buf.pz_buf.data();
-      etaErr = buf.etaErr_buf.data();
-      eta = buf.eta_buf.data();
-      phi = buf.phi_buf.data();
-      score = buf.score_buf.data();
-      circleCenterX = buf.circleCenterX_buf.data();
-      circleCenterY = buf.circleCenterY_buf.data();
-      circleRadius = buf.circleRadius_buf.data();
-    }
-  };
-
-  template <typename TDev>
-  struct SegmentsBuffer {
-    Buf<TDev, FPX> dPhis_buf;
-    Buf<TDev, FPX> dPhiMins_buf;
-    Buf<TDev, FPX> dPhiMaxs_buf;
-    Buf<TDev, FPX> dPhiChanges_buf;
-    Buf<TDev, FPX> dPhiChangeMins_buf;
-    Buf<TDev, FPX> dPhiChangeMaxs_buf;
-    Buf<TDev, uint16_t> innerLowerModuleIndices_buf;
-    Buf<TDev, uint16_t> outerLowerModuleIndices_buf;
-    Buf<TDev, unsigned int> seedIdx_buf;
-    Buf<TDev, unsigned int> mdIndices_buf;
-    Buf<TDev, unsigned int> nMemoryLocations_buf;
-    Buf<TDev, unsigned int> innerMiniDoubletAnchorHitIndices_buf;
-    Buf<TDev, unsigned int> outerMiniDoubletAnchorHitIndices_buf;
-    Buf<TDev, int> charge_buf;
-    Buf<TDev, int> superbin_buf;
-    Buf<TDev, unsigned int> nSegments_buf;
-    Buf<TDev, unsigned int> totOccupancySegments_buf;
-    Buf<TDev, uint4> pLSHitsIdxs_buf;
-    Buf<TDev, PixelType> pixelType_buf;
-    Buf<TDev, char> isQuad_buf;
-    Buf<TDev, char> isDup_buf;
-    Buf<TDev, bool> partOfPT5_buf;
-    Buf<TDev, float> ptIn_buf;
-    Buf<TDev, float> ptErr_buf;
-    Buf<TDev, float> px_buf;
-    Buf<TDev, float> py_buf;
-    Buf<TDev, float> pz_buf;
-    Buf<TDev, float> etaErr_buf;
-    Buf<TDev, float> eta_buf;
-    Buf<TDev, float> phi_buf;
-    Buf<TDev, float> score_buf;
-    Buf<TDev, float> circleCenterX_buf;
-    Buf<TDev, float> circleCenterY_buf;
-    Buf<TDev, float> circleRadius_buf;
-
-    Segments data_;
-
-    template <typename TQueue, typename TDevAcc>
-    SegmentsBuffer(unsigned int nMemoryLocationsIn,
-                   uint16_t nLowerModules,
-                   unsigned int maxPixelSegments,
-                   TDevAcc const& devAccIn,
-                   TQueue& queue)
-        : dPhis_buf(allocBufWrapper<FPX>(devAccIn, nMemoryLocationsIn, queue)),
-          dPhiMins_buf(allocBufWrapper<FPX>(devAccIn, nMemoryLocationsIn, queue)),
-          dPhiMaxs_buf(allocBufWrapper<FPX>(devAccIn, nMemoryLocationsIn, queue)),
-          dPhiChanges_buf(allocBufWrapper<FPX>(devAccIn, nMemoryLocationsIn, queue)),
-          dPhiChangeMins_buf(allocBufWrapper<FPX>(devAccIn, nMemoryLocationsIn, queue)),
-          dPhiChangeMaxs_buf(allocBufWrapper<FPX>(devAccIn, nMemoryLocationsIn, queue)),
-          innerLowerModuleIndices_buf(allocBufWrapper<uint16_t>(devAccIn, nMemoryLocationsIn, queue)),
-          outerLowerModuleIndices_buf(allocBufWrapper<uint16_t>(devAccIn, nMemoryLocationsIn, queue)),
-          seedIdx_buf(allocBufWrapper<unsigned int>(devAccIn, maxPixelSegments, queue)),
-          mdIndices_buf(allocBufWrapper<unsigned int>(devAccIn, nMemoryLocationsIn * 2, queue)),
-          nMemoryLocations_buf(allocBufWrapper<unsigned int>(devAccIn, 1, queue)),
-          innerMiniDoubletAnchorHitIndices_buf(allocBufWrapper<unsigned int>(devAccIn, nMemoryLocationsIn, queue)),
-          outerMiniDoubletAnchorHitIndices_buf(allocBufWrapper<unsigned int>(devAccIn, nMemoryLocationsIn, queue)),
-          charge_buf(allocBufWrapper<int>(devAccIn, maxPixelSegments, queue)),
-          superbin_buf(allocBufWrapper<int>(devAccIn, maxPixelSegments, queue)),
-          nSegments_buf(allocBufWrapper<unsigned int>(devAccIn, nLowerModules + 1, queue)),
-          totOccupancySegments_buf(allocBufWrapper<unsigned int>(devAccIn, nLowerModules + 1, queue)),
-          pLSHitsIdxs_buf(allocBufWrapper<uint4>(devAccIn, maxPixelSegments, queue)),
-          pixelType_buf(allocBufWrapper<PixelType>(devAccIn, maxPixelSegments, queue)),
-          isQuad_buf(allocBufWrapper<char>(devAccIn, maxPixelSegments, queue)),
-          isDup_buf(allocBufWrapper<char>(devAccIn, maxPixelSegments, queue)),
-          partOfPT5_buf(allocBufWrapper<bool>(devAccIn, maxPixelSegments, queue)),
-          ptIn_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          ptErr_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          px_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          py_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          pz_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          etaErr_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          eta_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          phi_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          score_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          circleCenterX_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          circleCenterY_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)),
-          circleRadius_buf(allocBufWrapper<float>(devAccIn, maxPixelSegments, queue)) {
-      alpaka::memset(queue, nSegments_buf, 0u);
-      alpaka::memset(queue, totOccupancySegments_buf, 0u);
-      alpaka::memset(queue, partOfPT5_buf, false);
-      alpaka::memset(queue, pLSHitsIdxs_buf, 0u);
-    }
-
-    inline Segments const* data() const { return &data_; }
-    inline void setData(SegmentsBuffer& buf) { data_.setData(buf); }
-  };
-
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE float isTighterTiltedModules_seg(Modules const& modulesInGPU,
-                                                                  unsigned int moduleIndex) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float isTighterTiltedModules_seg(ModulesConst modules, unsigned int moduleIndex) {
     // The "tighter" tilted modules are the subset of tilted modules that have smaller spacing
     // This is the same as what was previously considered as"isNormalTiltedModules"
     // See Figure 9.1 of https://cds.cern.ch/record/2272264/files/CMS-TDR-014.pdf
-    short subdet = modulesInGPU.subdets[moduleIndex];
-    short layer = modulesInGPU.layers[moduleIndex];
-    short side = modulesInGPU.sides[moduleIndex];
-    short rod = modulesInGPU.rods[moduleIndex];
+    short subdet = modules.subdets()[moduleIndex];
+    short layer = modules.layers()[moduleIndex];
+    short side = modules.sides()[moduleIndex];
+    short rod = modules.rods()[moduleIndex];
 
     return (subdet == Barrel) && (((side != Center) && (layer == 3)) ||
                                   ((side == NegZ) && (((layer == 2) && (rod > 5)) || ((layer == 1) && (rod > 9)))) ||
@@ -230,7 +68,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     return moduleSeparation;
   }
 
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE float moduleGapSize_seg(Modules const& modulesInGPU, unsigned int moduleIndex) {
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE float moduleGapSize_seg(ModulesConst modules, unsigned int moduleIndex) {
     static constexpr float miniDeltaTilted[3] = {0.26f, 0.26f, 0.26f};
     static constexpr float miniDeltaFlat[6] = {0.26f, 0.16f, 0.16f, 0.18f, 0.18f, 0.18f};
     static constexpr float miniDeltaLooseTilted[3] = {0.4f, 0.4f, 0.4f};
@@ -241,16 +79,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         {0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.18f, 0.18f, /*10*/ 0.18f, 0.18f, 0.18f, 0.18f, 0.18f},
         {0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.4f, 0.18f, /*10*/ 0.18f, 0.18f, 0.18f, 0.18f, 0.18f}};
 
-    unsigned int iL = modulesInGPU.layers[moduleIndex] - 1;
-    unsigned int iR = modulesInGPU.rings[moduleIndex] - 1;
-    short subdet = modulesInGPU.subdets[moduleIndex];
-    short side = modulesInGPU.sides[moduleIndex];
+    unsigned int iL = modules.layers()[moduleIndex] - 1;
+    unsigned int iR = modules.rings()[moduleIndex] - 1;
+    short subdet = modules.subdets()[moduleIndex];
+    short side = modules.sides()[moduleIndex];
 
     float moduleSeparation = 0;
 
     if (subdet == Barrel and side == Center) {
       moduleSeparation = miniDeltaFlat[iL];
-    } else if (isTighterTiltedModules_seg(modulesInGPU, moduleIndex)) {
+    } else if (isTighterTiltedModules_seg(modules, moduleIndex)) {
       moduleSeparation = miniDeltaTilted[iL];
     } else if (subdet == Endcap) {
       moduleSeparation = miniDeltaEndcap[iL][iR];
@@ -265,8 +103,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE void dAlphaThreshold(TAcc const& acc,
                                                       float* dAlphaThresholdValues,
-                                                      Modules const& modulesInGPU,
-                                                      MiniDoublets const& mdsInGPU,
+                                                      ModulesConst modules,
+                                                      MiniDoubletsConst mds,
                                                       float xIn,
                                                       float yIn,
                                                       float zIn,
@@ -279,9 +117,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                       uint16_t outerLowerModuleIndex,
                                                       unsigned int innerMDIndex,
                                                       unsigned int outerMDIndex) {
-    float sdMuls = (modulesInGPU.subdets[innerLowerModuleIndex] == Barrel)
-                       ? kMiniMulsPtScaleBarrel[modulesInGPU.layers[innerLowerModuleIndex] - 1] * 3.f / ptCut
-                       : kMiniMulsPtScaleEndcap[modulesInGPU.layers[innerLowerModuleIndex] - 1] * 3.f / ptCut;
+    float sdMuls = (modules.subdets()[innerLowerModuleIndex] == Barrel)
+                       ? kMiniMulsPtScaleBarrel[modules.layers()[innerLowerModuleIndex] - 1] * 3.f / ptCut
+                       : kMiniMulsPtScaleEndcap[modules.layers()[innerLowerModuleIndex] - 1] * 3.f / ptCut;
 
     //more accurate then outer rt - inner rt
     float segmentDr = alpaka::math::sqrt(acc, (yOut - yIn) * (yOut - yIn) + (xOut - xIn) * (xOut - xIn));
@@ -290,14 +128,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         alpaka::math::asin(acc, alpaka::math::min(acc, segmentDr * k2Rinv1GeVf / ptCut, kSinAlphaMax));
 
     bool isInnerTilted =
-        modulesInGPU.subdets[innerLowerModuleIndex] == Barrel and modulesInGPU.sides[innerLowerModuleIndex] != Center;
+        modules.subdets()[innerLowerModuleIndex] == Barrel and modules.sides()[innerLowerModuleIndex] != Center;
     bool isOuterTilted =
-        modulesInGPU.subdets[outerLowerModuleIndex] == Barrel and modulesInGPU.sides[outerLowerModuleIndex] != Center;
+        modules.subdets()[outerLowerModuleIndex] == Barrel and modules.sides()[outerLowerModuleIndex] != Center;
 
-    float drdzInner = modulesInGPU.drdzs[innerLowerModuleIndex];
-    float drdzOuter = modulesInGPU.drdzs[outerLowerModuleIndex];
-    float innerModuleGapSize = moduleGapSize_seg(modulesInGPU, innerLowerModuleIndex);
-    float outerModuleGapSize = moduleGapSize_seg(modulesInGPU, outerLowerModuleIndex);
+    float drdzInner = modules.drdzs()[innerLowerModuleIndex];
+    float drdzOuter = modules.drdzs()[outerLowerModuleIndex];
+    float innerModuleGapSize = moduleGapSize_seg(modules, innerLowerModuleIndex);
+    float outerModuleGapSize = moduleGapSize_seg(modules, outerLowerModuleIndex);
     const float innerminiTilt2 = isInnerTilted
                                      ? ((0.5f * 0.5f) * (kPixelPSZpitch * kPixelPSZpitch) * (drdzInner * drdzInner) /
                                         (1.f + drdzInner * drdzInner) / (innerModuleGapSize * innerModuleGapSize))
@@ -313,38 +151,38 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float sdLumForInnerMini2;
     float sdLumForOuterMini2;
 
-    if (modulesInGPU.subdets[innerLowerModuleIndex] == Barrel) {
+    if (modules.subdets()[innerLowerModuleIndex] == Barrel) {
       sdLumForInnerMini2 = innerminiTilt2 * (dAlpha_Bfield * dAlpha_Bfield);
     } else {
-      sdLumForInnerMini2 = (mdsInGPU.dphis[innerMDIndex] * mdsInGPU.dphis[innerMDIndex]) * (kDeltaZLum * kDeltaZLum) /
-                           (mdsInGPU.dzs[innerMDIndex] * mdsInGPU.dzs[innerMDIndex]);
+      sdLumForInnerMini2 = (mds.dphis()[innerMDIndex] * mds.dphis()[innerMDIndex]) * (kDeltaZLum * kDeltaZLum) /
+                           (mds.dzs()[innerMDIndex] * mds.dzs()[innerMDIndex]);
     }
 
-    if (modulesInGPU.subdets[outerLowerModuleIndex] == Barrel) {
+    if (modules.subdets()[outerLowerModuleIndex] == Barrel) {
       sdLumForOuterMini2 = outerminiTilt2 * (dAlpha_Bfield * dAlpha_Bfield);
     } else {
-      sdLumForOuterMini2 = (mdsInGPU.dphis[outerMDIndex] * mdsInGPU.dphis[outerMDIndex]) * (kDeltaZLum * kDeltaZLum) /
-                           (mdsInGPU.dzs[outerMDIndex] * mdsInGPU.dzs[outerMDIndex]);
+      sdLumForOuterMini2 = (mds.dphis()[outerMDIndex] * mds.dphis()[outerMDIndex]) * (kDeltaZLum * kDeltaZLum) /
+                           (mds.dzs()[outerMDIndex] * mds.dzs()[outerMDIndex]);
     }
 
     // Unique stuff for the segment dudes alone
     float dAlpha_res_inner =
         0.02f / miniDelta *
-        (modulesInGPU.subdets[innerLowerModuleIndex] == Barrel ? 1.0f : alpaka::math::abs(acc, zIn) / rtIn);
+        (modules.subdets()[innerLowerModuleIndex] == Barrel ? 1.0f : alpaka::math::abs(acc, zIn) / rtIn);
     float dAlpha_res_outer =
         0.02f / miniDelta *
-        (modulesInGPU.subdets[outerLowerModuleIndex] == Barrel ? 1.0f : alpaka::math::abs(acc, zOut) / rtOut);
+        (modules.subdets()[outerLowerModuleIndex] == Barrel ? 1.0f : alpaka::math::abs(acc, zOut) / rtOut);
 
     float dAlpha_res = dAlpha_res_inner + dAlpha_res_outer;
 
-    if (modulesInGPU.subdets[innerLowerModuleIndex] == Barrel and modulesInGPU.sides[innerLowerModuleIndex] == Center) {
+    if (modules.subdets()[innerLowerModuleIndex] == Barrel and modules.sides()[innerLowerModuleIndex] == Center) {
       dAlphaThresholdValues[0] = dAlpha_Bfield + alpaka::math::sqrt(acc, dAlpha_res * dAlpha_res + sdMuls * sdMuls);
     } else {
       dAlphaThresholdValues[0] =
           dAlpha_Bfield + alpaka::math::sqrt(acc, dAlpha_res * dAlpha_res + sdMuls * sdMuls + sdLumForInnerMini2);
     }
 
-    if (modulesInGPU.subdets[outerLowerModuleIndex] == Barrel and modulesInGPU.sides[outerLowerModuleIndex] == Center) {
+    if (modules.subdets()[outerLowerModuleIndex] == Barrel and modules.sides()[outerLowerModuleIndex] == Center) {
       dAlphaThresholdValues[1] = dAlpha_Bfield + alpaka::math::sqrt(acc, dAlpha_res * dAlpha_res + sdMuls * sdMuls);
     } else {
       dAlphaThresholdValues[1] =
@@ -355,7 +193,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     dAlphaThresholdValues[2] = dAlpha_Bfield + alpaka::math::sqrt(acc, dAlpha_res * dAlpha_res + sdMuls * sdMuls);
   }
 
-  ALPAKA_FN_ACC ALPAKA_FN_INLINE void addSegmentToMemory(Segments& segmentsInGPU,
+  ALPAKA_FN_ACC ALPAKA_FN_INLINE void addSegmentToMemory(Segments segments,
                                                          unsigned int lowerMDIndex,
                                                          unsigned int upperMDIndex,
                                                          uint16_t innerLowerModuleIndex,
@@ -369,25 +207,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                          float dPhiChangeMin,
                                                          float dPhiChangeMax,
                                                          unsigned int idx) {
-    segmentsInGPU.mdIndices[idx * 2] = lowerMDIndex;
-    segmentsInGPU.mdIndices[idx * 2 + 1] = upperMDIndex;
-    segmentsInGPU.innerLowerModuleIndices[idx] = innerLowerModuleIndex;
-    segmentsInGPU.outerLowerModuleIndices[idx] = outerLowerModuleIndex;
-    segmentsInGPU.innerMiniDoubletAnchorHitIndices[idx] = innerMDAnchorHitIndex;
-    segmentsInGPU.outerMiniDoubletAnchorHitIndices[idx] = outerMDAnchorHitIndex;
+    segments.mdIndices()[idx][0] = lowerMDIndex;
+    segments.mdIndices()[idx][1] = upperMDIndex;
+    segments.innerLowerModuleIndices()[idx] = innerLowerModuleIndex;
+    segments.outerLowerModuleIndices()[idx] = outerLowerModuleIndex;
+    segments.innerMiniDoubletAnchorHitIndices()[idx] = innerMDAnchorHitIndex;
+    segments.outerMiniDoubletAnchorHitIndices()[idx] = outerMDAnchorHitIndex;
 
-    segmentsInGPU.dPhis[idx] = __F2H(dPhi);
-    segmentsInGPU.dPhiMins[idx] = __F2H(dPhiMin);
-    segmentsInGPU.dPhiMaxs[idx] = __F2H(dPhiMax);
-    segmentsInGPU.dPhiChanges[idx] = __F2H(dPhiChange);
-    segmentsInGPU.dPhiChangeMins[idx] = __F2H(dPhiChangeMin);
-    segmentsInGPU.dPhiChangeMaxs[idx] = __F2H(dPhiChangeMax);
+    segments.dPhis()[idx] = __F2H(dPhi);
+    segments.dPhiMins()[idx] = __F2H(dPhiMin);
+    segments.dPhiMaxs()[idx] = __F2H(dPhiMax);
+    segments.dPhiChanges()[idx] = __F2H(dPhiChange);
+    segments.dPhiChangeMins()[idx] = __F2H(dPhiChangeMin);
+    segments.dPhiChangeMaxs()[idx] = __F2H(dPhiChangeMax);
   }
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE void addPixelSegmentToMemory(TAcc const& acc,
-                                                              Segments& segmentsInGPU,
-                                                              MiniDoublets const& mdsInGPU,
+                                                              Segments segments,
+                                                              SegmentsPixel segmentsPixel,
+                                                              MiniDoubletsConst mds,
                                                               unsigned int innerMDIndex,
                                                               unsigned int outerMDIndex,
                                                               uint16_t pixelModuleIndex,
@@ -398,59 +237,59 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                               unsigned int idx,
                                                               unsigned int pixelSegmentArrayIndex,
                                                               float score) {
-    segmentsInGPU.mdIndices[idx * 2] = innerMDIndex;
-    segmentsInGPU.mdIndices[idx * 2 + 1] = outerMDIndex;
-    segmentsInGPU.innerLowerModuleIndices[idx] = pixelModuleIndex;
-    segmentsInGPU.outerLowerModuleIndices[idx] = pixelModuleIndex;
-    segmentsInGPU.innerMiniDoubletAnchorHitIndices[idx] = innerAnchorHitIndex;
-    segmentsInGPU.outerMiniDoubletAnchorHitIndices[idx] = outerAnchorHitIndex;
-    segmentsInGPU.dPhiChanges[idx] = __F2H(dPhiChange);
-    segmentsInGPU.isDup[pixelSegmentArrayIndex] = false;
-    segmentsInGPU.score[pixelSegmentArrayIndex] = score;
+    segments.mdIndices()[idx][0] = innerMDIndex;
+    segments.mdIndices()[idx][1] = outerMDIndex;
+    segments.innerLowerModuleIndices()[idx] = pixelModuleIndex;
+    segments.outerLowerModuleIndices()[idx] = pixelModuleIndex;
+    segments.innerMiniDoubletAnchorHitIndices()[idx] = innerAnchorHitIndex;
+    segments.outerMiniDoubletAnchorHitIndices()[idx] = outerAnchorHitIndex;
+    segments.dPhiChanges()[idx] = __F2H(dPhiChange);
 
-    segmentsInGPU.pLSHitsIdxs[pixelSegmentArrayIndex].x = hitIdxs[0];
-    segmentsInGPU.pLSHitsIdxs[pixelSegmentArrayIndex].y = hitIdxs[1];
-    segmentsInGPU.pLSHitsIdxs[pixelSegmentArrayIndex].z = hitIdxs[2];
-    segmentsInGPU.pLSHitsIdxs[pixelSegmentArrayIndex].w = hitIdxs[3];
+    segmentsPixel.isDup()[pixelSegmentArrayIndex] = false;
+    segmentsPixel.partOfPT5()[pixelSegmentArrayIndex] = false;
+    segmentsPixel.score()[pixelSegmentArrayIndex] = score;
+    segmentsPixel.pLSHitsIdxs()[pixelSegmentArrayIndex].x = hitIdxs[0];
+    segmentsPixel.pLSHitsIdxs()[pixelSegmentArrayIndex].y = hitIdxs[1];
+    segmentsPixel.pLSHitsIdxs()[pixelSegmentArrayIndex].z = hitIdxs[2];
+    segmentsPixel.pLSHitsIdxs()[pixelSegmentArrayIndex].w = hitIdxs[3];
 
     //computing circle parameters
     /*
         The two anchor hits are r3PCA and r3LH. p3PCA pt, eta, phi is hitIndex1 x, y, z
         */
-    float circleRadius = mdsInGPU.outerX[innerMDIndex] / (2 * k2Rinv1GeVf);
-    float circlePhi = mdsInGPU.outerZ[innerMDIndex];
-    float candidateCenterXs[] = {mdsInGPU.anchorX[innerMDIndex] + circleRadius * alpaka::math::sin(acc, circlePhi),
-                                 mdsInGPU.anchorX[innerMDIndex] - circleRadius * alpaka::math::sin(acc, circlePhi)};
-    float candidateCenterYs[] = {mdsInGPU.anchorY[innerMDIndex] - circleRadius * alpaka::math::cos(acc, circlePhi),
-                                 mdsInGPU.anchorY[innerMDIndex] + circleRadius * alpaka::math::cos(acc, circlePhi)};
+    float circleRadius = mds.outerX()[innerMDIndex] / (2 * k2Rinv1GeVf);
+    float circlePhi = mds.outerZ()[innerMDIndex];
+    float candidateCenterXs[] = {mds.anchorX()[innerMDIndex] + circleRadius * alpaka::math::sin(acc, circlePhi),
+                                 mds.anchorX()[innerMDIndex] - circleRadius * alpaka::math::sin(acc, circlePhi)};
+    float candidateCenterYs[] = {mds.anchorY()[innerMDIndex] - circleRadius * alpaka::math::cos(acc, circlePhi),
+                                 mds.anchorY()[innerMDIndex] + circleRadius * alpaka::math::cos(acc, circlePhi)};
 
     //check which of the circles can accommodate r3LH better (we won't get perfect agreement)
     float bestChiSquared = lst_INF;
     float chiSquared;
     size_t bestIndex;
     for (size_t i = 0; i < 2; i++) {
-      chiSquared =
-          alpaka::math::abs(acc,
-                            alpaka::math::sqrt(acc,
-                                               (mdsInGPU.anchorX[outerMDIndex] - candidateCenterXs[i]) *
-                                                       (mdsInGPU.anchorX[outerMDIndex] - candidateCenterXs[i]) +
-                                                   (mdsInGPU.anchorY[outerMDIndex] - candidateCenterYs[i]) *
-                                                       (mdsInGPU.anchorY[outerMDIndex] - candidateCenterYs[i])) -
-                                circleRadius);
+      chiSquared = alpaka::math::abs(acc,
+                                     alpaka::math::sqrt(acc,
+                                                        (mds.anchorX()[outerMDIndex] - candidateCenterXs[i]) *
+                                                                (mds.anchorX()[outerMDIndex] - candidateCenterXs[i]) +
+                                                            (mds.anchorY()[outerMDIndex] - candidateCenterYs[i]) *
+                                                                (mds.anchorY()[outerMDIndex] - candidateCenterYs[i])) -
+                                         circleRadius);
       if (chiSquared < bestChiSquared) {
         bestChiSquared = chiSquared;
         bestIndex = i;
       }
     }
-    segmentsInGPU.circleCenterX[pixelSegmentArrayIndex] = candidateCenterXs[bestIndex];
-    segmentsInGPU.circleCenterY[pixelSegmentArrayIndex] = candidateCenterYs[bestIndex];
-    segmentsInGPU.circleRadius[pixelSegmentArrayIndex] = circleRadius;
+    segmentsPixel.circleCenterX()[pixelSegmentArrayIndex] = candidateCenterXs[bestIndex];
+    segmentsPixel.circleCenterY()[pixelSegmentArrayIndex] = candidateCenterYs[bestIndex];
+    segmentsPixel.circleRadius()[pixelSegmentArrayIndex] = circleRadius;
   }
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runSegmentDefaultAlgoBarrel(TAcc const& acc,
-                                                                  Modules const& modulesInGPU,
-                                                                  MiniDoublets const& mdsInGPU,
+                                                                  ModulesConst modules,
+                                                                  MiniDoubletsConst mds,
                                                                   uint16_t innerLowerModuleIndex,
                                                                   uint16_t outerLowerModuleIndex,
                                                                   unsigned int innerMDIndex,
@@ -461,27 +300,27 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                                   float& dPhiChange,
                                                                   float& dPhiChangeMin,
                                                                   float& dPhiChangeMax) {
-    float sdMuls = (modulesInGPU.subdets[innerLowerModuleIndex] == Barrel)
-                       ? kMiniMulsPtScaleBarrel[modulesInGPU.layers[innerLowerModuleIndex] - 1] * 3.f / ptCut
-                       : kMiniMulsPtScaleEndcap[modulesInGPU.layers[innerLowerModuleIndex] - 1] * 3.f / ptCut;
+    float sdMuls = (modules.subdets()[innerLowerModuleIndex] == Barrel)
+                       ? kMiniMulsPtScaleBarrel[modules.layers()[innerLowerModuleIndex] - 1] * 3.f / ptCut
+                       : kMiniMulsPtScaleEndcap[modules.layers()[innerLowerModuleIndex] - 1] * 3.f / ptCut;
 
     float xIn, yIn, zIn, rtIn, xOut, yOut, zOut, rtOut;
 
-    xIn = mdsInGPU.anchorX[innerMDIndex];
-    yIn = mdsInGPU.anchorY[innerMDIndex];
-    zIn = mdsInGPU.anchorZ[innerMDIndex];
-    rtIn = mdsInGPU.anchorRt[innerMDIndex];
+    xIn = mds.anchorX()[innerMDIndex];
+    yIn = mds.anchorY()[innerMDIndex];
+    zIn = mds.anchorZ()[innerMDIndex];
+    rtIn = mds.anchorRt()[innerMDIndex];
 
-    xOut = mdsInGPU.anchorX[outerMDIndex];
-    yOut = mdsInGPU.anchorY[outerMDIndex];
-    zOut = mdsInGPU.anchorZ[outerMDIndex];
-    rtOut = mdsInGPU.anchorRt[outerMDIndex];
+    xOut = mds.anchorX()[outerMDIndex];
+    yOut = mds.anchorY()[outerMDIndex];
+    zOut = mds.anchorZ()[outerMDIndex];
+    rtOut = mds.anchorRt()[outerMDIndex];
 
     float sdSlope = alpaka::math::asin(acc, alpaka::math::min(acc, rtOut * k2Rinv1GeVf / ptCut, kSinAlphaMax));
     float sdPVoff = 0.1f / rtOut;
     float dzDrtScale = alpaka::math::tan(acc, sdSlope) / sdSlope;  //FIXME: need appropriate value
 
-    const float zGeom = modulesInGPU.layers[innerLowerModuleIndex] <= 2 ? 2.f * kPixelPSZpitch : 2.f * kStrip2SZpitch;
+    const float zGeom = modules.layers()[innerLowerModuleIndex] <= 2 ? 2.f * kPixelPSZpitch : 2.f * kStrip2SZpitch;
 
     float zLo = zIn + (zIn - kDeltaZLum) * (rtOut / rtIn - 1.f) * (zIn > 0.f ? 1.f : dzDrtScale) -
                 zGeom;  //slope-correction only on outer end
@@ -492,12 +331,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     float sdCut = sdSlope + alpaka::math::sqrt(acc, sdMuls * sdMuls + sdPVoff * sdPVoff);
 
-    dPhi = phi_mpi_pi(acc, mdsInGPU.anchorPhi[outerMDIndex] - mdsInGPU.anchorPhi[innerMDIndex]);
+    dPhi = phi_mpi_pi(acc, mds.anchorPhi()[outerMDIndex] - mds.anchorPhi()[innerMDIndex]);
 
     if (alpaka::math::abs(acc, dPhi) > sdCut)
       return false;
 
-    dPhiChange = phi_mpi_pi(acc, phi(acc, xOut - xIn, yOut - yIn) - mdsInGPU.anchorPhi[innerMDIndex]);
+    dPhiChange = phi_mpi_pi(acc, phi(acc, xOut - xIn, yOut - yIn) - mds.anchorPhi()[innerMDIndex]);
 
     if (alpaka::math::abs(acc, dPhiChange) > sdCut)
       return false;
@@ -505,8 +344,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float dAlphaThresholdValues[3];
     dAlphaThreshold(acc,
                     dAlphaThresholdValues,
-                    modulesInGPU,
-                    mdsInGPU,
+                    modules,
+                    mds,
                     xIn,
                     yIn,
                     zIn,
@@ -520,8 +359,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                     innerMDIndex,
                     outerMDIndex);
 
-    float innerMDAlpha = mdsInGPU.dphichanges[innerMDIndex];
-    float outerMDAlpha = mdsInGPU.dphichanges[outerMDIndex];
+    float innerMDAlpha = mds.dphichanges()[innerMDIndex];
+    float outerMDAlpha = mds.dphichanges()[outerMDIndex];
     float dAlphaInnerMDSegment = innerMDAlpha - dPhiChange;
     float dAlphaOuterMDSegment = outerMDAlpha - dPhiChange;
     float dAlphaInnerMDOuterMD = innerMDAlpha - outerMDAlpha;
@@ -539,8 +378,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runSegmentDefaultAlgoEndcap(TAcc const& acc,
-                                                                  Modules const& modulesInGPU,
-                                                                  MiniDoublets const& mdsInGPU,
+                                                                  ModulesConst modules,
+                                                                  MiniDoubletsConst mds,
                                                                   uint16_t innerLowerModuleIndex,
                                                                   uint16_t outerLowerModuleIndex,
                                                                   unsigned int innerMDIndex,
@@ -553,18 +392,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                                   float& dPhiChangeMax) {
     float xIn, yIn, zIn, rtIn, xOut, yOut, zOut, rtOut;
 
-    xIn = mdsInGPU.anchorX[innerMDIndex];
-    yIn = mdsInGPU.anchorY[innerMDIndex];
-    zIn = mdsInGPU.anchorZ[innerMDIndex];
-    rtIn = mdsInGPU.anchorRt[innerMDIndex];
+    xIn = mds.anchorX()[innerMDIndex];
+    yIn = mds.anchorY()[innerMDIndex];
+    zIn = mds.anchorZ()[innerMDIndex];
+    rtIn = mds.anchorRt()[innerMDIndex];
 
-    xOut = mdsInGPU.anchorX[outerMDIndex];
-    yOut = mdsInGPU.anchorY[outerMDIndex];
-    zOut = mdsInGPU.anchorZ[outerMDIndex];
-    rtOut = mdsInGPU.anchorRt[outerMDIndex];
+    xOut = mds.anchorX()[outerMDIndex];
+    yOut = mds.anchorY()[outerMDIndex];
+    zOut = mds.anchorZ()[outerMDIndex];
+    rtOut = mds.anchorRt()[outerMDIndex];
 
-    bool outerLayerEndcapTwoS = (modulesInGPU.subdets[outerLowerModuleIndex] == Endcap) &&
-                                (modulesInGPU.moduleType[outerLowerModuleIndex] == TwoS);
+    bool outerLayerEndcapTwoS =
+        (modules.subdets()[outerLowerModuleIndex] == Endcap) && (modules.moduleType()[outerLowerModuleIndex] == TwoS);
 
     float sdSlope = alpaka::math::asin(acc, alpaka::math::min(acc, rtOut * k2Rinv1GeVf / ptCut, kSinAlphaMax));
     float disks2SMinRadius = 60.f;
@@ -592,12 +431,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     if ((rtOut < rtLo) || (rtOut > rtHi))
       return false;
 
-    dPhi = phi_mpi_pi(acc, mdsInGPU.anchorPhi[outerMDIndex] - mdsInGPU.anchorPhi[innerMDIndex]);
+    dPhi = phi_mpi_pi(acc, mds.anchorPhi()[outerMDIndex] - mds.anchorPhi()[innerMDIndex]);
 
     float sdCut = sdSlope;
     if (outerLayerEndcapTwoS) {
-      float dPhiPos_high = phi_mpi_pi(acc, mdsInGPU.anchorHighEdgePhi[outerMDIndex] - mdsInGPU.anchorPhi[innerMDIndex]);
-      float dPhiPos_low = phi_mpi_pi(acc, mdsInGPU.anchorLowEdgePhi[outerMDIndex] - mdsInGPU.anchorPhi[innerMDIndex]);
+      float dPhiPos_high = phi_mpi_pi(acc, mds.anchorHighEdgePhi()[outerMDIndex] - mds.anchorPhi()[innerMDIndex]);
+      float dPhiPos_low = phi_mpi_pi(acc, mds.anchorLowEdgePhi()[outerMDIndex] - mds.anchorPhi()[innerMDIndex]);
 
       dPhiMax = alpaka::math::abs(acc, dPhiPos_high) > alpaka::math::abs(acc, dPhiPos_low) ? dPhiPos_high : dPhiPos_low;
       dPhiMin = alpaka::math::abs(acc, dPhiPos_high) > alpaka::math::abs(acc, dPhiPos_low) ? dPhiPos_low : dPhiPos_high;
@@ -619,8 +458,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     float dAlphaThresholdValues[3];
     dAlphaThreshold(acc,
                     dAlphaThresholdValues,
-                    modulesInGPU,
-                    mdsInGPU,
+                    modules,
+                    mds,
                     xIn,
                     yIn,
                     zIn,
@@ -634,8 +473,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                     innerMDIndex,
                     outerMDIndex);
 
-    float innerMDAlpha = mdsInGPU.dphichanges[innerMDIndex];
-    float outerMDAlpha = mdsInGPU.dphichanges[outerMDIndex];
+    float innerMDAlpha = mds.dphichanges()[innerMDIndex];
+    float outerMDAlpha = mds.dphichanges()[outerMDIndex];
     float dAlphaInnerMDSegment = innerMDAlpha - dPhiChange;
     float dAlphaOuterMDSegment = outerMDAlpha - dPhiChange;
     float dAlphaInnerMDOuterMD = innerMDAlpha - outerMDAlpha;
@@ -653,8 +492,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   template <typename TAcc>
   ALPAKA_FN_ACC ALPAKA_FN_INLINE bool runSegmentDefaultAlgo(TAcc const& acc,
-                                                            Modules const& modulesInGPU,
-                                                            MiniDoublets const& mdsInGPU,
+                                                            ModulesConst modules,
+                                                            MiniDoubletsConst mds,
                                                             uint16_t innerLowerModuleIndex,
                                                             uint16_t outerLowerModuleIndex,
                                                             unsigned int innerMDIndex,
@@ -665,11 +504,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                                             float& dPhiChange,
                                                             float& dPhiChangeMin,
                                                             float& dPhiChangeMax) {
-    if (modulesInGPU.subdets[innerLowerModuleIndex] == Barrel and
-        modulesInGPU.subdets[outerLowerModuleIndex] == Barrel) {
+    if (modules.subdets()[innerLowerModuleIndex] == Barrel and modules.subdets()[outerLowerModuleIndex] == Barrel) {
       return runSegmentDefaultAlgoBarrel(acc,
-                                         modulesInGPU,
-                                         mdsInGPU,
+                                         modules,
+                                         mds,
                                          innerLowerModuleIndex,
                                          outerLowerModuleIndex,
                                          innerMDIndex,
@@ -682,8 +520,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                          dPhiChangeMax);
     } else {
       return runSegmentDefaultAlgoEndcap(acc,
-                                         modulesInGPU,
-                                         mdsInGPU,
+                                         modules,
+                                         mds,
                                          innerLowerModuleIndex,
                                          outerLowerModuleIndex,
                                          innerMDIndex,
@@ -697,32 +535,33 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     }
   }
 
-  struct CreateSegmentsInGPUv2 {
+  struct CreateSegments {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  MiniDoublets mdsInGPU,
-                                  Segments segmentsInGPU,
-                                  ObjectRanges rangesInGPU) const {
+                                  ModulesConst modules,
+                                  MiniDoubletsConst mds,
+                                  MiniDoubletsOccupancyConst mdsOccupancy,
+                                  Segments segments,
+                                  SegmentsOccupancy segmentsOccupancy,
+                                  ObjectRangesConst ranges) const {
       auto const globalBlockIdx = alpaka::getIdx<alpaka::Grid, alpaka::Blocks>(acc);
       auto const blockThreadIdx = alpaka::getIdx<alpaka::Block, alpaka::Threads>(acc);
       auto const gridBlockExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc);
       auto const blockThreadExtent = alpaka::getWorkDiv<alpaka::Block, alpaka::Threads>(acc);
 
-      for (uint16_t innerLowerModuleIndex = globalBlockIdx[2]; innerLowerModuleIndex < (*modulesInGPU.nLowerModules);
+      for (uint16_t innerLowerModuleIndex = globalBlockIdx[2]; innerLowerModuleIndex < modules.nLowerModules();
            innerLowerModuleIndex += gridBlockExtent[2]) {
-        unsigned int nInnerMDs = mdsInGPU.nMDs[innerLowerModuleIndex];
+        unsigned int nInnerMDs = mdsOccupancy.nMDs()[innerLowerModuleIndex];
         if (nInnerMDs == 0)
           continue;
 
-        unsigned int nConnectedModules = modulesInGPU.nConnectedModules[innerLowerModuleIndex];
+        unsigned int nConnectedModules = modules.nConnectedModules()[innerLowerModuleIndex];
 
         for (uint16_t outerLowerModuleArrayIdx = blockThreadIdx[1]; outerLowerModuleArrayIdx < nConnectedModules;
              outerLowerModuleArrayIdx += blockThreadExtent[1]) {
-          uint16_t outerLowerModuleIndex =
-              modulesInGPU.moduleMap[innerLowerModuleIndex * max_connected_modules + outerLowerModuleArrayIdx];
+          uint16_t outerLowerModuleIndex = modules.moduleMap()[innerLowerModuleIndex][outerLowerModuleArrayIdx];
 
-          unsigned int nOuterMDs = mdsInGPU.nMDs[outerLowerModuleIndex];
+          unsigned int nOuterMDs = mdsOccupancy.nMDs()[outerLowerModuleIndex];
 
           unsigned int limit = nInnerMDs * nOuterMDs;
 
@@ -734,20 +573,20 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
             if (outerMDArrayIdx >= nOuterMDs)
               continue;
 
-            unsigned int innerMDIndex = rangesInGPU.mdRanges[innerLowerModuleIndex * 2] + innerMDArrayIdx;
-            unsigned int outerMDIndex = rangesInGPU.mdRanges[outerLowerModuleIndex * 2] + outerMDArrayIdx;
+            unsigned int innerMDIndex = ranges.mdRanges()[innerLowerModuleIndex][0] + innerMDArrayIdx;
+            unsigned int outerMDIndex = ranges.mdRanges()[outerLowerModuleIndex][0] + outerMDArrayIdx;
 
             float dPhi, dPhiMin, dPhiMax, dPhiChange, dPhiChangeMin, dPhiChangeMax;
 
-            unsigned int innerMiniDoubletAnchorHitIndex = mdsInGPU.anchorHitIndices[innerMDIndex];
-            unsigned int outerMiniDoubletAnchorHitIndex = mdsInGPU.anchorHitIndices[outerMDIndex];
+            unsigned int innerMiniDoubletAnchorHitIndex = mds.anchorHitIndices()[innerMDIndex];
+            unsigned int outerMiniDoubletAnchorHitIndex = mds.anchorHitIndices()[outerMDIndex];
             dPhiMin = 0;
             dPhiMax = 0;
             dPhiChangeMin = 0;
             dPhiChangeMax = 0;
             if (runSegmentDefaultAlgo(acc,
-                                      modulesInGPU,
-                                      mdsInGPU,
+                                      modules,
+                                      mds,
                                       innerLowerModuleIndex,
                                       outerLowerModuleIndex,
                                       innerMDIndex,
@@ -758,18 +597,21 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                                       dPhiChange,
                                       dPhiChangeMin,
                                       dPhiChangeMax)) {
-              unsigned int totOccupancySegments = alpaka::atomicAdd(
-                  acc, &segmentsInGPU.totOccupancySegments[innerLowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-              if (static_cast<int>(totOccupancySegments) >= rangesInGPU.segmentModuleOccupancy[innerLowerModuleIndex]) {
+              unsigned int totOccupancySegments =
+                  alpaka::atomicAdd(acc,
+                                    &segmentsOccupancy.totOccupancySegments()[innerLowerModuleIndex],
+                                    1u,
+                                    alpaka::hierarchy::Threads{});
+              if (static_cast<int>(totOccupancySegments) >= ranges.segmentModuleOccupancy()[innerLowerModuleIndex]) {
 #ifdef WARNINGS
                 printf("Segment excess alert! Module index = %d\n", innerLowerModuleIndex);
 #endif
               } else {
                 unsigned int segmentModuleIdx = alpaka::atomicAdd(
-                    acc, &segmentsInGPU.nSegments[innerLowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
-                unsigned int segmentIdx = rangesInGPU.segmentModuleIndices[innerLowerModuleIndex] + segmentModuleIdx;
+                    acc, &segmentsOccupancy.nSegments()[innerLowerModuleIndex], 1u, alpaka::hierarchy::Threads{});
+                unsigned int segmentIdx = ranges.segmentModuleIndices()[innerLowerModuleIndex] + segmentModuleIdx;
 
-                addSegmentToMemory(segmentsInGPU,
+                addSegmentToMemory(segments,
                                    innerMDIndex,
                                    outerMDIndex,
                                    innerLowerModuleIndex,
@@ -794,9 +636,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct CreateSegmentArrayRanges {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  ObjectRanges rangesInGPU,
-                                  MiniDoublets mdsInGPU) const {
+                                  ModulesConst modules,
+                                  ObjectRanges ranges,
+                                  MiniDoubletsConst mds) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -814,17 +656,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       // Create variables outside of the for loop.
       int occupancy, category_number, eta_number;
 
-      for (uint16_t i = globalThreadIdx[0]; i < *modulesInGPU.nLowerModules; i += gridThreadExtent[0]) {
-        if (modulesInGPU.nConnectedModules[i] == 0) {
-          rangesInGPU.segmentModuleIndices[i] = nTotalSegments;
-          rangesInGPU.segmentModuleOccupancy[i] = 0;
+      for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
+        if (modules.nConnectedModules()[i] == 0) {
+          ranges.segmentModuleIndices()[i] = nTotalSegments;
+          ranges.segmentModuleOccupancy()[i] = 0;
           continue;
         }
 
-        short module_rings = modulesInGPU.rings[i];
-        short module_layers = modulesInGPU.layers[i];
-        short module_subdets = modulesInGPU.subdets[i];
-        float module_eta = alpaka::math::abs(acc, modulesInGPU.eta[i]);
+        short module_rings = modules.rings()[i];
+        short module_layers = modules.layers()[i];
+        short module_subdets = modules.subdets()[i];
+        float module_eta = alpaka::math::abs(acc, modules.eta()[i]);
 
         if (module_layers <= 3 && module_subdets == 5)
           category_number = 0;
@@ -882,15 +724,15 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         }
 
         int nTotSegs = alpaka::atomicAdd(acc, &nTotalSegments, occupancy, alpaka::hierarchy::Threads{});
-        rangesInGPU.segmentModuleIndices[i] = nTotSegs;
-        rangesInGPU.segmentModuleOccupancy[i] = occupancy;
+        ranges.segmentModuleIndices()[i] = nTotSegs;
+        ranges.segmentModuleOccupancy()[i] = occupancy;
       }
 
       // Wait for all threads to finish before reporting final values
       alpaka::syncBlockThreads(acc);
       if (cms::alpakatools::once_per_block(acc)) {
-        rangesInGPU.segmentModuleIndices[*modulesInGPU.nLowerModules] = nTotalSegments;
-        *rangesInGPU.device_nTotalSegs = nTotalSegments;
+        ranges.segmentModuleIndices()[modules.nLowerModules()] = nTotalSegments;
+        ranges.nTotalSegs() = nTotalSegments;
       }
     }
   };
@@ -898,9 +740,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct AddSegmentRangesToEventExplicit {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  Segments segmentsInGPU,
-                                  ObjectRanges rangesInGPU) const {
+                                  ModulesConst modules,
+                                  SegmentsOccupancyConst segmentsOccupancy,
+                                  ObjectRanges ranges) const {
       // implementation is 1D with a single block
       static_assert(std::is_same_v<TAcc, ALPAKA_ACCELERATOR_NAMESPACE::Acc1D>, "Should be Acc1D");
       ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Grid, alpaka::Blocks>(acc)[0] == 1));
@@ -908,13 +750,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const globalThreadIdx = alpaka::getIdx<alpaka::Grid, alpaka::Threads>(acc);
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
-      for (uint16_t i = globalThreadIdx[0]; i < *modulesInGPU.nLowerModules; i += gridThreadExtent[0]) {
-        if (segmentsInGPU.nSegments[i] == 0) {
-          rangesInGPU.segmentRanges[i * 2] = -1;
-          rangesInGPU.segmentRanges[i * 2 + 1] = -1;
+      for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
+        if (segmentsOccupancy.nSegments()[i] == 0) {
+          ranges.segmentRanges()[i][0] = -1;
+          ranges.segmentRanges()[i][1] = -1;
         } else {
-          rangesInGPU.segmentRanges[i * 2] = rangesInGPU.segmentModuleIndices[i];
-          rangesInGPU.segmentRanges[i * 2 + 1] = rangesInGPU.segmentModuleIndices[i] + segmentsInGPU.nSegments[i] - 1;
+          ranges.segmentRanges()[i][0] = ranges.segmentModuleIndices()[i];
+          ranges.segmentRanges()[i][1] = ranges.segmentModuleIndices()[i] + segmentsOccupancy.nSegments()[i] - 1;
         }
       }
     }
@@ -923,11 +765,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
   struct AddPixelSegmentToEventKernel {
     template <typename TAcc>
     ALPAKA_FN_ACC void operator()(TAcc const& acc,
-                                  Modules modulesInGPU,
-                                  ObjectRanges rangesInGPU,
-                                  Hits hitsInGPU,
-                                  MiniDoublets mdsInGPU,
-                                  Segments segmentsInGPU,
+                                  ModulesConst modules,
+                                  ObjectRangesConst ranges,
+                                  HitsConst hits,
+                                  MiniDoublets mds,
+                                  Segments segments,
+                                  SegmentsPixel segmentsPixel,
                                   unsigned int* hitIndices0,
                                   unsigned int* hitIndices1,
                                   unsigned int* hitIndices2,
@@ -939,14 +782,14 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       auto const gridThreadExtent = alpaka::getWorkDiv<alpaka::Grid, alpaka::Threads>(acc);
 
       for (int tid = globalThreadIdx[2]; tid < size; tid += gridThreadExtent[2]) {
-        unsigned int innerMDIndex = rangesInGPU.miniDoubletModuleIndices[pixelModuleIndex] + 2 * (tid);
-        unsigned int outerMDIndex = rangesInGPU.miniDoubletModuleIndices[pixelModuleIndex] + 2 * (tid) + 1;
-        unsigned int pixelSegmentIndex = rangesInGPU.segmentModuleIndices[pixelModuleIndex] + tid;
+        unsigned int innerMDIndex = ranges.miniDoubletModuleIndices()[pixelModuleIndex] + 2 * (tid);
+        unsigned int outerMDIndex = ranges.miniDoubletModuleIndices()[pixelModuleIndex] + 2 * (tid) + 1;
+        unsigned int pixelSegmentIndex = ranges.segmentModuleIndices()[pixelModuleIndex] + tid;
 
         addMDToMemory(acc,
-                      mdsInGPU,
-                      hitsInGPU,
-                      modulesInGPU,
+                      mds,
+                      hits,
+                      modules,
                       hitIndices0[tid],
                       hitIndices1[tid],
                       pixelModuleIndex,
@@ -960,9 +803,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                       0,
                       innerMDIndex);
         addMDToMemory(acc,
-                      mdsInGPU,
-                      hitsInGPU,
-                      modulesInGPU,
+                      mds,
+                      hits,
+                      modules,
                       hitIndices2[tid],
                       hitIndices3[tid],
                       pixelModuleIndex,
@@ -977,21 +820,22 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                       outerMDIndex);
 
         //in outer hits - pt, eta, phi
-        float slope = alpaka::math::sinh(acc, hitsInGPU.ys[mdsInGPU.outerHitIndices[innerMDIndex]]);
-        float intercept = hitsInGPU.zs[mdsInGPU.anchorHitIndices[innerMDIndex]] -
-                          slope * hitsInGPU.rts[mdsInGPU.anchorHitIndices[innerMDIndex]];
-        float score_lsq = (hitsInGPU.rts[mdsInGPU.anchorHitIndices[outerMDIndex]] * slope + intercept) -
-                          (hitsInGPU.zs[mdsInGPU.anchorHitIndices[outerMDIndex]]);
+        float slope = alpaka::math::sinh(acc, hits.ys()[mds.outerHitIndices()[innerMDIndex]]);
+        float intercept =
+            hits.zs()[mds.anchorHitIndices()[innerMDIndex]] - slope * hits.rts()[mds.anchorHitIndices()[innerMDIndex]];
+        float score_lsq = (hits.rts()[mds.anchorHitIndices()[outerMDIndex]] * slope + intercept) -
+                          (hits.zs()[mds.anchorHitIndices()[outerMDIndex]]);
         score_lsq = score_lsq * score_lsq;
 
         unsigned int hits1[Params_pLS::kHits];
-        hits1[0] = hitsInGPU.idxs[mdsInGPU.anchorHitIndices[innerMDIndex]];
-        hits1[1] = hitsInGPU.idxs[mdsInGPU.anchorHitIndices[outerMDIndex]];
-        hits1[2] = hitsInGPU.idxs[mdsInGPU.outerHitIndices[innerMDIndex]];
-        hits1[3] = hitsInGPU.idxs[mdsInGPU.outerHitIndices[outerMDIndex]];
+        hits1[0] = hits.idxs()[mds.anchorHitIndices()[innerMDIndex]];
+        hits1[1] = hits.idxs()[mds.anchorHitIndices()[outerMDIndex]];
+        hits1[2] = hits.idxs()[mds.outerHitIndices()[innerMDIndex]];
+        hits1[3] = hits.idxs()[mds.outerHitIndices()[outerMDIndex]];
         addPixelSegmentToMemory(acc,
-                                segmentsInGPU,
-                                mdsInGPU,
+                                segments,
+                                segmentsPixel,
+                                mds,
                                 innerMDIndex,
                                 outerMDIndex,
                                 pixelModuleIndex,

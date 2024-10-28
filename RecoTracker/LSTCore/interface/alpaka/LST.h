@@ -66,10 +66,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
                       std::vector<float> const& ph2_z);
 
     void getOutput(Event& event);
-    std::vector<unsigned int> getHitIdxs(short trackCandidateType,
-                                         unsigned int TCIdx,
-                                         unsigned int const* TCHitIndices,
-                                         unsigned int const* hitIndices);
 
     // Input and output vectors
     std::vector<float> in_trkX_;

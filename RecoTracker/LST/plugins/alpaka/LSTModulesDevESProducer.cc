@@ -1,5 +1,4 @@
 // LST includes
-#include "RecoTracker/LSTCore/interface/Module.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LST.h"
 
 #include "FWCore/ParameterSet/interface/ParameterSet.h"

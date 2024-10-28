@@ -18,6 +18,42 @@ namespace {
     const float vy = dxy * p3.x() / pt - p3.y() / p * p3.z() / p * dz;
     return {vx, vy, vz};
   }
+
+  using namespace ALPAKA_ACCELERATOR_NAMESPACE::lst;
+  std::vector<unsigned int> getHitIdxs(short trackCandidateType,
+                                       Params_pT5::ArrayUxHits const& tcHitIndices,
+                                       unsigned int const* hitIndices) {
+    std::vector<unsigned int> hits;
+
+    unsigned int maxNHits = 0;
+    if (trackCandidateType == 7)
+      maxNHits = Params_pT5::kHits;  // pT5
+    else if (trackCandidateType == 5)
+      maxNHits = Params_pT3::kHits;  // pT3
+    else if (trackCandidateType == 4)
+      maxNHits = Params_T5::kHits;  // T5
+    else if (trackCandidateType == 8)
+      maxNHits = Params_pLS::kHits;  // pLS
+
+    for (unsigned int i = 0; i < maxNHits; i++) {
+      unsigned int hitIdxDev = tcHitIndices[i];
+      unsigned int hitIdx =
+          (trackCandidateType == 8)
+              ? hitIdxDev
+              : hitIndices[hitIdxDev];  // Hit indices are stored differently in the standalone for pLS.
+
+      // For p objects, the 3rd and 4th hit maybe the same,
+      // due to the way pLS hits are stored in the standalone.
+      // This is because pixel seeds can be either triplets or quadruplets.
+      if (trackCandidateType != 4 && hits.size() == 3 && hits.back() == hitIdx)  // Remove duplicate 4th hits.
+        continue;
+
+      hits.push_back(hitIdx);
+    }
+
+    return hits;
+  }
+
 }  // namespace
 
 void LST::prepareInput(std::vector<float> const& see_px,
@@ -212,60 +248,24 @@ void LST::prepareInput(std::vector<float> const& see_px,
   in_isQuad_vec_ = isQuad_vec;
 }
 
-std::vector<unsigned int> LST::getHitIdxs(short trackCandidateType,
-                                          unsigned int TCIdx,
-                                          unsigned int const* TCHitIndices,
-                                          unsigned int const* hitIndices) {
-  std::vector<unsigned int> hits;
-
-  unsigned int maxNHits = 0;
-  if (trackCandidateType == 7)
-    maxNHits = Params_pT5::kHits;  // pT5
-  else if (trackCandidateType == 5)
-    maxNHits = Params_pT3::kHits;  // pT3
-  else if (trackCandidateType == 4)
-    maxNHits = Params_T5::kHits;  // T5
-  else if (trackCandidateType == 8)
-    maxNHits = Params_pLS::kHits;  // pLS
-
-  for (unsigned int i = 0; i < maxNHits; i++) {
-    unsigned int hitIdxInGPU = TCHitIndices[Params_pT5::kHits * TCIdx + i];
-    unsigned int hitIdx =
-        (trackCandidateType == 8)
-            ? hitIdxInGPU
-            : hitIndices[hitIdxInGPU];  // Hit indices are stored differently in the standalone for pLS.
-
-    // For p objects, the 3rd and 4th hit maybe the same,
-    // due to the way pLS hits are stored in the standalone.
-    // This is because pixel seeds can be either triplets or quadruplets.
-    if (trackCandidateType != 4 && hits.size() == 3 && hits.back() == hitIdx)  // Remove duplicate 4th hits.
-      continue;
-
-    hits.push_back(hitIdx);
-  }
-
-  return hits;
-}
-
 void LST::getOutput(Event& event) {
   std::vector<std::vector<unsigned int>> tc_hitIdxs;
   std::vector<unsigned int> tc_len;
   std::vector<int> tc_seedIdx;
   std::vector<short> tc_trackCandidateType;
 
-  HitsBuffer<alpaka::DevCpu>& hitsInGPU = event.getHitsInCMSSW(false);  // sync on next line
-  TrackCandidates const* trackCandidates = event.getTrackCandidatesInCMSSW().data();
+  auto const hits = event.getHitsInCMSSW<HitsSoA>(false);  // sync on next line
+  auto const& trackCandidates = event.getTrackCandidatesInCMSSW();
 
-  unsigned int nTrackCandidates = *trackCandidates->nTrackCandidates;
+  unsigned int nTrackCandidates = trackCandidates.nTrackCandidates();
 
   for (unsigned int idx = 0; idx < nTrackCandidates; idx++) {
-    short trackCandidateType = trackCandidates->trackCandidateType[idx];
-    std::vector<unsigned int> hit_idx =
-        getHitIdxs(trackCandidateType, idx, trackCandidates->hitIndices, hitsInGPU.data()->idxs);
+    short trackCandidateType = trackCandidates.trackCandidateType()[idx];
+    std::vector<unsigned int> hit_idx = getHitIdxs(trackCandidateType, trackCandidates.hitIndices()[idx], hits.idxs());
 
     tc_hitIdxs.push_back(hit_idx);
     tc_len.push_back(hit_idx.size());
-    tc_seedIdx.push_back(trackCandidates->pixelSeedIndex[idx]);
+    tc_seedIdx.push_back(trackCandidates.pixelSeedIndex()[idx]);
     tc_trackCandidateType.push_back(trackCandidateType);
   }
 

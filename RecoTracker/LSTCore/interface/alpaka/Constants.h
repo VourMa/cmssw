@@ -3,39 +3,11 @@
 
 #include "RecoTracker/LSTCore/interface/Constants.h"
 
-#if defined ALPAKA_ACC_GPU_CUDA_ENABLED
-#include <cuda_fp16.h>
-#elif defined ALPAKA_ACC_GPU_HIP_ENABLED
-#include <hip/hip_fp16.h>
-#endif
-
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   using namespace ::lst;
 
-// Half precision wrapper functions.
-#if defined(FP16_Base)
-#define __F2H __float2half
-#define __H2F __half2float
-  typedef __half float FPX;
-#else
-#define __F2H
-#define __H2F
-  typedef float FPX;
-#endif
-
   Vec3D constexpr elementsPerThread(Vec3D::all(static_cast<Idx>(1)));
-
-// Needed for files that are compiled by g++ to not throw an error.
-// uint4 is defined only for CUDA, so we will have to revisit this soon when running on other backends.
-#if !defined(ALPAKA_ACC_GPU_CUDA_ENABLED) && !defined(ALPAKA_ACC_GPU_HIP_ENABLED)
-  struct uint4 {
-    unsigned int x;
-    unsigned int y;
-    unsigned int z;
-    unsigned int w;
-  };
-#endif
 
   // Adjust grid and block sizes based on backend configuration
   template <typename Vec, typename TAcc = Acc<typename Vec::Dim>>
