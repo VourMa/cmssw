@@ -52,7 +52,4 @@ void printT3s(LSTEvent* event);
 void printT4s(LSTEvent* event);
 void printTCs(LSTEvent* event);
 
-// Print anomalous multiplicities
-void debugPrintOutlierMultiplicities(LSTEvent* event);
-
 #endif

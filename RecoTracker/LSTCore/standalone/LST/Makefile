@@ -44,17 +44,17 @@ LIBS=$(LIB_CPU) $(LIB_CUDA) $(LIB_ROCM)
 GENCODE_CUDA := -gencode arch=compute_70,code=[sm_70,compute_70] -gencode arch=compute_89,code=[sm_89,compute_89]
 
 CXX                  = g++
-CXXFLAGS_CPU         = -march=native -mtune=native -Ofast -fno-reciprocal-math -fopenmp-simd -g -Wall -Wshadow -Woverloaded-virtual -fPIC -fopenmp -I..
-CXXFLAGS_CUDA        = -O3 -g --compiler-options -Wall --compiler-options -Wshadow --compiler-options -Woverloaded-virtual --compiler-options -fPIC --compiler-options -fopenmp -dc -lineinfo --ptxas-options=-v --cudart shared $(GENCODE_CUDA) --use_fast_math --default-stream per-thread -I..
-CXXFLAGS_ROCM        = -O3 -g -Wall -Wshadow -Woverloaded-virtual -fPIC -I${ROCM_ROOT}/include -I..
+CXXFLAGS_CPU         = -march=native -mtune=native -Ofast -fno-reciprocal-math -fopenmp-simd -g -Wall -Woverloaded-virtual -fPIC -fopenmp -I..
+CXXFLAGS_CUDA        = -O3 -g --compiler-options -Wall --compiler-options -Woverloaded-virtual --compiler-options -fPIC --compiler-options -fopenmp -dc -lineinfo --ptxas-options=-v --cudart shared $(GENCODE_CUDA) --use_fast_math --default-stream per-thread -I..
+CXXFLAGS_ROCM        = -O3 -g -Wall -Woverloaded-virtual -fPIC -I${ROCM_ROOT}/include -I..
 CMSSWINCLUDE        := -I${TRACKLOOPERDIR}/../../../ -I${CMSSW_BASE}/src
 ifdef CMSSW_RELEASE_BASE
 CMSSWINCLUDE        := ${CMSSWINCLUDE} -I${CMSSW_RELEASE_BASE}/src
 endif
 ALPAKAINCLUDE        = -I${ALPAKA_ROOT}/include -I/${BOOST_ROOT}/include -std=c++17 ${CMSSWINCLUDE}
-ALPAKASERIAL         = -DALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED
-ALPAKACUDA           = -DALPAKA_ACC_GPU_CUDA_ENABLED -DALPAKA_ACC_GPU_CUDA_ONLY --expt-relaxed-constexpr
-ALPAKAROCM           = -DALPAKA_ACC_GPU_HIP_ENABLED -DALPAKA_ACC_GPU_HIP_ONLY -DALPAKA_DISABLE_VENDOR_RNG
+ALPAKASERIAL         = -DALPAKA_ACC_CPU_B_SEQ_T_SEQ_ENABLED -DALPAKA_DISABLE_VENDOR_RNG -DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
+ALPAKACUDA           = -DALPAKA_ACC_GPU_CUDA_ENABLED -DALPAKA_ACC_GPU_CUDA_ONLY -DALPAKA_DISABLE_VENDOR_RNG -DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128 --expt-relaxed-constexpr
+ALPAKAROCM           = -DALPAKA_ACC_GPU_HIP_ENABLED -DALPAKA_ACC_GPU_HIP_ONLY -DALPAKA_DISABLE_VENDOR_RNG -DALPAKA_DEFAULT_HOST_MEMORY_ALIGNMENT=128
 ROOTINCLUDE          = -I$(ROOT_ROOT)/include
 ROOTCFLAGS           = -pthread -m64 $(ROOTINCLUDE)
 PRINTFLAG            = -DT4FromT3

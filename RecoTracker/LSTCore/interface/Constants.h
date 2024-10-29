@@ -2,6 +2,15 @@
 #define RecoTracker_LSTCore_interface_Constants_h
 
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+#include "DataFormats/Common/interface/StdArray.h"
+
+#if defined(FP16_Base)
+#if defined ALPAKA_ACC_GPU_CUDA_ENABLED
+#include <cuda_fp16.h>
+#elif defined ALPAKA_ACC_GPU_HIP_ENABLED
+#include <hip/hip_fp16.h>
+#endif
+#endif
 
 #ifdef CACHE_ALLOC
 #include "HeterogeneousCore/AlpakaInterface/interface/CachedBufAlloc.h"
@@ -55,26 +64,67 @@ namespace lst {
 
   constexpr unsigned int size_superbins = 45000;
 
+// Half precision wrapper functions.
+#if defined(FP16_Base)
+#define __F2H __float2half
+#define __H2F __half2float
+  typedef __half float FPX;
+#else
+#define __F2H
+#define __H2F
+  typedef float FPX;
+#endif
+
+// Needed for files that are compiled by g++ to not throw an error.
+// uint4 is defined only for CUDA, so we will have to revisit this soon when running on other backends.
+#if !defined(ALPAKA_ACC_GPU_CUDA_ENABLED) && !defined(ALPAKA_ACC_GPU_HIP_ENABLED)
+  struct uint4 {
+    unsigned int x;
+    unsigned int y;
+    unsigned int z;
+    unsigned int w;
+  };
+#endif
+
   // Defining the constant host device variables right up here
   // Currently pixel tracks treated as LSs with 2 double layers (IT layers 1+2 and 3+4) and 4 hits. To be potentially handled better in the future.
+  struct Params_Modules {
+    using ArrayU16xMaxConnected = edm::StdArray<uint16_t, max_connected_modules>;
+  };
   struct Params_pLS {
     static constexpr int kLayers = 2, kHits = 4;
   };
   struct Params_LS {
     static constexpr int kLayers = 2, kHits = 4;
+    using ArrayUxLayers = edm::StdArray<unsigned int, kLayers>;
   };
   struct Params_T3 {
     static constexpr int kLayers = 3, kHits = 6;
+    using ArrayU8xLayers = edm::StdArray<uint8_t, kLayers>;
+    using ArrayU16xLayers = edm::StdArray<uint16_t, kLayers>;
+    using ArrayUxHits = edm::StdArray<unsigned int, kHits>;
   };
   struct Params_pT3 {
     static constexpr int kLayers = 5, kHits = 10;
+    using ArrayU8xLayers = edm::StdArray<uint8_t, kLayers>;
+    using ArrayU16xLayers = edm::StdArray<uint16_t, kLayers>;
+    using ArrayUxHits = edm::StdArray<unsigned int, kHits>;
   };
   struct Params_T5 {
     static constexpr int kLayers = 5, kHits = 10;
+    using ArrayU8xLayers = edm::StdArray<uint8_t, kLayers>;
+    using ArrayU16xLayers = edm::StdArray<uint16_t, kLayers>;
+    using ArrayUxHits = edm::StdArray<unsigned int, kHits>;
   };
   struct Params_pT5 {
     static constexpr int kLayers = 7, kHits = 14;
+    using ArrayU8xLayers = edm::StdArray<uint8_t, kLayers>;
+    using ArrayU16xLayers = edm::StdArray<uint16_t, kLayers>;
+    using ArrayUxHits = edm::StdArray<unsigned int, kHits>;
   };
+
+  using ArrayIx2 = edm::StdArray<int, 2>;
+  using ArrayUx2 = edm::StdArray<unsigned int, 2>;
 
 }  //namespace lst
 

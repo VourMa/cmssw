@@ -460,7 +460,9 @@ void run_lst() {
 
       if (ana.verbose == 5) {
 #pragma omp critical
-        { debugPrintOutlierMultiplicities(events.at(omp_get_thread_num())); }
+        {
+          // TODO: debugPrintOutlierMultiplicities
+        }
       }
 
       if (ana.do_write_ntuple) {

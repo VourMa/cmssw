@@ -2,13 +2,13 @@
 #define RecoTracker_LSTCore_src_alpaka_NeuralNetwork_h
 
 #include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
-#include "RecoTracker/LSTCore/interface/Module.h"
+#include "RecoTracker/LSTCore/interface/ModulesSoA.h"
+#include "RecoTracker/LSTCore/interface/HitsSoA.h"
+#include "RecoTracker/LSTCore/interface/MiniDoubletsSoA.h"
+#include "RecoTracker/LSTCore/interface/SegmentsSoA.h"
+#include "RecoTracker/LSTCore/interface/TripletsSoA.h"
 
 #include "NeuralNetworkWeights.h"
-#include "Segment.h"
-#include "MiniDoublet.h"
-#include "Hit.h"
-#include "Triplet.h"
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
@@ -16,10 +16,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     template <typename TAcc>
     ALPAKA_FN_ACC ALPAKA_FN_INLINE float runInference(TAcc const& acc,
-                                                      Modules const& modulesInGPU,
-                                                      MiniDoublets const& mdsInGPU,
-                                                      Segments const& segmentsInGPU,
-                                                      Triplets const& tripletsInGPU,
+                                                      ModulesConst modules,
+                                                      MiniDoubletsConst mds,
+                                                      SegmentsConst segments,
+                                                      TripletsConst triplets,
                                                       const float* xVec,
                                                       const float* yVec,
                                                       const unsigned int* mdIndices,
@@ -55,54 +55,54 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       uint16_t lowerModuleIndex5 = lowerModuleIndices[4];
       // Compute some convenience variables
       short layer2_adjustment = 0;
-      if (modulesInGPU.layers[lowerModuleIndex1] == 1) {
+      if (modules.layers()[lowerModuleIndex1] == 1) {
         layer2_adjustment = 1;  // get upper segment to be in second layer
       }
       unsigned int md_idx_for_t5_eta_phi =
-          segmentsInGPU.mdIndices[2 * tripletsInGPU.segmentIndices[2 * innerTripletIndex + layer2_adjustment]];
-      bool is_endcap1 = (modulesInGPU.subdets[lowerModuleIndex1] == 4);  // true if anchor hit 1 is in the endcap
-      bool is_endcap2 = (modulesInGPU.subdets[lowerModuleIndex2] == 4);  // true if anchor hit 2 is in the endcap
-      bool is_endcap3 = (modulesInGPU.subdets[lowerModuleIndex3] == 4);  // true if anchor hit 3 is in the endcap
-      bool is_endcap4 = (modulesInGPU.subdets[lowerModuleIndex4] == 4);  // true if anchor hit 4 is in the endcap
-      bool is_endcap5 = (modulesInGPU.subdets[lowerModuleIndex5] == 4);  // true if anchor hit 5 is in the endcap
+          segments.mdIndices()[triplets.segmentIndices()[innerTripletIndex][0]][layer2_adjustment];
+      bool is_endcap1 = (modules.subdets()[lowerModuleIndex1] == 4);  // true if anchor hit 1 is in the endcap
+      bool is_endcap2 = (modules.subdets()[lowerModuleIndex2] == 4);  // true if anchor hit 2 is in the endcap
+      bool is_endcap3 = (modules.subdets()[lowerModuleIndex3] == 4);  // true if anchor hit 3 is in the endcap
+      bool is_endcap4 = (modules.subdets()[lowerModuleIndex4] == 4);  // true if anchor hit 4 is in the endcap
+      bool is_endcap5 = (modules.subdets()[lowerModuleIndex5] == 4);  // true if anchor hit 5 is in the endcap
 
       // Build DNN input vector (corresponding output N-tuple branch noted in parenthetical in comment)
       float x[38] = {
-          alpaka::math::log10(acc, 2 * k2Rinv1GeVf * innerRadius),         // inner T3 pT (t3_pt)
-          mdsInGPU.anchorEta[mdIndex1],                                    // inner T3 anchor hit 1 eta (t3_0_eta)
-          mdsInGPU.anchorPhi[mdIndex1],                                    // inner T3 anchor hit 1 phi (t3_0_phi)
-          mdsInGPU.anchorZ[mdIndex1],                                      // inner T3 anchor hit 1 z (t3_0_z)
-          alpaka::math::sqrt(acc, x1 * x1 + y1 * y1),                      // inner T3 anchor hit 1 r (t3_0_r)
-          float(modulesInGPU.layers[lowerModuleIndex1] + 6 * is_endcap1),  // inner T3 anchor hit 1 layer (t3_0_layer)
-          mdsInGPU.anchorEta[mdIndex2],                                    // inner T3 anchor hit 2 eta (t3_2_eta)
-          mdsInGPU.anchorPhi[mdIndex2],                                    // inner T3 anchor hit 2 phi (t3_2_phi)
-          mdsInGPU.anchorZ[mdIndex2],                                      // inner T3 anchor hit 2 z (t3_2_z)
-          alpaka::math::sqrt(acc, x2 * x2 + y2 * y2),                      // inner T3 anchor hit 2 r (t3_2_r)
-          float(modulesInGPU.layers[lowerModuleIndex2] + 6 * is_endcap2),  // inner T3 anchor hit 2 layer (t3_2_layer)
-          mdsInGPU.anchorEta[mdIndex3],                                    // inner T3 anchor hit 3 eta (t3_4_eta)
-          mdsInGPU.anchorPhi[mdIndex3],                                    // inner T3 anchor hit 3 phi (t3_4_phi)
-          mdsInGPU.anchorZ[mdIndex3],                                      // inner T3 anchor hit 3 z (t3_4_z)
-          alpaka::math::sqrt(acc, x3 * x3 + y3 * y3),                      // inner T3 anchor hit 3 r (t3_4_r)
-          float(modulesInGPU.layers[lowerModuleIndex3] + 6 * is_endcap3),  // inner T3 anchor hit 3 layer (t3_4_layer)
-          alpaka::math::log10(acc, 2 * k2Rinv1GeVf * outerRadius),         // outer T3 pT (t3_pt)
-          mdsInGPU.anchorEta[mdIndex3],                                    // outer T3 anchor hit 4 eta (t3_0_eta)
-          mdsInGPU.anchorPhi[mdIndex3],                                    // outer T3 anchor hit 4 phi (t3_0_phi)
-          mdsInGPU.anchorZ[mdIndex3],                                      // outer T3 anchor hit 3 eta (t3_0_z)
-          alpaka::math::sqrt(acc, x3 * x3 + y3 * y3),                      // outer T3 anchor hit 3 r (t3_0_r)
-          float(modulesInGPU.layers[lowerModuleIndex3] + 6 * is_endcap3),  // outer T3 anchor hit 3 layer (t3_0_layer)
-          mdsInGPU.anchorEta[mdIndex4],                                    // outer T3 anchor hit 4 eta (t3_2_eta)
-          mdsInGPU.anchorPhi[mdIndex4],                                    // outer T3 anchor hit 4 phi (t3_2_phi)
-          mdsInGPU.anchorZ[mdIndex4],                                      // outer T3 anchor hit 4 z (t3_2_z)
-          alpaka::math::sqrt(acc, x4 * x4 + y4 * y4),                      // outer T3 anchor hit 4 r (t3_2_r)
-          float(modulesInGPU.layers[lowerModuleIndex4] + 6 * is_endcap4),  // outer T3 anchor hit 4 layer (t3_2_layer)
-          mdsInGPU.anchorEta[mdIndex5],                                    // outer T3 anchor hit 5 eta (t3_4_eta)
-          mdsInGPU.anchorPhi[mdIndex5],                                    // outer T3 anchor hit 5 phi (t3_4_phi)
-          mdsInGPU.anchorZ[mdIndex5],                                      // outer T3 anchor hit 5 z (t3_4_z)
-          alpaka::math::sqrt(acc, x5 * x5 + y5 * y5),                      // outer T3 anchor hit 5 r (t3_4_r)
-          float(modulesInGPU.layers[lowerModuleIndex5] + 6 * is_endcap5),  // outer T3 anchor hit 5 layer (t3_4_layer)
+          alpaka::math::log10(acc, 2 * k2Rinv1GeVf * innerRadius),      // inner T3 pT (t3_pt)
+          mds.anchorEta()[mdIndex1],                                    // inner T3 anchor hit 1 eta (t3_0_eta)
+          mds.anchorPhi()[mdIndex1],                                    // inner T3 anchor hit 1 phi (t3_0_phi)
+          mds.anchorZ()[mdIndex1],                                      // inner T3 anchor hit 1 z (t3_0_z)
+          alpaka::math::sqrt(acc, x1 * x1 + y1 * y1),                   // inner T3 anchor hit 1 r (t3_0_r)
+          float(modules.layers()[lowerModuleIndex1] + 6 * is_endcap1),  // inner T3 anchor hit 1 layer (t3_0_layer)
+          mds.anchorEta()[mdIndex2],                                    // inner T3 anchor hit 2 eta (t3_2_eta)
+          mds.anchorPhi()[mdIndex2],                                    // inner T3 anchor hit 2 phi (t3_2_phi)
+          mds.anchorZ()[mdIndex2],                                      // inner T3 anchor hit 2 z (t3_2_z)
+          alpaka::math::sqrt(acc, x2 * x2 + y2 * y2),                   // inner T3 anchor hit 2 r (t3_2_r)
+          float(modules.layers()[lowerModuleIndex2] + 6 * is_endcap2),  // inner T3 anchor hit 2 layer (t3_2_layer)
+          mds.anchorEta()[mdIndex3],                                    // inner T3 anchor hit 3 eta (t3_4_eta)
+          mds.anchorPhi()[mdIndex3],                                    // inner T3 anchor hit 3 phi (t3_4_phi)
+          mds.anchorZ()[mdIndex3],                                      // inner T3 anchor hit 3 z (t3_4_z)
+          alpaka::math::sqrt(acc, x3 * x3 + y3 * y3),                   // inner T3 anchor hit 3 r (t3_4_r)
+          float(modules.layers()[lowerModuleIndex3] + 6 * is_endcap3),  // inner T3 anchor hit 3 layer (t3_4_layer)
+          alpaka::math::log10(acc, 2 * k2Rinv1GeVf * outerRadius),      // outer T3 pT (t3_pt)
+          mds.anchorEta()[mdIndex3],                                    // outer T3 anchor hit 4 eta (t3_0_eta)
+          mds.anchorPhi()[mdIndex3],                                    // outer T3 anchor hit 4 phi (t3_0_phi)
+          mds.anchorZ()[mdIndex3],                                      // outer T3 anchor hit 3 eta (t3_0_z)
+          alpaka::math::sqrt(acc, x3 * x3 + y3 * y3),                   // outer T3 anchor hit 3 r (t3_0_r)
+          float(modules.layers()[lowerModuleIndex3] + 6 * is_endcap3),  // outer T3 anchor hit 3 layer (t3_0_layer)
+          mds.anchorEta()[mdIndex4],                                    // outer T3 anchor hit 4 eta (t3_2_eta)
+          mds.anchorPhi()[mdIndex4],                                    // outer T3 anchor hit 4 phi (t3_2_phi)
+          mds.anchorZ()[mdIndex4],                                      // outer T3 anchor hit 4 z (t3_2_z)
+          alpaka::math::sqrt(acc, x4 * x4 + y4 * y4),                   // outer T3 anchor hit 4 r (t3_2_r)
+          float(modules.layers()[lowerModuleIndex4] + 6 * is_endcap4),  // outer T3 anchor hit 4 layer (t3_2_layer)
+          mds.anchorEta()[mdIndex5],                                    // outer T3 anchor hit 5 eta (t3_4_eta)
+          mds.anchorPhi()[mdIndex5],                                    // outer T3 anchor hit 5 phi (t3_4_phi)
+          mds.anchorZ()[mdIndex5],                                      // outer T3 anchor hit 5 z (t3_4_z)
+          alpaka::math::sqrt(acc, x5 * x5 + y5 * y5),                   // outer T3 anchor hit 5 r (t3_4_r)
+          float(modules.layers()[lowerModuleIndex5] + 6 * is_endcap5),  // outer T3 anchor hit 5 layer (t3_4_layer)
           alpaka::math::log10(acc, (innerRadius + outerRadius) * k2Rinv1GeVf),  // T5 pT (t5_pt)
-          mdsInGPU.anchorEta[md_idx_for_t5_eta_phi],                            // T5 eta (t5_eta)
-          mdsInGPU.anchorPhi[md_idx_for_t5_eta_phi],                            // T5 phi (t5_phi)
+          mds.anchorEta()[md_idx_for_t5_eta_phi],                               // T5 eta (t5_eta)
+          mds.anchorPhi()[md_idx_for_t5_eta_phi],                               // T5 phi (t5_phi)
           alpaka::math::log10(acc, innerRadius),                                // T5 inner radius (t5_innerRadius)
           alpaka::math::log10(acc, bridgeRadius),                               // T5 bridge radius (t5_bridgeRadius)
           alpaka::math::log10(acc, outerRadius)                                 // T5 outer radius (t5_outerRadius)
