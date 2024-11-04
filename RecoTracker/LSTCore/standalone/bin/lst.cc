@@ -2,7 +2,7 @@
 
 #include <typeinfo>
 
-using LSTEvent = ALPAKA_ACCELERATOR_NAMESPACE::lst::Event;
+using LSTEvent = ALPAKA_ACCELERATOR_NAMESPACE::lst::LSTEvent;
 using namespace ::lst;
 
 //___________________________________________________________________________________________________________________________________________________________________________________________
@@ -415,6 +415,7 @@ void run_lst() {
       if (ana.verbose >= 1)
         std::cout << "Running Event number = " << evt << " " << omp_get_thread_num() << std::endl;
 
+      events.at(omp_get_thread_num())->initSync();
       timing_input_loading = addInputsToEventPreLoad(events.at(omp_get_thread_num()),
                                                      false,
                                                      out_trkX.at(evt),

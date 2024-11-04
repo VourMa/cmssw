@@ -3,7 +3,7 @@
 
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 
-#include "RecoTracker/LSTCore/interface/alpaka/Constants.h"
+#include "RecoTracker/LSTCore/interface/alpaka/Common.h"
 #include "RecoTracker/LSTCore/interface/MiniDoubletsSoA.h"
 #include "RecoTracker/LSTCore/interface/alpaka/MiniDoubletsDeviceCollection.h"
 #include "RecoTracker/LSTCore/interface/ModulesSoA.h"
@@ -308,7 +308,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     angleA = alpaka::math::abs(acc, alpaka::math::atan(acc, rtp / zp));
     angleB =
         ((isEndcap)
-             ? float(M_PI) / 2.f
+             ? kPi / 2.f
              : alpaka::math::atan(
                    acc,
                    drdz_));  // The tilt module on the positive z-axis has negative drdz slope in r-z plane and vice versa
@@ -323,18 +323,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     drprime = (moduleSeparation / alpaka::math::sin(acc, angleA + angleB)) * alpaka::math::sin(acc, angleA);
 
     // Compute arctan of the slope and take care of the slope = infinity case
-    absArctanSlope = ((slope != lst_INF) ? fabs(alpaka::math::atan(acc, slope)) : float(M_PI) / 2.f);
+    absArctanSlope = ((slope != kVerticalModuleSlope) ? fabs(alpaka::math::atan(acc, slope)) : kPi / 2.f);
 
     // Depending on which quadrant the pixel hit lies, we define the angleM by shifting them slightly differently
     if (xp > 0 and yp > 0) {
       angleM = absArctanSlope;
     } else if (xp > 0 and yp < 0) {
-      angleM = float(M_PI) - absArctanSlope;
+      angleM = kPi - absArctanSlope;
     } else if (xp < 0 and yp < 0) {
-      angleM = float(M_PI) + absArctanSlope;
+      angleM = kPi + absArctanSlope;
     } else  // if (xp < 0 and yp > 0)
     {
-      angleM = 2.f * float(M_PI) - absArctanSlope;
+      angleM = 2.f * kPi - absArctanSlope;
     }
 
     // Then since the angleM sign is taken care of properly
@@ -347,7 +347,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
     // Compute the new strip hit position (if the slope value is in special condition take care of the exceptions)
     if (slope ==
-        lst_INF)  // Designated for tilted module when the slope is exactly infinity (module lying along y-axis)
+        kVerticalModuleSlope)  // Designated for tilted module when the slope is infinity (module lying along y-axis)
     {
       xn = xa;  // New x point is simply where the anchor is
       yn = yo;  // No shift in y
@@ -807,15 +807,13 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       }
       alpaka::syncBlockThreads(acc);
 
-      // Create variables outside of the for loop.
-      int occupancy, category_number, eta_number;
-
       for (uint16_t i = globalThreadIdx[0]; i < modules.nLowerModules(); i += gridThreadExtent[0]) {
         short module_rings = modules.rings()[i];
         short module_layers = modules.layers()[i];
         short module_subdets = modules.subdets()[i];
         float module_eta = alpaka::math::abs(acc, modules.eta()[i]);
 
+        int category_number;
         if (module_layers <= 3 && module_subdets == 5)
           category_number = 0;
         else if (module_layers >= 4 && module_subdets == 5)
@@ -831,6 +829,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         else
           category_number = -1;
 
+        int eta_number;
         if (module_eta < 0.75f)
           eta_number = 0;
         else if (module_eta < 1.5f)
@@ -842,6 +841,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         else
           eta_number = -1;
 
+        int occupancy;
         if (category_number == 0 && eta_number == 0)
           occupancy = 49;
         else if (category_number == 0 && eta_number == 1)

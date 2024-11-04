@@ -9,7 +9,7 @@ void createOutputBranches() {
 }
 
 //________________________________________________________________________________________________________________________________
-void fillOutputBranches(Event* event) {
+void fillOutputBranches(LSTEvent* event) {
   setOutputBranches(event);
   setOptionalOutputBranches(event);
   if (ana.gnn_ntuple)
@@ -183,7 +183,7 @@ void createGnnNtupleBranches() {
 }
 
 //________________________________________________________________________________________________________________________________
-void setOutputBranches(Event* event) {
+void setOutputBranches(LSTEvent* event) {
   // ============ Sim tracks =============
   int n_accepted_simtrk = 0;
   for (unsigned int isimtrk = 0; isimtrk < trk.sim_pt().size(); ++isimtrk) {
@@ -278,7 +278,7 @@ void setOutputBranches(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void setOptionalOutputBranches(Event* event) {
+void setOptionalOutputBranches(LSTEvent* event) {
 #ifdef CUT_VALUE_DEBUG
 
   setPixelQuintupletOutputBranches(event);
@@ -289,7 +289,7 @@ void setOptionalOutputBranches(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void setPixelQuintupletOutputBranches(Event* event) {
+void setPixelQuintupletOutputBranches(LSTEvent* event) {
   // ============ pT5 =============
   auto const pixelQuintuplets = event->getPixelQuintuplets();
   auto const quintuplets = event->getQuintuplets<QuintupletsSoA>();
@@ -364,7 +364,7 @@ void setPixelQuintupletOutputBranches(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void setQuintupletOutputBranches(Event* event) {
+void setQuintupletOutputBranches(LSTEvent* event) {
   auto const quintuplets = event->getQuintuplets<QuintupletsSoA>();
   auto const quintupletsOccupancy = event->getQuintuplets<QuintupletsOccupancySoA>();
   auto ranges = event->getRanges();
@@ -436,7 +436,7 @@ void setQuintupletOutputBranches(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void setPixelTripletOutputBranches(Event* event) {
+void setPixelTripletOutputBranches(LSTEvent* event) {
   auto const pixelTriplets = event->getPixelTriplets();
   auto modules = event->getModules<ModulesSoA>();
   SegmentsPixelConst segmentsPixel = event->getSegments<SegmentsPixelSoA>();
@@ -499,7 +499,7 @@ void setPixelTripletOutputBranches(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void setGnnNtupleBranches(Event* event) {
+void setGnnNtupleBranches(LSTEvent* event) {
   // Get relevant information
   SegmentsOccupancyConst segmentsOccupancy = event->getSegments<SegmentsOccupancySoA>();
   MiniDoubletsOccupancyConst miniDoublets = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
@@ -640,7 +640,7 @@ void setGnnNtupleBranches(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void setGnnNtupleMiniDoublet(Event* event, unsigned int MD) {
+void setGnnNtupleMiniDoublet(LSTEvent* event, unsigned int MD) {
   // Get relevant information
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
   auto hitsEvt = event->getHits<HitsSoA>();
@@ -708,27 +708,25 @@ void setGnnNtupleMiniDoublet(Event* event, unsigned int MD) {
 }
 
 //________________________________________________________________________________________________________________________________
-std::tuple<int, float, float, float, int, std::vector<int>> parseTrackCandidate(Event* event, unsigned int idx) {
+std::tuple<int, float, float, float, int, std::vector<int>> parseTrackCandidate(LSTEvent* event, unsigned int idx) {
   // Get the type of the track candidate
   auto const& trackCandidates = event->getTrackCandidates();
   short type = trackCandidates.trackCandidateType()[idx];
-
-  enum { pT5 = 7, pT3 = 5, T5 = 4, pLS = 8 };
 
   // Compute pt eta phi and hit indices that will be used to figure out whether the TC matched
   float pt, eta, phi;
   std::vector<unsigned int> hit_idx, hit_type;
   switch (type) {
-    case pT5:
+    case lst::LSTObjType::pT5:
       std::tie(pt, eta, phi, hit_idx, hit_type) = parsepT5(event, idx);
       break;
-    case pT3:
+    case lst::LSTObjType::pT3:
       std::tie(pt, eta, phi, hit_idx, hit_type) = parsepT3(event, idx);
       break;
-    case T5:
+    case lst::LSTObjType::T5:
       std::tie(pt, eta, phi, hit_idx, hit_type) = parseT5(event, idx);
       break;
-    case pLS:
+    case lst::LSTObjType::pLS:
       std::tie(pt, eta, phi, hit_idx, hit_type) = parsepLS(event, idx);
       break;
   }
@@ -741,7 +739,7 @@ std::tuple<int, float, float, float, int, std::vector<int>> parseTrackCandidate(
 }
 
 //________________________________________________________________________________________________________________________________
-std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parsepT5(Event* event,
+std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parsepT5(LSTEvent* event,
                                                                                                unsigned int idx) {
   // Get relevant information
   auto const trackCandidates = event->getTrackCandidates();
@@ -853,7 +851,7 @@ std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned 
 }
 
 //________________________________________________________________________________________________________________________________
-std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parsepT3(Event* event,
+std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parsepT3(LSTEvent* event,
                                                                                                unsigned int idx) {
   // Get relevant information
   auto const trackCandidates = event->getTrackCandidates();
@@ -888,7 +886,7 @@ std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned 
 }
 
 //________________________________________________________________________________________________________________________________
-std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parseT5(Event* event,
+std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parseT5(LSTEvent* event,
                                                                                               unsigned int idx) {
   auto const trackCandidates = event->getTrackCandidates();
   auto const quintuplets = event->getQuintuplets<QuintupletsSoA>();
@@ -922,7 +920,7 @@ std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned 
 }
 
 //________________________________________________________________________________________________________________________________
-std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parsepLS(Event* event,
+std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned int>> parsepLS(LSTEvent* event,
                                                                                                unsigned int idx) {
   auto const& trackCandidates = event->getTrackCandidates();
   SegmentsPixelConst segmentsPixel = event->getSegments<SegmentsPixelSoA>();
@@ -943,7 +941,7 @@ std::tuple<float, float, float, std::vector<unsigned int>, std::vector<unsigned 
 }
 
 //________________________________________________________________________________________________________________________________
-void printHitMultiplicities(Event* event) {
+void printHitMultiplicities(LSTEvent* event) {
   auto modules = event->getModules<ModulesSoA>();
   auto hitRanges = event->getHits<HitsRangesSoA>();
 
@@ -958,7 +956,7 @@ void printHitMultiplicities(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void printMiniDoubletMultiplicities(Event* event) {
+void printMiniDoubletMultiplicities(LSTEvent* event) {
   MiniDoubletsOccupancyConst miniDoublets = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
   auto modules = event->getModules<ModulesSoA>();
 
@@ -977,7 +975,7 @@ void printMiniDoubletMultiplicities(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void printAllObjects(Event* event) {
+void printAllObjects(LSTEvent* event) {
   printMDs(event);
   printLSs(event);
   printpLSs(event);
@@ -985,7 +983,7 @@ void printAllObjects(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void printMDs(Event* event) {
+void printMDs(LSTEvent* event) {
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
   MiniDoubletsOccupancyConst miniDoubletsOccupancy = event->getMiniDoublets<MiniDoubletsOccupancySoA>();
   auto hitsEvt = event->getHits<HitsSoA>();
@@ -1008,7 +1006,7 @@ void printMDs(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void printLSs(Event* event) {
+void printLSs(LSTEvent* event) {
   SegmentsConst segments = event->getSegments<SegmentsSoA>();
   SegmentsOccupancyConst segmentsOccupancy = event->getSegments<SegmentsOccupancySoA>();
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
@@ -1041,7 +1039,7 @@ void printLSs(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void printpLSs(Event* event) {
+void printpLSs(LSTEvent* event) {
   SegmentsConst segments = event->getSegments<SegmentsSoA>();
   SegmentsOccupancyConst segmentsOccupancy = event->getSegments<SegmentsOccupancySoA>();
   MiniDoubletsConst miniDoublets = event->getMiniDoublets<MiniDoubletsSoA>();
@@ -1072,7 +1070,7 @@ void printpLSs(Event* event) {
 }
 
 //________________________________________________________________________________________________________________________________
-void printT3s(Event* event) {
+void printT3s(LSTEvent* event) {
   auto const triplets = event->getTriplets<TripletsSoA>();
   auto const tripletsOccupancy = event->getTriplets<TripletsOccupancySoA>();
   SegmentsConst segments = event->getSegments<SegmentsSoA>();

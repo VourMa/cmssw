@@ -3,11 +3,9 @@
 
 #include <vector>
 #include <tuple>
-#include "Event.h"
+#include "LSTEvent.h"
 
-using LSTEvent = ALPAKA_ACCELERATOR_NAMESPACE::lst::Event;
-
-enum { kpT5 = 7, kpT3 = 5, kT5 = 4, kpLS = 8 };
+using LSTEvent = ALPAKA_ACCELERATOR_NAMESPACE::lst::LSTEvent;
 
 // ----* Hit *----
 std::tuple<std::vector<unsigned int>, std::vector<unsigned int>> convertHitsToHitIdxsAndHitTypes(

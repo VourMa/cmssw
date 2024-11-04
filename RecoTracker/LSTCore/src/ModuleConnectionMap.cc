@@ -26,6 +26,7 @@ void lst::ModuleConnectionMap::load(std::string const& filename) {
 
     if (ifile) {
       std::vector<unsigned int> connected_detids;
+      connected_detids.reserve(number_of_connections);
 
       // Read the connections for the given detid
       for (unsigned int i = 0; i < number_of_connections; ++i) {
@@ -42,7 +43,7 @@ void lst::ModuleConnectionMap::load(std::string const& filename) {
       }
 
       if (ifile) {
-        moduleConnections_[detid] = connected_detids;
+        moduleConnections_[detid] = std::move(connected_detids);
       }
     } else {
       if (!ifile.eof()) {
@@ -66,6 +67,7 @@ void lst::ModuleConnectionMap::add(std::string const& filename) {
     std::stringstream ss(line);
 
     ss >> detid >> number_of_connections;
+    connected_detids.reserve(number_of_connections);
 
     for (int ii = 0; ii < number_of_connections; ++ii) {
       ss >> connected_detid;
@@ -90,7 +92,7 @@ void lst::ModuleConnectionMap::print() {
   std::cout << "Printing ModuleConnectionMap" << std::endl;
   for (auto& pair : moduleConnections_) {
     unsigned int detid = pair.first;
-    std::vector<unsigned int> connected_detids = pair.second;
+    std::vector<unsigned int> const& connected_detids = pair.second;
     std::cout << " detid: " << detid << std::endl;
     for (auto& connected_detid : connected_detids) {
       std::cout << " connected_detid: " << connected_detid << std::endl;
