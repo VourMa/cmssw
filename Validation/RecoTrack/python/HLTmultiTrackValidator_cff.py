@@ -42,11 +42,11 @@ from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
 from Configuration.ProcessModifiers.ngtScouting_cff import ngtScouting
 
 def _modifyForPhase2LSTTracking(trackvalidator):
-    trackvalidator.label = ["hltGeneralTracks", "hltPhase2PixelTracks", "hltInitialStepTrackSelectionHighPuritypTTCLST", "hltInitialStepTrackSelectionHighPuritypLSTCLST", "hltInitialStepTracksT5TCLST", "hltHighPtTripletStepTrackSelectionHighPurity"]
+    trackvalidator.label = ["hltGeneralTracks", "hltPhase2PixelTracks", "hltInitialStepTrackSelectionHighPuritypTTCLST", "hltInitialStepTrackSelectionHighPuritypLSTCLST", "hltInitialStepTrackSelectionHighPurityT5TCLST", "hltHighPtTripletStepTrackSelectionHighPurity"]
 (~seedingLST & trackingLST).toModify(hltTrackValidator, _modifyForPhase2LSTTracking)
 
 def _modifyForPhase2LSTSeeding(trackvalidator):
-    trackvalidator.label = ["hltGeneralTracks", "hltPhase2PixelTracks", "hltInitialStepTrackSelectionHighPuritypTTCLST", "hltInitialStepTracksT5TCLST", "hltHighPtTripletStepTrackSelectionHighPuritypLSTCLST"]
+    trackvalidator.label = ["hltGeneralTracks", "hltPhase2PixelTracks", "hltInitialStepTrackSelectionHighPuritypTTCLST", "hltInitialStepTrackSelectionHighPurityT5TCLST", "hltHighPtTripletStepTrackSelectionHighPuritypLSTCLST"]
 (seedingLST & trackingLST).toModify(hltTrackValidator, _modifyForPhase2LSTSeeding)
 
 from Configuration.ProcessModifiers.singleIterPatatrack_cff import singleIterPatatrack
