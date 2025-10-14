@@ -36,10 +36,6 @@ from Configuration.ProcessModifiers.singleIterPatatrack_cff import singleIterPat
 from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
 from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
 
-#(~singleIterPatatrack & trackingLST & ~seedingLST).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceLST)
-#
-#(~singleIterPatatrack & trackingLST & seedingLST).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceLST)
-
 (~singleIterPatatrack & trackingLST).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceLST)
 
 (singleIterPatatrack & trackingLST & ~seedingLST).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceLST.copyAndExclude([HLTHighPtTripletStepSeedingSequence,hltHighPtTripletStepSeedTracksLST]))
