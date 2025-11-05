@@ -56,6 +56,7 @@ _HLTInitialStepSequenceSingleIterPatatrackLSTSeeding = cms.Sequence(
 
 (singleIterPatatrack & trackingLST & seedingLST).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceSingleIterPatatrackLSTSeeding)
 
+from ..modules.hltInitialStepTracksT5TCLST_cfi import *
 _HLTInitialStepSequenceNGTScouting = cms.Sequence(
     hltInitialStepSeeds
     +hltInitialStepSeedTracksLST

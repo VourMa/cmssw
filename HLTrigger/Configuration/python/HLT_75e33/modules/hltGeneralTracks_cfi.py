@@ -36,7 +36,7 @@ _hltGeneralTracksSingleIterPatatrack = hltGeneralTracks.clone(
     hasSelector = [0],
     indivShareFrac = [1.0],
     selectedTrackQuals = ["hltInitialStepTrackSelectionHighPurity"],
-    setsToMerge = {0: dict(pQual=True, tLists=[0,1])}
+    setsToMerge = {0: dict(pQual=True, tLists=[0])}
 )
 
 (singleIterPatatrack & trackingLST).toModify(_hltGeneralTracksSingleIterPatatrack, indivShareFrac = [0.1])
