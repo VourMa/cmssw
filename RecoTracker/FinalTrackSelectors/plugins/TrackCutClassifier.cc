@@ -206,8 +206,9 @@ namespace {
       }
       // If requested in the configuration, bypass the other checks
       // for tracks without pixel hits (displaced tracks)
+      auto nLayers = trk.hitPattern().trackerLayersWithMeasurement();
       if (passThroughForDisplaced) {
-        if (nPixelHits(trk) == 0)
+        if (nPixelHits(trk) == 0 && nLayers > 4)
           return 1.f;
       }
 
@@ -221,7 +222,6 @@ namespace {
       if (ret == -1.f)
         return ret;
 
-      auto nLayers = trk.hitPattern().trackerLayersWithMeasurement();
       ret = std::min(ret, cut(nLayers, minLayers, std::greater_equal<int>()));
       if (ret == -1.f)
         return ret;
