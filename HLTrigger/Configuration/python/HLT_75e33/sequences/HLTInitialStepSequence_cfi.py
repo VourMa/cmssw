@@ -100,6 +100,8 @@ _HLTInitialStepSequenceSingleIterPatatrackLSTSeedingMkFitTracking = cms.Sequence
     +hltInitialStepTrackCandidatesMkFit
     +hltInitialStepTrackCandidates
     +hltInitialStepTracks
+    +hltInitialStepTrackCutClassifier
+    +hltInitialStepTrackSelectionHighPurity
 )
 
 (singleIterPatatrack & trackingLST & seedingLST & hltTrackingMkFitInitialStep).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceSingleIterPatatrackLSTSeedingMkFitTracking)
