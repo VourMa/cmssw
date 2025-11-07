@@ -405,7 +405,7 @@ namespace {
                                        std::numeric_limits<float>::max()});  // par = 3.
       desc.add<edm::ParameterSetDescription>("dr_par", dr_par);
       desc.add<bool>("passThroughForDisplaced", false);
-      desc.add<int>("minLayersForDisplaced", 5);
+      desc.add<int>("minLayersForDisplaced", 4);
     }
 
     bool isHLT;
