@@ -32,9 +32,9 @@ _HLTInitialStepSequenceLST = cms.Sequence(
     +hltInitialStepTrackSelectionHighPurity
 )
 
+from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
 from Configuration.ProcessModifiers.singleIterPatatrack_cff import singleIterPatatrack
 from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
-from Configuration.ProcessModifiers.seedingLST_cff import seedingLST
 
 (~singleIterPatatrack & trackingLST).toReplaceWith(HLTInitialStepSequence, _HLTInitialStepSequenceLST)
 
