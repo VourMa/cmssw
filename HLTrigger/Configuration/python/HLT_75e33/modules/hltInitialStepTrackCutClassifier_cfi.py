@@ -42,4 +42,4 @@ from Configuration.ProcessModifiers.singleIterPatatrack_cff import singleIterPat
 from Configuration.ProcessModifiers.trackingLST_cff import trackingLST
 
 trackingLST.toModify(hltInitialStepTrackCutClassifier, mva = dict( passThroughForDisplaced = True ))
-(singleIterPatatrack & trackingLST & seedingLST & hltTrackingMkFitInitialStep).toModify(hltInitialStepTrackCutClassifier, mva = dict( passThroughForAll = True ))
+(singleIterPatatrack & trackingLST & seedingLST).toModify(hltInitialStepTrackCutClassifier, mva = dict( passThroughForAll = True ))
