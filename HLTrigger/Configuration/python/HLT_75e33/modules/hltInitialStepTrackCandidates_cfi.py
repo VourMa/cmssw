@@ -86,4 +86,18 @@ from Configuration.ProcessModifiers.hltTrackingMkFitInitialStep_cff import hltTr
 (~(singleIterPatatrack & seedingLST) & trackingLST).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesLST)
 (singleIterPatatrack & trackingLST & seedingLST).toModify(hltInitialStepTrackCandidates, src = "hltInitialStepTrajectorySeedsLST") # All LST seeds
 (~seedingLST & ~trackingLST & hltTrackingMkFitInitialStep).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFit)
-(singleIterPatatrack & seedingLST & trackingLST & hltTrackingMkFitInitialStep).toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFitLSTSeeds)
+_singlePataLSTMkFit = singleIterPatatrack & trackingLST & seedingLST & hltTrackingMkFitInitialStep
+_singlePataLSTMkFit.toReplaceWith(hltInitialStepTrackCandidates, _hltInitialStepTrackCandidatesMkFitLSTSeeds)
+
+# Supported combinations for LST CPU vs. GPU validation
+hltInitialStepTrackCandidatesSerialSync = hltInitialStepTrackCandidates.clone()
+(singleIterPatatrack & trackingLST & ~seedingLST).toModify(hltInitialStepTrackCandidatesSerialSync,
+    lstOutput = "hltLSTSerialSync",
+    lstInput = "hltInputLSTSerialSync",
+    lstPixelSeeds = "hltInputLSTSerialSync"
+)
+_singlePataLSTMkFit.toModify(hltInitialStepTrackCandidatesSerialSync,
+    mkFitSeeds = "hltInitialStepMkFitSeedsSerialSync",
+    seeds = "hltInitialStepTrajectorySeedsLSTSerialSync",
+    tracks = "hltInitialStepTrackCandidatesMkFitSerialSync",
+)

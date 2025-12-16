@@ -60,6 +60,7 @@ numWFIB.extend([prefixDet+34.752]) # HLTTiming75e33, ticl_v5
 numWFIB.extend([prefixDet+34.7521])# HLTTiming75e33, ticl_v5, ticlv5TrackLinkingGNN
 numWFIB.extend([prefixDet+34.753]) # HLTTiming75e33, alpaka,singleIterPatatrack
 numWFIB.extend([prefixDet+34.754]) # HLTTiming75e33, alpaka,singleIterPatatrack,trackingLST
+numWFIB.extend([prefixDet+34.7541]) # HLTTiming75e33, alpakaValidationLST,singleIterPatatrack,trackingLST
 numWFIB.extend([prefixDet+34.755]) # HLTTiming75e33, alpaka,trackingLST
 numWFIB.extend([prefixDet+34.756]) # HLTTiming75e33, phase2_hlt_vertexTrimming
 numWFIB.extend([prefixDet+34.7561])# HLTTiming75e33, alpaka,phase2_hlt_vertexTrimming
@@ -67,6 +68,7 @@ numWFIB.extend([prefixDet+34.7562])# HLTTiming75e33, alpaka,phase2_hlt_vertexTri
 numWFIB.extend([prefixDet+34.757]) # HLTTiming75e33, alpaka,singleIterPatatrack,trackingLST,seedingLST
 numWFIB.extend([prefixDet+34.7571]) # HLTTiming75e33, alpaka,singleIterPatatrack,Phase2CAExtension,trackingLST,seedingLST,buildingMkFit
 numWFIB.extend([prefixDet+34.7572]) # HLTTiming75e33, alpaka,singleIterPatatrack,Phase2CAExtension,trackingLST,seedingLST,buildingMkFit,fittingMkFit
+numWFIB.extend([prefixDet+34.7573]) # HLTTiming75e33, alpakaValidationLST,singleIterPatatrack,Phase2CAExtension,trackingLST,seedingLST,buildingMkFit
 numWFIB.extend([prefixDet+34.758]) # HLTTiming75e33, ticl_barrel
 numWFIB.extend([prefixDet+34.759]) # HLTTiming75e33 + NANO
 numWFIB.extend([prefixDet+34.77])  # NGTScouting
