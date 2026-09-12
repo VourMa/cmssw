@@ -7,7 +7,70 @@
 
 using LSTEvent = ALPAKA_ACCELERATOR_NAMESPACE::lst::LSTEvent;
 using LSTInputDeviceCollection = ALPAKA_ACCELERATOR_NAMESPACE::lst::LSTInputDeviceCollection;
+using MemoryProfiler = ALPAKA_ACCELERATOR_NAMESPACE::lst::MemoryProfiler;
 using namespace ::lst;
+
+// ALPAKA_ACCELERATOR_NAMESPACE is a macro (alpaka_serial_sync, alpaka_cuda_async, ...);
+// two levels of indirection are needed to stringify its expansion rather than its name.
+#define LST_STRINGIFY_(x) #x
+#define LST_STRINGIFY(x) LST_STRINGIFY_(x)
+#define LST_BACKEND_NAME LST_STRINGIFY(ALPAKA_ACCELERATOR_NAMESPACE)
+
+//___________________________________________________________________________________________________________________________________________________________________________________________
+// Append one JSON-lines memory record for this event. Standalone only: the file
+// is owned by this process and every call is inside an omp critical section, so
+// no shared-state guard beyond that is needed. The CMSSW-side writer is separate
+// because LSTProducer is a global::EDProducer and cannot hold mutable state.
+void writeMemoryProfileRecord(LSTEvent *event, int evt, int stream) {
+  static std::ofstream out;
+  if (!out.is_open()) {
+    TString path = ana.output_tfile->GetName();
+    path.ReplaceAll(".root", "");
+    path += ".memprofile.jsonl";
+    out.open(path.Data(), std::ios::out | std::ios::trunc);
+    if (!out) {
+      RooUtil::error(TString::Format("could not open memory profile output %s", path.Data()));
+    }
+    std::cout << "[memoryProfile] writing records to " << path << std::endl;
+  }
+
+  auto const &mp = event->getMemoryProfile();
+  using D = MemoryProfiler::Domain;
+
+  out << "{";
+  out << "\"event\":" << evt << ",\"stream\":" << stream;
+  out << ",\"backend\":\"" << LST_BACKEND_NAME << "\"";
+  out << ",\"allocator_in_path\":" << (MemoryProfiler::kAllocatorInPath ? "true" : "false");
+  // The reserved figures come from a mirror of the allocator's private findBin,
+  // driven by these values. AlpakaService can override them from its PSet, in which
+  // case reserved would be computed against the wrong bins -- so record them.
+  cms::alpakatools::AllocatorConfig memcfg;
+  out << ",\"allocator_bin_growth\":" << memcfg.binGrowth;
+  out << ",\"allocator_min_bin\":" << memcfg.minBin;
+  out << ",\"allocator_max_bin\":" << memcfg.maxBin;
+  out << ",\"reduce_mem_by_full_precompute\":" << (ana.reduce_mem_by_full_precompute ? "true" : "false");
+  out << ",\"memory_profile\":true";
+  out << ",\"peak_device_requested\":" << mp.peakRequested(D::Device);
+  out << ",\"peak_device_reserved\":" << mp.peakReserved(D::Device);
+  out << ",\"peak_host_requested\":" << mp.peakRequested(D::Host);
+  out << ",\"peak_host_reserved\":" << mp.peakReserved(D::Host);
+  out << ",\"sum_device_requested\":" << mp.sumRequested(D::Device);
+  out << ",\"sum_host_requested\":" << mp.sumRequested(D::Host);
+  out << ",\"collections\":[";
+  bool first = true;
+  for (auto const &e : mp.entries()) {
+    if (!first)
+      out << ",";
+    first = false;
+    out << "{\"name\":\"" << e.name << "\"";
+    out << ",\"domain\":\"" << (e.domain == D::Device ? "device" : "host") << "\"";
+    out << ",\"slots\":" << e.slots;
+    out << ",\"requested\":" << e.requested;
+    out << ",\"reserved\":" << e.reserved;
+    out << "}";
+  }
+  out << "]}" << std::endl;
+}
 
 //___________________________________________________________________________________________________________________________________________________________________________________________
 int main(int argc, char **argv) {
@@ -533,6 +596,13 @@ void run_lst() {
           trk.GetEntry(trkev);
           fillOutputBranches(events.at(omp_get_thread_num()));
           f->Close();
+        }
+      }
+
+      if (ana.memory_profile) {
+#pragma omp critical
+        {
+          writeMemoryProfileRecord(events.at(omp_get_thread_num()), evt, omp_get_thread_num());
         }
       }
 

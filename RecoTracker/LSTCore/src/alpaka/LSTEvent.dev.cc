@@ -62,6 +62,7 @@ void LSTEvent::resetEventSync() {
     }
   }
   memoryAllocatedMB_ = 0;
+  memProfile_.endEvent();
   lstInputDC_ = nullptr;
   hitsDC_.reset();
   rangesDC_.reset();
@@ -106,8 +107,12 @@ void LSTEvent::addHitToEvent() {
     auto buf = hitsDC_->buffer();
     alpaka::memset(queue_, buf, 0xff);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(hitsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(hitsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Hits", MemoryProfiler::Domain::Device, nHits, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Hits: {} allocated ({:.1f} MB)", nHits, mb));
       }
@@ -119,8 +124,12 @@ void LSTEvent::addHitToEvent() {
     auto buf = rangesDC_->buffer();
     alpaka::memset(queue_, buf, 0xff);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(rangesDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(rangesDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Ranges", MemoryProfiler::Domain::Device, nLowerModules_ + 1, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Ranges: {} allocated ({:.1f} MB)", nLowerModules_ + 1, mb));
       }
@@ -165,8 +174,12 @@ void LSTEvent::addPixelSegmentToEventStart() {
   if (!pixelSegmentsDC_) {
     pixelSegmentsDC_.emplace(queue_, pixelSize_);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(pixelSegmentsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(pixelSegmentsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("PixelSegments", MemoryProfiler::Domain::Device, pixelSize_, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] PixelSegments: {} allocated ({:.1f} MB)", pixelSize_, mb));
       }
@@ -242,8 +255,12 @@ void LSTEvent::createMiniDoublets() {
 
     miniDoubletsDC_.emplace(queue_, nTotalMDs, nLowerModules_ + 1);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(miniDoubletsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(miniDoubletsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("MiniDoublets", MemoryProfiler::Domain::Device, nTotalMDs, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] MiniDoublets: {} allocated ({:.1f} MB)", nTotalMDs, mb));
       }
@@ -344,8 +361,12 @@ void LSTEvent::createSegmentsWithModuleMap() {
 
     segmentsDC_.emplace(queue_, nTotalSegments_, nLowerModules_ + 1);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(segmentsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(segmentsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Segments", MemoryProfiler::Domain::Device, nTotalSegments_, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Segments: {} allocated ({:.1f} MB)", nTotalSegments_, mb));
       }
@@ -440,8 +461,12 @@ void LSTEvent::createTriplets() {
     unsigned int nTotalTriplets = *maxTriplets_buf_h.data();
     tripletsDC_.emplace(queue_, nTotalTriplets, nLowerModules_);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(tripletsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(tripletsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Triplets", MemoryProfiler::Domain::Device, nTotalTriplets, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Triplets: {} allocated ({:.1f} MB)", nTotalTriplets, mb));
       }
@@ -660,10 +685,13 @@ void LSTEvent::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets)
   trackCandidatesExtendedDC_.emplace(queue_, nTotal);
   trackCandidatesExtendedDC_->zeroInitialise(queue_);
   if (objectsStatistics_ || memoryProfile_) {
-    double mb = (alpaka::getExtentProduct(trackCandidatesBaseDC_->buffer()) +
-                 alpaka::getExtentProduct(trackCandidatesExtendedDC_->buffer())) /
-                1e6;
+    std::size_t bytes = alpaka::getExtentProduct(trackCandidatesBaseDC_->buffer()) +
+                        alpaka::getExtentProduct(trackCandidatesExtendedDC_->buffer());
+    double mb = bytes / 1e6;
     memoryAllocatedMB_ += mb;
+    if (memoryProfile_) {
+      memProfile_.recordAlloc("TrackCandidates", MemoryProfiler::Domain::Device, nTotal, bytes);
+    }
     if (objectsStatistics_) {
       lstWarning(std::format(
           "[MEM] TrackCandidates: {} allocated ({:.1f} MB) [dynamic: {} pT5 + {} pT3 + {} T5 + {} T4 + {} pLS]",
@@ -810,8 +838,12 @@ void LSTEvent::createPixelTriplets() {
         cms::alpakatools::make_device_view(queue_, (*pixelTripletsDC_)->totOccupancyPixelTriplets());
     alpaka::memset(queue_, totOccupancyPixelTriplets_view, 0u);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(pixelTripletsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(pixelTripletsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("PixelTriplets", MemoryProfiler::Domain::Device, n_max_pixel_triplets, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] PixelTriplets: {} allocated ({:.1f} MB) [fixed]", n_max_pixel_triplets, mb));
       }
@@ -976,8 +1008,12 @@ void LSTEvent::createQuintuplets() {
   if (!quintupletsDC_) {
     quintupletsDC_.emplace(queue_, nTotalQuintuplets, nLowerModules_);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(quintupletsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(quintupletsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Quintuplets", MemoryProfiler::Domain::Device, nTotalQuintuplets, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Quintuplets: {} allocated ({:.1f} MB)", nTotalQuintuplets, mb));
       }
@@ -1084,8 +1120,12 @@ void LSTEvent::createPixelQuintuplets() {
         cms::alpakatools::make_device_view(queue_, (*pixelQuintupletsDC_)->totOccupancyPixelQuintuplets());
     alpaka::memset(queue_, totOccupancyPixelQuintuplets_view, 0u);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(pixelQuintupletsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(pixelQuintupletsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("PixelQuintuplets", MemoryProfiler::Domain::Device, n_max_pixel_quintuplets, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(
             std::format("[MEM] PixelQuintuplets: {} allocated ({:.1f} MB) [fixed]", n_max_pixel_quintuplets, mb));
@@ -1255,8 +1295,12 @@ void LSTEvent::createQuadruplets() {
   if (!quadrupletsDC_) {
     quadrupletsDC_.emplace(queue_, nTotalQuadruplets, nLowerModules_);
     if (objectsStatistics_ || memoryProfile_) {
-      double mb = alpaka::getExtentProduct(quadrupletsDC_->buffer()) / 1e6;
+      std::size_t bytes = alpaka::getExtentProduct(quadrupletsDC_->buffer());
+      double mb = bytes / 1e6;
       memoryAllocatedMB_ += mb;
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Quadruplets", MemoryProfiler::Domain::Device, nTotalQuadruplets, bytes);
+      }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Quadruplets: {} allocated ({:.1f} MB)", nTotalQuadruplets, mb));
       }
@@ -1726,6 +1770,10 @@ typename TSoA::ConstView LSTEvent::getInput(bool sync) {
     if (!lstInputHC_ || lstInputHC_->size()[1] == 0) {
       lstInputHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, LSTInputSoA>>::copyAsync(queue_, *lstInputDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "LSTInput", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(lstInputHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1743,6 +1791,9 @@ typename TSoA::ConstView LSTEvent::getHits(bool sync) {
     if (!hitsHC_) {
       hitsHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, HitsSoA>>::copyAsync(queue_, *hitsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("Hits", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(hitsHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1760,6 +1811,10 @@ ObjectRangesConst LSTEvent::getRanges(bool sync) {
     if (!rangesHC_) {
       rangesHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, ObjectRangesSoA>>::copyAsync(queue_, *rangesDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "Ranges", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(rangesHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1777,6 +1832,10 @@ typename TSoA::ConstView LSTEvent::getMiniDoublets(bool sync) {
       miniDoubletsHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, MiniDoubletsSoABlocks>>::copyAsync(
               queue_, *miniDoubletsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "MiniDoublets", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(miniDoubletsHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1794,6 +1853,10 @@ typename TSoA::ConstView LSTEvent::getSegments(bool sync) {
     if (!segmentsHC_) {
       segmentsHC_.emplace(cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, SegmentsSoABlocks>>::copyAsync(
           queue_, *segmentsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "Segments", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(segmentsHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1811,6 +1874,10 @@ PixelSegmentsConst LSTEvent::getPixelSegments(bool sync) {
     if (!pixelSegmentsHC_) {
       pixelSegmentsHC_.emplace(cms::alpakatools::CopyToHost<::PortableCollection<TDev, PixelSegmentsSoA>>::copyAsync(
           queue_, *pixelSegmentsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "PixelSegments", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(pixelSegmentsHC_->buffer()));
+      }
 
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
@@ -1828,6 +1895,10 @@ typename TSoA::ConstView LSTEvent::getTriplets(bool sync) {
     if (!tripletsHC_) {
       tripletsHC_.emplace(cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, TripletsSoABlocks>>::copyAsync(
           queue_, *tripletsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "Triplets", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(tripletsHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1846,6 +1917,10 @@ typename TSoA::ConstView LSTEvent::getQuadruplets(bool sync) {
       quadrupletsHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, QuadrupletsSoABlocks>>::copyAsync(
               queue_, *quadrupletsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "Quadruplets", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(quadrupletsHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1864,6 +1939,10 @@ typename TSoA::ConstView LSTEvent::getQuintuplets(bool sync) {
       quintupletsHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, QuintupletsSoABlocks>>::copyAsync(
               queue_, *quintupletsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "Quintuplets", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(quintupletsHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }
@@ -1881,6 +1960,10 @@ PixelTripletsConst LSTEvent::getPixelTriplets(bool sync) {
     if (!pixelTripletsHC_) {
       pixelTripletsHC_.emplace(cms::alpakatools::CopyToHost<::PortableCollection<TDev, PixelTripletsSoA>>::copyAsync(
           queue_, *pixelTripletsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "PixelTriplets", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(pixelTripletsHC_->buffer()));
+      }
 
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
@@ -1899,6 +1982,12 @@ PixelQuintupletsConst LSTEvent::getPixelQuintuplets(bool sync) {
       pixelQuintupletsHC_.emplace(
           cms::alpakatools::CopyToHost<::PortableCollection<TDev, PixelQuintupletsSoA>>::copyAsync(
               queue_, *pixelQuintupletsDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("PixelQuintuplets",
+                                MemoryProfiler::Domain::Host,
+                                0,
+                                alpaka::getExtentProduct(pixelQuintupletsHC_->buffer()));
+      }
 
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
@@ -1917,6 +2006,12 @@ TrackCandidatesBaseConst LSTEvent::getTrackCandidatesBase(bool sync) {
       trackCandidatesBaseHC_.emplace(
           cms::alpakatools::CopyToHost<::PortableCollection<TDev, TrackCandidatesBaseSoA>>::copyAsync(
               queue_, *trackCandidatesBaseDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("TrackCandidatesBase",
+                                MemoryProfiler::Domain::Host,
+                                0,
+                                alpaka::getExtentProduct(trackCandidatesBaseHC_->buffer()));
+      }
 
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
@@ -1935,6 +2030,12 @@ TrackCandidatesExtendedConst LSTEvent::getTrackCandidatesExtended(bool sync) {
       trackCandidatesExtendedHC_.emplace(
           cms::alpakatools::CopyToHost<::PortableCollection<TDev, TrackCandidatesExtendedSoA>>::copyAsync(
               queue_, *trackCandidatesExtendedDC_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc("TrackCandidatesExtended",
+                                MemoryProfiler::Domain::Host,
+                                0,
+                                alpaka::getExtentProduct(trackCandidatesExtendedHC_->buffer()));
+      }
 
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
@@ -1956,6 +2057,10 @@ typename TSoA::ConstView LSTEvent::getModules(bool sync) {
     if (!modulesHC_) {
       modulesHC_.emplace(
           cms::alpakatools::CopyToHost<PortableDeviceCollection<TDev, ModulesSoABlocks>>::copyAsync(queue_, modules_));
+      if (memoryProfile_) {
+        memProfile_.recordAlloc(
+            "Modules", MemoryProfiler::Domain::Host, 0, alpaka::getExtentProduct(modulesHC_->buffer()));
+      }
       if (sync)
         alpaka::wait(queue_);  // host consumers expect filled data
     }

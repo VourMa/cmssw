@@ -36,6 +36,8 @@
 
 #include "HeterogeneousCore/AlpakaInterface/interface/host.h"
 
+#include "MemoryProfiler.h"
+
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
   class LSTEvent {
@@ -102,6 +104,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // Enabling it must not trigger the add*ToEventExplicit() copies or any printout.
     bool memoryProfile_ = false;
     double memoryAllocatedMB_ = 0;
+    MemoryProfiler memProfile_;
 
   public:
     // Constructor used for CMSSW integration. Uses an external queue.
@@ -190,6 +193,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     unsigned int getNumberOfQuadrupletsByLayerEndcap(unsigned int layer);
 
     double getMemoryAllocatedMB() const { return memoryAllocatedMB_; }
+
+    // Per-event memory accounting; populated only when memoryProfile is enabled.
+    MemoryProfiler const& getMemoryProfile() const { return memProfile_; }
 
     // sync adds alpaka::wait at the end of filling a buffer during lazy fill
     // (has no effect on repeated calls)
