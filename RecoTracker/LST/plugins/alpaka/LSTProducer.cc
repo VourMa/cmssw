@@ -33,6 +33,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
           nopLSDupClean_(config.getParameter<bool>("nopLSDupClean")),
           tcpLSTriplets_(config.getParameter<bool>("tcpLSTriplets")),
           reduceMemByFullPrecompute_(config.getParameter<bool>("reduceMemByFullPrecompute")),
+          memoryProfile_(config.getParameter<bool>("memoryProfile")),
           lstInputToken_{consumes(config.getParameter<edm::InputTag>("lstInput"))},
           lstESToken_{esConsumes(edm::ESInputTag("", ptCutStr_))},
           lstOutputToken_{produces()} {}
@@ -51,7 +52,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               &lstInputDC,
               nopLSDupClean_,
               tcpLSTriplets_,
-              reduceMemByFullPrecompute_);
+              reduceMemByFullPrecompute_,
+              memoryProfile_);
 
       // Output
       auto lstTrackCandidates = lst.getTrackCandidates();
@@ -71,6 +73,12 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
               "If true, run extra counting kernels that exactly size the MD/LS/T3/T5/T4 "
               "buffers, reducing average per-event memory at a small CPU/GPU runtime cost. "
               "If false (default), buffers use cheaper, looser occupancy estimates.");
+      desc.add<bool>("memoryProfile", false)
+          ->setComment(
+              "If true, record per-event memory accounting for the LST collections. "
+              "Independent of 'verbose': it does not enable the add*ToEventExplicit() "
+              "device-to-host copies and produces no printout. Default false, and free "
+              "when disabled.");
       descriptions.addWithDefaultLabel(desc);
     }
 
@@ -82,6 +90,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
     const bool nopLSDupClean_;
     const bool tcpLSTriplets_;
     const bool reduceMemByFullPrecompute_;
+    const bool memoryProfile_;
     const device::EDGetToken<lst::LSTInputDeviceCollection> lstInputToken_;
     const device::ESGetToken<lst::LSTESData<Device>, TrackerRecoGeometryRecord> lstESToken_;
     const device::EDPutToken<lst::TrackCandidatesBaseDeviceCollection> lstOutputToken_;

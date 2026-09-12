@@ -98,6 +98,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     PixelMap const& pixelMapping_;
     EndcapGeometryDevDeviceCollection const& endcapGeometry_;
     bool objectsStatistics_ = false;
+    // Memory accounting, deliberately independent of verbose/objectsStatistics_.
+    // Enabling it must not trigger the add*ToEventExplicit() copies or any printout.
+    bool memoryProfile_ = false;
     double memoryAllocatedMB_ = 0;
 
   public:
@@ -107,7 +110,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
              const uint16_t clustSizeCut,
              Queue& q,
              const LSTESData<Device>* deviceESData,
-             bool reduce_mem_by_full_precompute)
+             bool reduce_mem_by_full_precompute,
+             bool memory_profile)
         : queue_(q),
           ptCut_(ptCut),
           clustSizeCut_(clustSizeCut),
@@ -119,7 +123,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           modules_(*deviceESData->modules),
           pixelMapping_(*deviceESData->pixelMapping),
           endcapGeometry_(*deviceESData->endcapGeometry),
-          objectsStatistics_(verbose) {
+          objectsStatistics_(verbose),
+          memoryProfile_(memory_profile) {
       if (ptCut < 0.6f) {
         throw std::invalid_argument("Minimum pT cut must be at least 0.6 GeV. Provided value: " +
                                     std::to_string(ptCut));
