@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cstddef>
+#include <sstream>
+#include <string>
 #include <string_view>
 #include <type_traits>
 #include <vector>
@@ -44,13 +46,26 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       std::size_t reserved = 0;   // bytes the process actually holds
     };
 
+    // One SoA column. Derived from the layout rather than a hand-maintained
+    // table, so adding a column to a SoA makes it appear here with no change.
+    struct Column {
+      std::string collection;
+      std::string block;  // empty for a flat (non-blocks) layout
+      std::string name;
+      // "Column" scales with the element count; "Scalar" is one value for the
+      // whole collection, padded up to the alignment (4 bytes of payload in 128).
+      // Only columns are per-slot costs, which is what a column diet can attack.
+      std::string kind;
+      std::size_t bytes = 0;
+      std::size_t padding = 0;
+    };
+
     // Mirror of CachingAllocator::findBin, which is private and befriends only
     // AlpakaService (HeterogeneousCore/AlpakaInterface/interface/CachingAllocator.h).
     // Verified against cacheStatus() on the CUDA backend: 1000 -> 1024,
     // 16800000 -> 33554432. Unlike findBin this clamps instead of throwing, because
     // the harness must never change the outcome of a run.
-    static constexpr std::size_t reservedFor(std::size_t bytes,
-                                             cms::alpakatools::AllocatorConfig const& cfg = {}) {
+    static constexpr std::size_t reservedFor(std::size_t bytes, cms::alpakatools::AllocatorConfig const& cfg = {}) {
       if constexpr (not kAllocatorInPath) {
         return bytes;
       } else {
@@ -67,6 +82,40 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
           binBytes *= cfg.binGrowth;
         }
         return binBytes;
+      }
+    }
+
+    // Enumerate one layout's columns. soaToStreamInternal does layout arithmetic
+    // only and never dereferences storage, so the caller passes a Layout
+    // null-constructed over the real element counts -- PortableCollection keeps
+    // layout_ private, so a live collection cannot be introspected directly.
+    //
+    // Parsing the text dump rather than reimplementing the enumeration is
+    // deliberate: the loop is the thing that would drift when a column is added.
+    // If the SoA machinery ever changes the format, nothing is silently wrong --
+    // the column count drops to zero, which the record makes obvious.
+    template <typename TLayoutPart>
+    void recordColumns(std::string_view collection, std::string_view block, TLayoutPart const& part) {
+      std::ostringstream os;
+      part.soaToStreamInternal(os);
+      std::istringstream in(os.str());
+      std::string line;
+      while (std::getline(in, line)) {
+        std::istringstream ls(line);
+        std::string tag, name, w_at, w_offset, w_has, w_size, w_and, w_padding;
+        std::size_t offset = 0, size = 0, padding = 0;
+        ls >> tag;
+        // Both kinds must be taken. Reading only "Column" leaves the scalars
+        // unattributed, and the per-collection bytes then fail to reconcile
+        // against the allocation by 128 bytes per scalar.
+        if (tag != "Column" && tag != "Scalar") {
+          continue;
+        }
+        ls >> name >> w_at >> w_offset >> offset >> w_has >> w_size >> size >> w_and >> w_padding >> padding;
+        if (ls.fail()) {
+          continue;
+        }
+        columns_.push_back(Column{std::string(collection), std::string(block), name, tag, size, padding});
       }
     }
 
@@ -94,6 +143,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       peakReserved_.fill(0);
       sumRequested_.fill(0);
       entries_.clear();
+      columns_.clear();
     }
 
     std::size_t peakRequested(Domain d) const { return peakRequested_[static_cast<unsigned>(d)]; }
@@ -101,6 +151,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::size_t sumRequested(Domain d) const { return sumRequested_[static_cast<unsigned>(d)]; }
     std::size_t liveRequested(Domain d) const { return liveRequested_[static_cast<unsigned>(d)]; }
     std::vector<Entry> const& entries() const { return entries_; }
+    std::vector<Column> const& columns() const { return columns_; }
 
   private:
     static constexpr std::size_t ipow(unsigned base, unsigned exp) {
@@ -117,6 +168,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::array<std::size_t, kNDomains> peakReserved_{};
     std::array<std::size_t, kNDomains> sumRequested_{};
     std::vector<Entry> entries_;
+    std::vector<Column> columns_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::lst

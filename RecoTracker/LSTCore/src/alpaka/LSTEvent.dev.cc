@@ -112,6 +112,11 @@ void LSTEvent::addHitToEvent() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("Hits", MemoryProfiler::Domain::Device, nHits, bytes);
+        {
+          HitsDeviceCollection::Layout cols(nullptr, hitsDC_->size());
+          memProfile_.recordColumns("Hits", "extended", cols.extended());
+          memProfile_.recordColumns("Hits", "ranges", cols.ranges());
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Hits: {} allocated ({:.1f} MB)", nHits, mb));
@@ -129,6 +134,10 @@ void LSTEvent::addHitToEvent() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("Ranges", MemoryProfiler::Domain::Device, nLowerModules_ + 1, bytes);
+        {
+          ObjectRangesDeviceCollection::Layout cols(nullptr, rangesDC_->size());
+          memProfile_.recordColumns("Ranges", "", cols);
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Ranges: {} allocated ({:.1f} MB)", nLowerModules_ + 1, mb));
@@ -179,6 +188,10 @@ void LSTEvent::addPixelSegmentToEventStart() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("PixelSegments", MemoryProfiler::Domain::Device, pixelSize_, bytes);
+        {
+          PixelSegmentsDeviceCollection::Layout cols(nullptr, pixelSegmentsDC_->size());
+          memProfile_.recordColumns("PixelSegments", "", cols);
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] PixelSegments: {} allocated ({:.1f} MB)", pixelSize_, mb));
@@ -260,6 +273,11 @@ void LSTEvent::createMiniDoublets() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("MiniDoublets", MemoryProfiler::Domain::Device, nTotalMDs, bytes);
+        {
+          MiniDoubletsDeviceCollection::Layout cols(nullptr, miniDoubletsDC_->size());
+          memProfile_.recordColumns("MiniDoublets", "miniDoublets", cols.miniDoublets());
+          memProfile_.recordColumns("MiniDoublets", "miniDoubletsOccupancy", cols.miniDoubletsOccupancy());
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] MiniDoublets: {} allocated ({:.1f} MB)", nTotalMDs, mb));
@@ -366,6 +384,11 @@ void LSTEvent::createSegmentsWithModuleMap() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("Segments", MemoryProfiler::Domain::Device, nTotalSegments_, bytes);
+        {
+          SegmentsDeviceCollection::Layout cols(nullptr, segmentsDC_->size());
+          memProfile_.recordColumns("Segments", "segments", cols.segments());
+          memProfile_.recordColumns("Segments", "segmentsOccupancy", cols.segmentsOccupancy());
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Segments: {} allocated ({:.1f} MB)", nTotalSegments_, mb));
@@ -466,6 +489,11 @@ void LSTEvent::createTriplets() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("Triplets", MemoryProfiler::Domain::Device, nTotalTriplets, bytes);
+        {
+          TripletsDeviceCollection::Layout cols(nullptr, tripletsDC_->size());
+          memProfile_.recordColumns("Triplets", "triplets", cols.triplets());
+          memProfile_.recordColumns("Triplets", "tripletsOccupancy", cols.tripletsOccupancy());
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Triplets: {} allocated ({:.1f} MB)", nTotalTriplets, mb));
@@ -691,6 +719,12 @@ void LSTEvent::createTrackCandidates(bool no_pls_dupclean, bool tc_pls_triplets)
     memoryAllocatedMB_ += mb;
     if (memoryProfile_) {
       memProfile_.recordAlloc("TrackCandidates", MemoryProfiler::Domain::Device, nTotal, bytes);
+      {
+        TrackCandidatesBaseDeviceCollection::Layout base(nullptr, trackCandidatesBaseDC_->size());
+        memProfile_.recordColumns("TrackCandidatesBase", "", base);
+        TrackCandidatesExtendedDeviceCollection::Layout ext(nullptr, trackCandidatesExtendedDC_->size());
+        memProfile_.recordColumns("TrackCandidatesExtended", "", ext);
+      }
     }
     if (objectsStatistics_) {
       lstWarning(std::format(
@@ -843,6 +877,10 @@ void LSTEvent::createPixelTriplets() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("PixelTriplets", MemoryProfiler::Domain::Device, n_max_pixel_triplets, bytes);
+        {
+          PixelTripletsDeviceCollection::Layout cols(nullptr, pixelTripletsDC_->size());
+          memProfile_.recordColumns("PixelTriplets", "", cols);
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] PixelTriplets: {} allocated ({:.1f} MB) [fixed]", n_max_pixel_triplets, mb));
@@ -1013,6 +1051,11 @@ void LSTEvent::createQuintuplets() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("Quintuplets", MemoryProfiler::Domain::Device, nTotalQuintuplets, bytes);
+        {
+          QuintupletsDeviceCollection::Layout cols(nullptr, quintupletsDC_->size());
+          memProfile_.recordColumns("Quintuplets", "quintuplets", cols.quintuplets());
+          memProfile_.recordColumns("Quintuplets", "quintupletsOccupancy", cols.quintupletsOccupancy());
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Quintuplets: {} allocated ({:.1f} MB)", nTotalQuintuplets, mb));
@@ -1125,6 +1168,10 @@ void LSTEvent::createPixelQuintuplets() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("PixelQuintuplets", MemoryProfiler::Domain::Device, n_max_pixel_quintuplets, bytes);
+        {
+          PixelQuintupletsDeviceCollection::Layout cols(nullptr, pixelQuintupletsDC_->size());
+          memProfile_.recordColumns("PixelQuintuplets", "", cols);
+        }
       }
       if (objectsStatistics_) {
         lstWarning(
@@ -1300,6 +1347,11 @@ void LSTEvent::createQuadruplets() {
       memoryAllocatedMB_ += mb;
       if (memoryProfile_) {
         memProfile_.recordAlloc("Quadruplets", MemoryProfiler::Domain::Device, nTotalQuadruplets, bytes);
+        {
+          QuadrupletsDeviceCollection::Layout cols(nullptr, quadrupletsDC_->size());
+          memProfile_.recordColumns("Quadruplets", "quadruplets", cols.quadruplets());
+          memProfile_.recordColumns("Quadruplets", "quadrupletsOccupancy", cols.quadrupletsOccupancy());
+        }
       }
       if (objectsStatistics_) {
         lstWarning(std::format("[MEM] Quadruplets: {} allocated ({:.1f} MB)", nTotalQuadruplets, mb));

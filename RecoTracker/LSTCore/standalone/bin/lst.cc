@@ -69,6 +69,21 @@ void writeMemoryProfileRecord(LSTEvent *event, int evt, int stream) {
     out << ",\"reserved\":" << e.reserved;
     out << "}";
   }
+  out << "]";
+  out << ",\"columns\":[";
+  first = true;
+  for (auto const &c : mp.columns()) {
+    if (!first)
+      out << ",";
+    first = false;
+    out << "{\"collection\":\"" << c.collection << "\"";
+    out << ",\"block\":\"" << c.block << "\"";
+    out << ",\"name\":\"" << c.name << "\"";
+    out << ",\"kind\":\"" << c.kind << "\"";
+    out << ",\"bytes\":" << c.bytes;
+    out << ",\"padding\":" << c.padding;
+    out << "}";
+  }
   out << "]}" << std::endl;
 }
 
