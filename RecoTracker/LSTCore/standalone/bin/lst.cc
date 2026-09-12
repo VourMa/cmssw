@@ -34,6 +34,7 @@ void writeMemoryProfileRecord(LSTEvent *event, int evt, int stream) {
     std::cout << "[memoryProfile] writing records to " << path << std::endl;
   }
 
+  event->recordUsedSlots();
   auto const &mp = event->getMemoryProfile();
   using D = MemoryProfiler::Domain;
 
@@ -82,6 +83,18 @@ void writeMemoryProfileRecord(LSTEvent *event, int evt, int stream) {
     out << ",\"kind\":\"" << c.kind << "\"";
     out << ",\"bytes\":" << c.bytes;
     out << ",\"padding\":" << c.padding;
+    out << "}";
+  }
+  out << "]";
+  out << ",\"usage\":[";
+  first = true;
+  for (auto const &u : mp.usage()) {
+    if (!first)
+      out << ",";
+    first = false;
+    out << "{\"stage\":\"" << u.stage << "\"";
+    out << ",\"allocated\":" << u.allocated;
+    out << ",\"used\":" << u.used;
     out << "}";
   }
   out << "]}" << std::endl;

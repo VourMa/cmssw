@@ -197,6 +197,11 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // Per-event memory accounting; populated only when memoryProfile is enabled.
     MemoryProfiler const& getMemoryProfile() const { return memProfile_; }
 
+    // Allocated-versus-used slots per stage. Synchronises, so the caller decides
+    // when: call it after the last stage, never between timed stages. No-op
+    // unless memoryProfile is enabled.
+    void recordUsedSlots();
+
     // sync adds alpaka::wait at the end of filling a buffer during lazy fill
     // (has no effect on repeated calls)
     // set to false may allow faster operation with concurrent calls of get*

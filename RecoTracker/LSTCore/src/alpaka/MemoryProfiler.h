@@ -46,6 +46,16 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       std::size_t reserved = 0;   // bytes the process actually holds
     };
 
+    // Allocated versus actually-used slots for one stage. Axis B's first
+    // deliverable is the overshoot of the count-then-allocate bound, and the
+    // used counts were previously produced only by add*ToEventExplicit(), which
+    // the memoryProfile flag deliberately no longer triggers.
+    struct Usage {
+      std::string stage;
+      std::size_t allocated = 0;  // slots the collection was sized for
+      std::size_t used = 0;       // slots actually filled
+    };
+
     // One SoA column. Derived from the layout rather than a hand-maintained
     // table, so adding a column to a SoA makes it appear here with no change.
     struct Column {
@@ -119,6 +129,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       }
     }
 
+    void recordUsage(std::string_view stage, std::size_t allocated, std::size_t used) {
+      usage_.push_back(Usage{std::string(stage), allocated, used});
+    }
+
     void recordAlloc(std::string_view name, Domain domain, std::size_t slots, std::size_t requested) {
       std::size_t reserved = reservedFor(requested);
       unsigned d = static_cast<unsigned>(domain);
@@ -144,6 +158,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
       sumRequested_.fill(0);
       entries_.clear();
       columns_.clear();
+      usage_.clear();
     }
 
     std::size_t peakRequested(Domain d) const { return peakRequested_[static_cast<unsigned>(d)]; }
@@ -152,6 +167,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::size_t liveRequested(Domain d) const { return liveRequested_[static_cast<unsigned>(d)]; }
     std::vector<Entry> const& entries() const { return entries_; }
     std::vector<Column> const& columns() const { return columns_; }
+    std::vector<Usage> const& usage() const { return usage_; }
 
   private:
     static constexpr std::size_t ipow(unsigned base, unsigned exp) {
@@ -169,6 +185,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::array<std::size_t, kNDomains> sumRequested_{};
     std::vector<Entry> entries_;
     std::vector<Column> columns_;
+    std::vector<Usage> usage_;
   };
 
 }  // namespace ALPAKA_ACCELERATOR_NAMESPACE::lst

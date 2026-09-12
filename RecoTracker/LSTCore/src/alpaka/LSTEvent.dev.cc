@@ -1417,6 +1417,100 @@ void LSTEvent::createQuadruplets() {
   }
 }
 
+void LSTEvent::recordUsedSlots() {
+  if (!memoryProfile_) {
+    return;
+  }
+
+  // MD, LS, T3, T5 and T4 have no total-used scalar on the device: the counts
+  // live only in the per-module occupancy arrays. The Phase 0 brief assumed one
+  // unsigned int readback per stage, which exists for the pixel stages and for
+  // TrackCandidates but not for these five. Adding a scalar would mean editing an
+  // SoA layout, which Phase 0 is explicitly not allowed to do.
+  //
+  // So: one array copy plus a host sum per stage. That is still far cheaper than
+  // add*ToEventExplicit(), which copies the occupancy array AND the module subdet
+  // and layer arrays and then bins per layer. Here there is a single memcpy of
+  // nLowerModules_ unsigned ints and no module metadata at all.
+  //
+  // Sum the whole occupancy array, taking its extent from the collection rather
+  // than assuming one. The extent is NOT the same across stages: MiniDoublets and
+  // Segments size theirs to nLowerModules_ + 1, while Triplets, Quintuplets and
+  // Quadruplets use nLowerModules_ with no pixel slot. Hardcoding either one is
+  // wrong somewhere, and both ways fail quietly in opposite directions --
+  // nLowerModules_ everywhere under-counts MD by exactly the 2 * pixelSize_ pixel
+  // slots and reports a 2.05x overshoot that does not exist, while
+  // nLowerModules_ + 1 everywhere reads off the end of three collections.
+  //
+  // An allocated-versus-used table is only worth anything if both sides count the
+  // same population, so the extent comes from size()[1].
+  // Idx, not size_t: alpaka static_asserts that a view and its extent share an
+  // index type, and size()[1] is narrower than size_t.
+  auto sumOccupancy = [&](auto const& deviceCounts, Idx extent) -> std::size_t {
+    auto host = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, extent);
+    auto view = cms::alpakatools::make_device_view(queue_, deviceCounts, extent);
+    alpaka::memcpy(queue_, host, view, extent);
+    alpaka::wait(queue_);
+    std::size_t total = 0;
+    auto const* p = host.data();
+    for (Idx i = 0; i < extent; ++i) {
+      total += p[i];
+    }
+    return total;
+  };
+
+  auto scalar = [&](auto const& deviceScalar) -> std::size_t {
+    auto host = cms::alpakatools::make_host_buffer<unsigned int>(queue_);
+    alpaka::memcpy(queue_, host, cms::alpakatools::make_device_view(queue_, deviceScalar));
+    alpaka::wait(queue_);
+    return *host.data();
+  };
+
+  if (miniDoubletsDC_) {
+    memProfile_.recordUsage("MiniDoublets",
+                            miniDoubletsDC_->size()[0],
+                            sumOccupancy(miniDoubletsDC_->const_view().miniDoubletsOccupancy().nMDs(),
+                                         static_cast<Idx>(miniDoubletsDC_->size()[1])));
+  }
+  if (segmentsDC_) {
+    memProfile_.recordUsage("Segments",
+                            segmentsDC_->size()[0],
+                            sumOccupancy(segmentsDC_->const_view().segmentsOccupancy().nSegments(),
+                                         static_cast<Idx>(segmentsDC_->size()[1])));
+  }
+  if (tripletsDC_) {
+    memProfile_.recordUsage("Triplets",
+                            tripletsDC_->size()[0],
+                            sumOccupancy(tripletsDC_->const_view().tripletsOccupancy().nTriplets(),
+                                         static_cast<Idx>(tripletsDC_->size()[1])));
+  }
+  if (quintupletsDC_) {
+    memProfile_.recordUsage("Quintuplets",
+                            quintupletsDC_->size()[0],
+                            sumOccupancy(quintupletsDC_->const_view().quintupletsOccupancy().nQuintuplets(),
+                                         static_cast<Idx>(quintupletsDC_->size()[1])));
+  }
+  if (quadrupletsDC_) {
+    memProfile_.recordUsage("Quadruplets",
+                            quadrupletsDC_->size()[0],
+                            sumOccupancy(quadrupletsDC_->const_view().quadrupletsOccupancy().nQuadruplets(),
+                                         static_cast<Idx>(quadrupletsDC_->size()[1])));
+  }
+
+  // These five do have a scalar, so they cost one word each.
+  if (pixelTripletsDC_) {
+    memProfile_.recordUsage("PixelTriplets", n_max_pixel_triplets, scalar((*pixelTripletsDC_)->nPixelTriplets()));
+  }
+  if (pixelQuintupletsDC_) {
+    memProfile_.recordUsage(
+        "PixelQuintuplets", n_max_pixel_quintuplets, scalar((*pixelQuintupletsDC_)->nPixelQuintuplets()));
+  }
+  if (trackCandidatesBaseDC_) {
+    memProfile_.recordUsage(
+        "TrackCandidates", trackCandidatesBaseDC_->size(), scalar((*trackCandidatesBaseDC_)->nTrackCandidates()));
+  }
+}
+
 void LSTEvent::addMiniDoubletsToEventExplicit() {
   auto nMDsCPU_buf = cms::alpakatools::make_host_buffer<unsigned int[]>(queue_, nLowerModules_);
   auto mdsOccupancy = miniDoubletsDC_->const_view().miniDoubletsOccupancy();
