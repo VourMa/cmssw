@@ -197,6 +197,10 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     // Per-event memory accounting; populated only when memoryProfile is enabled.
     MemoryProfiler const& getMemoryProfile() const { return memProfile_; }
 
+    // Input scale, so records from events of different difficulty compare.
+    std::size_t getNumberOfInputHits() const { return lstInputDC_ ? lstInputDC_->size()[0] : 0; }
+    std::size_t getNumberOfPixelSeeds() const { return lstInputDC_ ? lstInputDC_->size()[1] : 0; }
+
     // Allocated-versus-used slots per stage. Synchronises, so the caller decides
     // when: call it after the last stage, never between timed stages. No-op
     // unless memoryProfile is enabled.

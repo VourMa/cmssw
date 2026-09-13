@@ -3,6 +3,8 @@
 
 #include <array>
 #include <cstddef>
+#include <cstdint>
+#include <ostream>
 #include <sstream>
 #include <string>
 #include <string_view>
@@ -13,6 +15,12 @@
 
 #include "HeterogeneousCore/AlpakaInterface/interface/AllocatorConfig.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
+
+// ALPAKA_ACCELERATOR_NAMESPACE is a macro (alpaka_serial_sync, alpaka_cuda_async,
+// ...); two levels are needed to stringify what it expands to.
+#define LST_MEMPROFILE_STRINGIFY_(x) #x
+#define LST_MEMPROFILE_STRINGIFY(x) LST_MEMPROFILE_STRINGIFY_(x)
+#define LST_MEMPROFILE_BACKEND LST_MEMPROFILE_STRINGIFY(ALPAKA_ACCELERATOR_NAMESPACE)
 
 namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
 
@@ -168,6 +176,87 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
     std::vector<Entry> const& entries() const { return entries_; }
     std::vector<Column> const& columns() const { return columns_; }
     std::vector<Usage> const& usage() const { return usage_; }
+
+    // What a record needs beyond the accounting itself. The caller supplies it
+    // because LSTEvent does not know the framework's event or stream identity.
+    struct RecordMeta {
+      std::uint64_t event = 0;
+      unsigned int stream = 0;
+      std::size_t nHits = 0;        // input scale, so records can be compared
+      std::size_t nPixelSeeds = 0;  // across events of different difficulty
+      bool reduceMemByFullPrecompute = false;
+    };
+
+    // One JSON-lines record. Shared by the standalone driver and the CMSSW
+    // producer so the two paths cannot drift: a field added here appears in both.
+    void writeRecord(std::ostream& out, RecordMeta const& meta) const {
+      out << "{";
+      out << "\"event\":" << meta.event;
+      out << ",\"stream\":" << meta.stream;
+      out << ",\"backend\":\"" << LST_MEMPROFILE_BACKEND << "\"";
+      out << ",\"allocator_in_path\":" << (kAllocatorInPath ? "true" : "false");
+      // The reserved figures mirror the allocator's private findBin using these
+      // values; AlpakaService can override them from its PSet, which would make
+      // the mirror wrong without changing anything visible. Record them.
+      cms::alpakatools::AllocatorConfig cfg;
+      out << ",\"allocator_bin_growth\":" << cfg.binGrowth;
+      out << ",\"allocator_min_bin\":" << cfg.minBin;
+      out << ",\"allocator_max_bin\":" << cfg.maxBin;
+      out << ",\"reduce_mem_by_full_precompute\":" << (meta.reduceMemByFullPrecompute ? "true" : "false");
+      out << ",\"memory_profile\":true";
+      out << ",\"n_hits\":" << meta.nHits;
+      out << ",\"n_pixel_seeds\":" << meta.nPixelSeeds;
+      out << ",\"peak_device_requested\":" << peakRequested(Domain::Device);
+      out << ",\"peak_device_reserved\":" << peakReserved(Domain::Device);
+      out << ",\"peak_host_requested\":" << peakRequested(Domain::Host);
+      out << ",\"peak_host_reserved\":" << peakReserved(Domain::Host);
+      out << ",\"sum_device_requested\":" << sumRequested(Domain::Device);
+      out << ",\"sum_host_requested\":" << sumRequested(Domain::Host);
+
+      out << ",\"collections\":[";
+      bool first = true;
+      for (auto const& e : entries_) {
+        if (!first)
+          out << ",";
+        first = false;
+        out << "{\"name\":\"" << e.name << "\"";
+        out << ",\"domain\":\"" << (e.domain == Domain::Device ? "device" : "host") << "\"";
+        out << ",\"slots\":" << e.slots;
+        out << ",\"requested\":" << e.requested;
+        out << ",\"reserved\":" << e.reserved;
+        out << "}";
+      }
+      out << "]";
+
+      out << ",\"columns\":[";
+      first = true;
+      for (auto const& c : columns_) {
+        if (!first)
+          out << ",";
+        first = false;
+        out << "{\"collection\":\"" << c.collection << "\"";
+        out << ",\"block\":\"" << c.block << "\"";
+        out << ",\"name\":\"" << c.name << "\"";
+        out << ",\"kind\":\"" << c.kind << "\"";
+        out << ",\"bytes\":" << c.bytes;
+        out << ",\"padding\":" << c.padding;
+        out << "}";
+      }
+      out << "]";
+
+      out << ",\"usage\":[";
+      first = true;
+      for (auto const& u : usage_) {
+        if (!first)
+          out << ",";
+        first = false;
+        out << "{\"stage\":\"" << u.stage << "\"";
+        out << ",\"allocated\":" << u.allocated;
+        out << ",\"used\":" << u.used;
+        out << "}";
+      }
+      out << "]}" << std::endl;
+    }
 
   private:
     static constexpr std::size_t ipow(unsigned base, unsigned exp) {

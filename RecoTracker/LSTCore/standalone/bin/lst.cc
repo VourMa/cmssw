@@ -17,10 +17,12 @@ using namespace ::lst;
 #define LST_BACKEND_NAME LST_STRINGIFY(ALPAKA_ACCELERATOR_NAMESPACE)
 
 //___________________________________________________________________________________________________________________________________________________________________________________________
-// Append one JSON-lines memory record for this event. Standalone only: the file
-// is owned by this process and every call is inside an omp critical section, so
-// no shared-state guard beyond that is needed. The CMSSW-side writer is separate
-// because LSTProducer is a global::EDProducer and cannot hold mutable state.
+// Append one JSON-lines memory record for this event.
+//
+// The record itself is built by MemoryProfiler::writeRecord, the same code the
+// CMSSW producer uses, so the two paths cannot drift apart. Only the file
+// handling differs: standalone owns its process and writes a single file under an
+// omp critical section, while CMSSW writes one file per stream.
 void writeMemoryProfileRecord(LSTEvent *event, int evt, int stream) {
   static std::ofstream out;
   if (!out.is_open()) {
@@ -35,69 +37,12 @@ void writeMemoryProfileRecord(LSTEvent *event, int evt, int stream) {
   }
 
   event->recordUsedSlots();
-  auto const &mp = event->getMemoryProfile();
-  using D = MemoryProfiler::Domain;
-
-  out << "{";
-  out << "\"event\":" << evt << ",\"stream\":" << stream;
-  out << ",\"backend\":\"" << LST_BACKEND_NAME << "\"";
-  out << ",\"allocator_in_path\":" << (MemoryProfiler::kAllocatorInPath ? "true" : "false");
-  // The reserved figures come from a mirror of the allocator's private findBin,
-  // driven by these values. AlpakaService can override them from its PSet, in which
-  // case reserved would be computed against the wrong bins -- so record them.
-  cms::alpakatools::AllocatorConfig memcfg;
-  out << ",\"allocator_bin_growth\":" << memcfg.binGrowth;
-  out << ",\"allocator_min_bin\":" << memcfg.minBin;
-  out << ",\"allocator_max_bin\":" << memcfg.maxBin;
-  out << ",\"reduce_mem_by_full_precompute\":" << (ana.reduce_mem_by_full_precompute ? "true" : "false");
-  out << ",\"memory_profile\":true";
-  out << ",\"peak_device_requested\":" << mp.peakRequested(D::Device);
-  out << ",\"peak_device_reserved\":" << mp.peakReserved(D::Device);
-  out << ",\"peak_host_requested\":" << mp.peakRequested(D::Host);
-  out << ",\"peak_host_reserved\":" << mp.peakReserved(D::Host);
-  out << ",\"sum_device_requested\":" << mp.sumRequested(D::Device);
-  out << ",\"sum_host_requested\":" << mp.sumRequested(D::Host);
-  out << ",\"collections\":[";
-  bool first = true;
-  for (auto const &e : mp.entries()) {
-    if (!first)
-      out << ",";
-    first = false;
-    out << "{\"name\":\"" << e.name << "\"";
-    out << ",\"domain\":\"" << (e.domain == D::Device ? "device" : "host") << "\"";
-    out << ",\"slots\":" << e.slots;
-    out << ",\"requested\":" << e.requested;
-    out << ",\"reserved\":" << e.reserved;
-    out << "}";
-  }
-  out << "]";
-  out << ",\"columns\":[";
-  first = true;
-  for (auto const &c : mp.columns()) {
-    if (!first)
-      out << ",";
-    first = false;
-    out << "{\"collection\":\"" << c.collection << "\"";
-    out << ",\"block\":\"" << c.block << "\"";
-    out << ",\"name\":\"" << c.name << "\"";
-    out << ",\"kind\":\"" << c.kind << "\"";
-    out << ",\"bytes\":" << c.bytes;
-    out << ",\"padding\":" << c.padding;
-    out << "}";
-  }
-  out << "]";
-  out << ",\"usage\":[";
-  first = true;
-  for (auto const &u : mp.usage()) {
-    if (!first)
-      out << ",";
-    first = false;
-    out << "{\"stage\":\"" << u.stage << "\"";
-    out << ",\"allocated\":" << u.allocated;
-    out << ",\"used\":" << u.used;
-    out << "}";
-  }
-  out << "]}" << std::endl;
+  MemoryProfiler::RecordMeta meta{static_cast<std::uint64_t>(evt),
+                                  static_cast<unsigned int>(stream),
+                                  event->getNumberOfInputHits(),
+                                  event->getNumberOfPixelSeeds(),
+                                  ana.reduce_mem_by_full_precompute};
+  event->getMemoryProfile().writeRecord(out, meta);
 }
 
 //___________________________________________________________________________________________________________________________________________________________________________________________
