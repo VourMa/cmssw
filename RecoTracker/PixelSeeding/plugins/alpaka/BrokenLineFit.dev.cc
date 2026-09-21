@@ -212,14 +212,18 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
         riemannFit::Map4d fast_fit(pfast_fit + local_idx);
         riemannFit::Map6xNf<N> hits_ge(phits_ge + local_idx);
 
-        brokenline::PreparedBrokenLineData<N> data;
+        // This package is adapted only so the tree keeps building.
+        // fitCorrections is left at its default false.
+        double blfScratch[brokenline::kLegacyFitScratchDoubles<N>];
+        brokenline::PreparedBrokenLineDataMap<N, 1> data(blfScratch);
+        brokenline::LegacyFitWorkspaceMap<N, 1> fitWs(blfScratch + brokenline::kPreparedDataDoubles<N>);
 
         brokenline::karimaki_circle_fit circle;
         riemannFit::LineFit line;
 
-        brokenline::prepareBrokenLineData(acc, hits, fast_fit, bField, data);
-        brokenline::lineFit(acc, hits_ge, fast_fit, bField, data, line);
-        brokenline::circleFit(acc, hits, hits_ge, fast_fit, bField, data, circle);
+        brokenline::prepareBrokenLineData(acc, hits, fast_fit, bField, nullptr, data, fitWs);
+        brokenline::lineFit(acc, hits_ge, fast_fit, bField, data, line, fitWs);
+        brokenline::circleFit(acc, hits, hits_ge, fast_fit, bField, data, circle, fitWs);
 
         reco::copyFromCircle(results_view, circle.par, circle.cov, line.par, line.cov, 1.f / float(bField), tkid);
         results_view[tkid].pt() = float(bField) / float(std::abs(circle.par(2)));
