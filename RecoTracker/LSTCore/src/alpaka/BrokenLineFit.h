@@ -476,13 +476,19 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lst {
         ::riemannFit::Vector4d fast_fit;
         brokenline::fastFit(acc, hits, fast_fit);
 
-        brokenline::PreparedBrokenLineData<N> data;
-        brokenline::prepareBrokenLineData(acc, hits, fast_fit, bFieldD, data);
+        // fitCorrections is left at its default false: this is the baseline, and the material and B-field
+        // maps are deliberately left out. Both map pointers must therefore stay null -- with the flag
+        // off neither is dereferenced, but passing a null rho with fitCorrections = true would fault on
+        // device rather than fall back.
+        double blfScratch[brokenline::kLegacyFitScratchDoubles<N>];
+        brokenline::PreparedBrokenLineDataMap<N, 1> data(blfScratch);
+        brokenline::LegacyFitWorkspaceMap<N, 1> fitWs(blfScratch + brokenline::kPreparedDataDoubles<N>);
+        brokenline::prepareBrokenLineData(acc, hits, fast_fit, bFieldD, nullptr, data, fitWs);
 
         brokenline::karimaki_circle_fit circle;
         ::riemannFit::LineFit line;
-        brokenline::lineFit(acc, hits_ge, fast_fit, bFieldD, data, line);
-        brokenline::circleFit(acc, hits, hits_ge, fast_fit, bFieldD, data, circle);
+        brokenline::lineFit(acc, hits_ge, fast_fit, bFieldD, data, line, fitWs);
+        brokenline::circleFit(acc, hits, hits_ge, fast_fit, bFieldD, data, circle, fitWs);
 
         fitResults.phi()[tcIdx] = static_cast<float>(circle.par(0));
         fitResults.tip()[tcIdx] = static_cast<float>(circle.par(1));
