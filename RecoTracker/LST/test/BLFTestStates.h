@@ -52,10 +52,10 @@ namespace blfTestStates {
 
   // The tests assert only for states whose turning angle (see turnAngle) is at most this value. The Newton search of
   // the closest approach starts at the helix phase of the state point (as the release's TSCBLBuilderNoMaterial does)
-  // and can converge to the far side of the circle, or not converge, beyond about 1 rad of turn. In the Phase-2 HLT
-  // ttbar and QCD samples the largest turn of a pLS state is 0.742 rad (the last hit is at r <= 55.4 cm and pT >=
-  // 0.63 GeV, which would allow up to about 1.05 rad); the cut at 0.9 rad keeps a margin above what is observed.
-  // States beyond this angle are generated as before and only counted and printed.
+  // and can converge to the far side of the circle, or not converge, beyond about 1 rad of turn. Pixel-track states in
+  // the Phase-2 HLT sit on the last pixel-track hit, in the pixel detector or the innermost outer-tracker layers,
+  // where pLS above the pT cut turn by well under 1 rad; the cut at 0.9 rad keeps a margin. States beyond this angle
+  // are still generated, and only counted and printed.
   constexpr double kMaxTurnAngle = 0.9;
 
   // states binned in that angle, kTurnBinWidth wide, the last bin open
