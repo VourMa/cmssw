@@ -36,3 +36,38 @@
   <use name="RecoTracker/LSTCore"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+
+<bin file="alpaka/testLSTInputDeviceTrackFit.dev.cc" name="testLSTInputDeviceTrackFit">
+  <use name="alpaka"/>
+  <use name="eigen"/>
+  <use name="DataFormats/GeometrySurface"/>
+  <use name="DataFormats/Math"/>
+  <use name="DataFormats/TrackSoA"/>
+  <use name="DataFormats/TrackingRecHitSoA"/>
+  <use name="FWCore/Utilities"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="HeterogeneousCore/AlpakaMath"/>
+  <use name="RecoTracker/LST"/>
+  <use name="RecoTracker/LSTCore"/>
+  <use name="RecoTracker/PixelTrackFitting" source_only="1"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
+
+<!-- the kernels of the device LST input run end to end; their sources are compiled into the test -->
+<bin file="alpaka/testLSTInputDeviceKernels.dev.cc" name="testLSTInputDeviceKernels">
+  <use name="alpaka"/>
+  <use name="eigen"/>
+  <use name="DataFormats/GeometrySurface"/>
+  <use name="DataFormats/Math"/>
+  <use name="DataFormats/Portable"/>
+  <use name="DataFormats/TrackSoA"/>
+  <use name="DataFormats/TrackingRecHitSoA"/>
+  <use name="FWCore/MessageLogger"/>
+  <use name="FWCore/Utilities"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="HeterogeneousCore/AlpakaMath"/>
+  <use name="RecoTracker/LST"/>
+  <use name="RecoTracker/LSTCore" source_only="1"/>
+  <use name="RecoTracker/PixelTrackFitting" source_only="1"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>

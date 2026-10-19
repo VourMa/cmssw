@@ -10,6 +10,7 @@
 #include <iostream>
 #include <limits>
 #include <random>
+#include <utility>
 #include <vector>
 
 #include <alpaka/alpaka.hpp>
@@ -47,6 +48,7 @@ namespace {
 
   struct CaseResult {
     char label[192];
+    int n;
     bool noiseless;
     int q, qFit;
     int expectedM, mCircle, mLine;
@@ -60,6 +62,7 @@ namespace {
     double maxAbsUnresolvedLine;  // max |analytic - FD| over line elements below the FD resolution
     bool lineWithinResolution;    // every line element agrees to kTolFD relative or within the FD resolution
     bool extractionMatchesCircle, extractionMatchesLine;
+    double extractionLineDevPar, extractionLineDevCov;  // information only: |l0 - ol| of the line state
     double rhatBU;
     double nlPhi, nlPos, nlKappaRel, nlCot, nlZ, wrongSignShift, nlCotUpstream;
     double upCot, upZ;  // |cot_out - cot_upstream| and |z_e - (zip_upstream + cot_upstream * s_e)|
@@ -114,6 +117,13 @@ namespace {
     bl::circleFit(acc, hits, hits_ge, fast_fit, kBField, data, circle);
   }
 
+  // The m.s. variance of the line reference chord for the toleranced checks, computed out of line so that the compiler
+  // cannot merge it with the multScatt() call passed to outerLineExtraction() in runCase (see there).
+  __attribute__((noinline)) double chordMultScatt(
+      const Acc1D& acc, double length, double radius, int nHits, double slope) {
+    return bl::multScatt(acc, length, kBField, radius, nHits, slope);
+  }
+
   template <int N>
   CaseResult runCase(const Acc1D& acc,
                      const char* layout,
@@ -137,6 +147,7 @@ namespace {
                   phi0,
                   cot,
                   noiseless ? "noiseless" : "smeared");
+    res.n = N;
     res.noiseless = noiseless;
     res.q = q;
     res.expectedM = expectedM;
@@ -359,13 +370,30 @@ namespace {
     ::riemannFit::Matrix2d iBlockL;
     iBlockL << iMatL(m, m), iMatL(m, N - 1), iMatL(N - 1, m), iMatL(N - 1, N - 1);
     const double sA = dataOrig.sTotal(m), sB = dataOrig.sTotal(N - 1), sE = dataOrig.sTransverse(N - 1);
-    const double msVar = bl::multScatt(acc, sB - sA, kBField, fast_fit(2), N, slope);
+    const double msVar = chordMultScatt(acc, sB - sA, fast_fit(2), N, slope);
     auto extractLine = [&](double uA, double uB, bl::OuterLineState& s) {
       bl::outerLineExtraction(acc, uA, uB, iBlockL, sA, sB, sE, rotMatL, msVar, s);
     };
+    // The state compared bitwise with lineFitOuter() is extracted as lineFitOuter() does it: here, where the library
+    // code is inlined too, with the multScatt() call itself as the argument. With floating-point contraction (GCC's
+    // default for C++, with the FMA of -march=x86-64-v3) the compiler fuses one of the two products of
+    // cov(0, 0) = (...) * idiff^2 + multScatt(...) into the addition: the m.s. one when its last multiplication is
+    // inlined at the call and used only there, the other one when the variance arrives as a stored value (msVar, or
+    // through the lambda). The two orders differ in the last bit of cov.
     bl::OuterLineState l0;
-    extractLine(uL(m), uL(N - 1), l0);
+    bl::outerLineExtraction(acc,
+                            uL(m),
+                            uL(N - 1),
+                            iBlockL,
+                            sA,
+                            sB,
+                            sE,
+                            rotMatL,
+                            bl::multScatt(acc, sB - sA, kBField, fast_fit(2), N, slope),
+                            l0);
     res.extractionMatchesLine = l0.par == ol.par && l0.cov == ol.cov;
+    res.extractionLineDevPar = (l0.par - ol.par).cwiseAbs().maxCoeff();
+    res.extractionLineDevCov = (l0.cov - ol.cov).cwiseAbs().maxCoeff();
 
     // ---- line Jacobian: central finite differences in (u_m, u_{n-1}) vs the chain of the three linear steps
     ::riemannFit::Matrix2d jFDL;
@@ -434,6 +462,41 @@ namespace {
     return res;
   }
 
+  // The layouts of the fits the LST input runs: the first N hits of the ladder below, for every N from 3 (the
+  // inner-tracker-only fit of three pixel hits) to 14 (the cap on the number of fitted hits). The ladder is four
+  // pixel hits followed by the two hits of each outer tracker module pair (0.16 cm apart in radius). Its radii are
+  // chosen so that the reference node of the 2 cm rule is known without running the fit: the outermost node more than
+  // 2 cm from the last hit, i.e. the last hit of the previous layer (kLadderRefNode[N]).
+  constexpr int kLadderMinN = 3, kLadderMaxN = 14;
+  constexpr double kLadder[kLadderMaxN] = {3, 7, 11, 16, 23, 23.16, 36, 36.16, 51, 51.16, 68, 68.16, 87, 87.16};
+  constexpr int kLadderRefNode[kLadderMaxN + 1] = {-1, -1, -1, 1, 2, 3, 3, 5, 5, 7, 7, 9, 9, 11, 11};
+
+  template <int N>
+  void pushLadderCase(std::vector<CaseResult>& results,
+                      const Acc1D& acc,
+                      double pt,
+                      int q,
+                      double phi0,
+                      double cot,
+                      bool noiseless,
+                      std::mt19937& rng) {
+    const std::vector<double> radii(kLadder, kLadder + N);
+    results.push_back(runCase<N>(acc, "ladder", radii, kLadderRefNode[N], false, pt, q, phi0, cot, noiseless, rng));
+  }
+
+  template <int... Ns>
+  void pushLadderCases(std::integer_sequence<int, Ns...>,
+                       std::vector<CaseResult>& results,
+                       const Acc1D& acc,
+                       double pt,
+                       int q,
+                       double phi0,
+                       double cot,
+                       bool noiseless,
+                       std::mt19937& rng) {
+    (pushLadderCase<kLadderMinN + Ns>(results, acc, pt, q, phi0, cot, noiseless, rng), ...);
+  }
+
   struct OuterFitTestKernel {
     ALPAKA_FN_ACC void operator()(const Acc1D& acc, std::vector<CaseResult>* results) const {
       std::mt19937 rng(12345);
@@ -460,6 +523,15 @@ namespace {
               r.push_back(runCase<7>(acc, "single last", layoutE, 5, false, pt, q, phis[a], cots[a], noiseless, rng));
               r.push_back(runCase<5>(acc, "fallback", layoutF, 0, true, pt, q, phis[a], cots[a], noiseless, rng));
               r.push_back(runCase<4>(acc, "pixel quad", layoutG, 2, false, pt, q, phis[a], cots[a], noiseless, rng));
+              pushLadderCases(std::make_integer_sequence<int, kLadderMaxN - kLadderMinN + 1>{},
+                              r,
+                              acc,
+                              pt,
+                              q,
+                              phis[a],
+                              cots[a],
+                              noiseless,
+                              rng);
             }
     }
   };
@@ -473,7 +545,8 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
   std::vector<CaseResult> results;
   alpaka::exec<Acc1D>(queue, cms::alpakatools::make_workdiv<Acc1D>(1, 1), OuterFitTestKernel{}, &results);
   alpaka::wait(queue);
-  REQUIRE(results.size() == 336);
+  // 2 smearing modes x 2 charges x 4 momenta x 3 directions x (7 named layouts + 12 ladder layouts, N = 3..14)
+  REQUIRE(results.size() == 912);
 
   double maxJCircle[3] = {0, 0, 0}, maxJLine[2] = {0, 0}, maxCovCircle = 0, maxCovLine = 0;
   double maxNlPhi = 0, maxNlPos = 0, maxNlKappa = 0, minWrongShift = 1e9;
@@ -481,7 +554,15 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
   // index 0: all layouts but the fallback one; index 1: the fallback layout
   double maxNlCot[2] = {0, 0}, maxNlZ[2] = {0, 0}, maxNlCotUpstream[2] = {0, 0}, maxUpCot[2] = {0, 0},
          maxUpZ[2] = {0, 0};
-  int nFallback = 0, nOrderDependent = 0, nChargeFlips = 0;
+  int nFallback = 0, nOrderDependent = 0, nChargeFlips = 0, nLineExtractionDiffers = 0;
+  double maxLineExtractionDevPar = 0, maxLineExtractionDevCov = 0;
+  // per number of fitted hits N (index N): number of cases and the largest deviations over every layout of that N
+  struct PerN {
+    int cases = 0, noiselessCases = 0;
+    double jCircle = 0, jLine = 0, covCircle = 0, covLine = 0;
+    double nlPhi = 0, nlPos = 0, nlKappa = 0, nlCot = 0, nlZ = 0;
+  };
+  PerN perN[kLadderMaxN + 1];
 
   for (auto const& r : results) {
     INFO(r.label);
@@ -617,6 +698,26 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
       maxUpZ[fb] = std::max(maxUpZ[fb], r.upZ);
       minWrongShift = std::min(minWrongShift, r.wrongSignShift);
     }
+    {
+      auto& p = perN[r.n];
+      ++p.cases;
+      for (int k = 0; k < 3; ++k)
+        p.jCircle = std::max(p.jCircle, r.relJCircle[k]);
+      for (int k = 0; k < 2; ++k)
+        p.jLine = std::max(p.jLine, r.relJLine[k]);
+      p.covCircle = std::max(p.covCircle, r.relCovCircle);
+      p.covLine = std::max(p.covLine, r.relCovLine);
+      if (r.noiseless) {
+        ++p.noiselessCases;
+        p.nlPhi = std::max(p.nlPhi, r.nlPhi);
+        p.nlPos = std::max(p.nlPos, r.nlPos);
+        p.nlKappa = std::max(p.nlKappa, r.nlKappaRel);
+        if (!r.expectFallback) {
+          p.nlCot = std::max(p.nlCot, r.nlCot);
+          p.nlZ = std::max(p.nlZ, r.nlZ);
+        }
+      }
+    }
     for (int k = 0; k < 3; ++k)
       maxJCircle[k] = std::max(maxJCircle[k], r.relJCircle[k]);
     for (int k = 0; k < 2; ++k)
@@ -628,6 +729,9 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
     minQRhatBU = std::min(minQRhatBU, r.qFit * r.rhatBU);
     maxUnresolvedLine = std::max(maxUnresolvedLine, r.maxAbsUnresolvedLine);
     nChargeFlips += (r.qFit != r.q);
+    nLineExtractionDiffers += !r.extractionMatchesLine;
+    maxLineExtractionDevPar = std::max(maxLineExtractionDevPar, r.extractionLineDevPar);
+    maxLineExtractionDevCov = std::max(maxLineExtractionDevCov, r.extractionLineDevCov);
     nFallback += r.fallbackCircle;
     nOrderDependent += r.orderDependent;
     maxOrderDPhi = std::max(maxOrderDPhi, r.orderDPhi);
@@ -654,5 +758,20 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
             << nChargeFlips << '\n'
             << "  information only: results differ when called after upstream circleFit in " << nOrderDependent
             << " of " << results.size() << " cases (max |d phi_e| " << maxOrderDPhi << " rad, max |d z_e| "
-            << maxOrderDZ << " cm)" << std::endl;
+            << maxOrderDZ << " cm)\n"
+            << "  checked, must be 0: outerLineExtraction at the solution differs bitwise from lineFitOuter in "
+            << nLineExtractionDiffers << " cases (max |d par| " << maxLineExtractionDevPar << ", max |d cov| "
+            << maxLineExtractionDevCov << ")\n"
+            << "  per N (tolerances: Jacobians and covariances " << kTolFD << ", noiseless residuals " << kTolNoiseless
+            << "):\n";
+  for (int n = 0; n <= kLadderMaxN; ++n) {
+    auto const& p = perN[n];
+    if (p.cases == 0)
+      continue;
+    std::cout << "    N=" << n << " cases " << p.cases << " (noiseless " << p.noiselessCases
+              << ") max rel. dev. J circle " << p.jCircle << " J line " << p.jLine << " cov circle " << p.covCircle
+              << " cov line " << p.covLine << "; noiseless max phi " << p.nlPhi << " pos " << p.nlPos << " kappa "
+              << p.nlKappa << " cot " << p.nlCot << " z " << p.nlZ << '\n';
+  }
+  std::cout << std::flush;
 }

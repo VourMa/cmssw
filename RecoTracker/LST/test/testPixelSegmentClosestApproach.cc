@@ -231,10 +231,9 @@ TEST_CASE("closest approach against the exact helix-line closest approach", "[Pi
   // states whose closest approach is not found (by the host as well, compared above) are counted and skipped; the
   // differences are also given per bin of the turning angle from the vertex to the state point. Only states that
   // turned by at most kMaxTurnAngle are asserted: beyond about 1 rad of turn the search can converge to the far side of
-  // the circle, as the release's TSCBLBuilderNoMaterial does. In the Phase-2 HLT ttbar and QCD samples the largest
-  // turn of a pLS state is 0.742 rad (the last hit is at r <= 55.4 cm and pT >= 0.63 GeV, which would allow up to
-  // about 1.05 rad); the cut at 0.9 rad keeps a margin above what is observed. The other states are only counted and
-  // printed.
+  // the circle, as the release's TSCBLBuilderNoMaterial does. Pixel-track states in the Phase-2 HLT sit on the last
+  // pixel-track hit, in the pixel detector or the innermost outer-tracker layers, where pLS above the pT cut turn by
+  // well under 1 rad; the cut at 0.9 rad keeps a margin. The other states are only counted and printed.
   int nValid = 0, nNotConverged = 0, nAsserted = 0, nReported = 0, nNotConvergedAsserted = 0;
   int nReportedNotConvergedInBin[blfTestStates::kNTurnBins] = {}, nReportedBeyondInBin[blfTestStates::kNTurnBins] = {},
       nReportedPassedInBin[blfTestStates::kNTurnBins] = {};
