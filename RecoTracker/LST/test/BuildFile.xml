@@ -1,0 +1,38 @@
+<bin file="testBLFCurvilinearJacobian.cc" name="testBLFCurvilinearJacobian">
+  <use name="catch2"/>
+  <use name="alpaka"/>
+  <use name="DataFormats/GeometrySurface"/>
+  <use name="DataFormats/GeometryVector"/>
+  <use name="DataFormats/Math"/>
+  <use name="MagneticField/Engine"/>
+  <use name="MagneticField/UniformEngine"/>
+  <use name="RecoTracker/LST"/>
+  <use name="TrackingTools/GeomPropagators"/>
+  <use name="TrackingTools/TrajectoryParametrization"/>
+  <use name="TrackingTools/TrajectoryState"/>
+</bin>
+
+<bin file="testPixelSegmentClosestApproach.cc" name="testPixelSegmentClosestApproach">
+  <use name="catch2"/>
+  <use name="alpaka"/>
+  <use name="DataFormats/BeamSpot"/>
+  <use name="DataFormats/GeometryVector"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="MagneticField/Engine"/>
+  <use name="MagneticField/UniformEngine"/>
+  <use name="RecoTracker/LST"/>
+  <use name="RecoTracker/LSTCore"/>
+  <use name="TrackingTools/AnalyticalJacobians"/>
+  <use name="TrackingTools/PatternTools"/>
+  <use name="TrackingTools/TrajectoryParametrization"/>
+  <use name="TrackingTools/TrajectoryState"/>
+</bin>
+
+<bin file="alpaka/testPixelSegmentClosestApproach.dev.cc" name="testPixelSegmentClosestApproachDevice">
+  <use name="alpaka"/>
+  <use name="FWCore/Utilities"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="RecoTracker/LST"/>
+  <use name="RecoTracker/LSTCore"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
