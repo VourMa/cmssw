@@ -71,3 +71,34 @@
   <use name="RecoTracker/PixelTrackFitting" source_only="1"/>
   <flags ALPAKA_BACKENDS="1"/>
 </bin>
+
+<!-- the hit selection of the seed-state fit of the track candidates, from its public LSTCore header -->
+<bin file="alpaka/testTCSeedStateSelection.dev.cc" name="testTCSeedStateSelection">
+  <use name="alpaka"/>
+  <use name="eigen"/>
+  <use name="DataFormats/Portable"/>
+  <use name="FWCore/Utilities"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="HeterogeneousCore/AlpakaMath"/>
+  <use name="RecoTracker/LSTCore"/>
+  <use name="RecoTracker/PixelTrackFitting" source_only="1"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
+
+<!-- the seed-state fit of the track candidates end to end, its launcher linked from the LSTCore library -->
+<bin file="alpaka/testTCSeedStateFit.dev.cc" name="testTCSeedStateFit">
+  <use name="alpaka"/>
+  <use name="eigen"/>
+  <use name="DataFormats/GeometrySurface"/>
+  <use name="DataFormats/Math"/>
+  <use name="DataFormats/Portable"/>
+  <use name="DataFormats/TrackSoA"/>
+  <use name="DataFormats/TrackingRecHitSoA"/>
+  <use name="FWCore/Utilities"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="HeterogeneousCore/AlpakaMath"/>
+  <use name="RecoTracker/LST"/>
+  <use name="RecoTracker/LSTCore"/>
+  <use name="RecoTracker/PixelTrackFitting" source_only="1"/>
+  <flags ALPAKA_BACKENDS="1"/>
+</bin>
