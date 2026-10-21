@@ -32,6 +32,15 @@
   <use name="TrackingTools/TrajectoryState"/>
 </bin>
 
+<!-- the seed hit lists of LSTOutputConverter's seeds from the stored states, on synthetic hits -->
+<bin file="testLSTSeedHitList.cc" name="testLSTSeedHitList">
+  <use name="catch2"/>
+  <use name="alpaka"/>
+  <use name="Geometry/CommonTopologies"/>
+  <use name="HeterogeneousCore/AlpakaInterface"/>
+  <use name="RecoTracker/LSTCore"/>
+</bin>
+
 <bin file="testPixelSegmentClosestApproach.cc" name="testPixelSegmentClosestApproach">
   <use name="catch2"/>
   <use name="alpaka"/>

@@ -39,7 +39,10 @@ hltLSTSerialSync = makeSerialClone(hltLST,
 hltInitialStepTrajectorySeedsLSTSerialSync = hltInitialStepTrajectorySeedsLST.clone(
     lstOutput = "hltLSTSerialSync",
     lstInput = "hltInputLSTSerialSync",
-    lstPixelSeeds = ["hltInputLSTSerialSync"]
+    lstPixelSeeds = ["hltInputLSTSerialSync"],
+    pixelSeedStates = "hltInputLSTSerialSync",
+    tcSeedStates = "hltLSTSerialSync",
+    pixelTrackHits = "hltInputLSTSerialSync"
 )
 hltInitialStepTrajectorySeedsLSTTracksSerialSync = hltInitialStepTrajectorySeedsLSTTracks.clone(
     src = "hltInitialStepTrajectorySeedsLSTSerialSync"
