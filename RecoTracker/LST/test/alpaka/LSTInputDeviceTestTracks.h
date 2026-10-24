@@ -36,6 +36,7 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest {
   using ::lstInputDevice::FittedState;
   using ::lstInputDevice::kITFitHits;
   using ::lstInputDevice::kMaxFitHits;
+  using ::lstInputDevice::kMaxTrackHits;
   using ::lstInputDevice::PixelSegmentCandidate;
   using ::lstInputDevice::Settings;
 
@@ -65,6 +66,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest {
   constexpr double kPLSPosition = 1e-4;  // cm, dxy and dz
   constexpr double kPLSMomentum = 5e-6;  // relative
   constexpr double kPLSError = 1e-3;     // relative, ptErr and etaErr
+
+  // ---------------------------------------------------------------------------------------------------------------
+  // The sizes of the full fit, written out here independently of the producer's functions
+
+  inline const std::vector<uint32_t> kExpectedFitSizes = {4, 6, 8, 10, 12, 14};
+
+  // the size of the full fit of a track of nHits hits: the largest size not above nHits, 0 if none
+  inline uint32_t expectedFitSize(uint32_t nHits) {
+    uint32_t size = 0;
+    for (uint32_t s : kExpectedFitSizes)
+      if (s <= nHits && s > size)
+        size = s;
+    return size;
+  }
+
+  // the list of the full fits of nFit hits: after the inner-tracker-only list, one list per size, the smallest first
+  inline uint32_t expectedFitList(uint32_t nFit) {
+    uint32_t list = 1;
+    for (uint32_t s : kExpectedFitSizes)
+      list += s < nFit ? 1 : 0;
+    return list;
+  }
 
   // ---------------------------------------------------------------------------------------------------------------
   // Test inputs and outputs, plain types shared by the host and the device
@@ -123,32 +146,17 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest {
       case 4:
         fit::fitState<4>(acc, hits, bField, state);
         break;
-      case 5:
-        fit::fitState<5>(acc, hits, bField, state);
-        break;
       case 6:
         fit::fitState<6>(acc, hits, bField, state);
-        break;
-      case 7:
-        fit::fitState<7>(acc, hits, bField, state);
         break;
       case 8:
         fit::fitState<8>(acc, hits, bField, state);
         break;
-      case 9:
-        fit::fitState<9>(acc, hits, bField, state);
-        break;
       case 10:
         fit::fitState<10>(acc, hits, bField, state);
         break;
-      case 11:
-        fit::fitState<11>(acc, hits, bField, state);
-        break;
       case 12:
         fit::fitState<12>(acc, hits, bField, state);
-        break;
-      case 13:
-        fit::fitState<13>(acc, hits, bField, state);
         break;
       case 14:
         fit::fitState<14>(acc, hits, bField, state);
