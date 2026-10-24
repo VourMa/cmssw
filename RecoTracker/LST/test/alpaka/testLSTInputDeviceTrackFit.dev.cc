@@ -6,9 +6,9 @@
 //
 // Checked: the state against the noiseless truth at the last hit; its invariance under rotations of the input about
 // the beam axis; every status of the checks; the range of the stored phi; the sign of deltaPhi and the pixel type it
-// gives; the stride above 14 hits with the last hit last; the inner-tracker-only selection and fit; the pLS hit slots.
-// Each tolerance is defined and justified where it is declared; the largest deviation of each check is printed with
-// it.
+// gives; the size of the full fit of each hit count (4, 6, 8, 10, 12 or 14 hits) and the hits the stride keeps, the
+// first hit first and the last hit the last node; the inner-tracker-only selection and fit; the pLS hit slots. Each
+// tolerance is defined and justified where it is declared; the largest deviation of each check is printed with it.
 
 #include <Eigen/Core>  // before the SoA headers with Eigen columns
 
@@ -121,6 +121,8 @@ namespace {
     bool expectITCandidate = false;
     // the status of the inner-tracker-only fit when it runs
     SeedStateStatus expectedITFitStatus = SeedStateStatus::kOk;
+    // the expected status holds only when every hit is fitted
+    bool statusOfAllHits = false;
   };
 
   // the slots, hitDetBits and the hit counts of a prepared track against its source hits
@@ -388,6 +390,7 @@ namespace {
         c.hits.push_back(hit);
       }
       c.track = TestTrack{0, 5, 1, builder.settings};
+      c.statusOfAllHits = true;  // with fewer hits, the status depends on the hits dropped
       builder.cases.push_back(c);
     }
 
@@ -460,6 +463,8 @@ namespace {
       checks("prepared iff an EDM track and 4 to 255 hits", 0., "").require(out.prepared == c.expectPrepared, c.label);
       if (c.kind == Kind::kTruth && !c.noiseless) {
         // smeared hits: the 1/pT resolution can flip the sign of a stiff track's curvature; not asserted
+      } else if (c.statusOfAllHits && expectedFitSize(nHits) < nHits) {
+        // the expected status needs every hit fitted; not asserted
       } else if (c.kind != Kind::kRotated) {
         checks("status as expected", 0., "")
             .require(state.status == static_cast<uint8_t>(c.expectedStatus),
@@ -473,11 +478,26 @@ namespace {
                      c.label);
         continue;
       }
-      checks("full fit: nFit = min(nHits, 14), stateHit = last hit", 0., "")
-          .require(out.nFit == std::min(nHits, kMaxFitHits) &&
-                       state.stateHit == ::lst::encodeStateHitPixel(nHits - 1) &&
+      checks("full fit: nFit = the largest fit size not above nHits, stateHit = last hit", 0., "")
+          .require(out.nFit == expectedFitSize(nHits) && state.stateHit == ::lst::encodeStateHitPixel(nHits - 1) &&
                        (state.status == static_cast<uint8_t>(SeedStateStatus::kNonFinite) || state.nFit == out.nFit),
                    c.label);
+      {
+        // the hits kept: the stride of the pixel-track fit, increasing, the first hit first and the last hit the
+        // last node
+        std::vector<uint32_t> positions(out.nFit);
+        fit::fitHitPositions(nHits, out.nFit, positions.data());
+        bool increasing = !positions.empty() && positions.front() == 0 && positions.back() == nHits - 1;
+        for (uint32_t k = 1; k < positions.size(); ++k)
+          increasing = increasing && positions[k] > positions[k - 1];
+        checks("fitted hits: the stride of the pixel-track fit, first hit first, last hit last", 0., "")
+            .require(increasing && positions == referenceStride(nHits, out.nFit), c.label);
+        checks("fitted hits: the last fit input is the last hit", 0., "")
+            .require(out.nFit > 0 && same(out.input.hits[out.nFit - 1].x, c.hits[nHits - 1].x) &&
+                         same(out.input.hits[out.nFit - 1].y, c.hits[nHits - 1].y) &&
+                         same(out.input.hits[out.nFit - 1].z, c.hits[nHits - 1].z),
+                     c.label);
+      }
       checkSlots(checks, c, out);
       checkFitInputs(checks, c, out);
 
@@ -758,6 +778,25 @@ namespace {
       fit::fitHitPositions(nHits, nFit, positions.data());
       checks("fitHitPositions: as the pixel-track fit, 4 to 255 hits", 0., "")
           .require(positions == referenceStride(nHits, nFit), "nHits " + std::to_string(nHits));
+    }
+    // the size of the full fit, and the stride of that many hits, increasing, from the first to the last hit
+    for (uint32_t nHits = 0; nHits <= 300; ++nHits) {
+      const std::string label = "nHits " + std::to_string(nHits);
+      const uint32_t nFit = fit::nFitHits(nHits);
+      checks("sizes: the largest fit size not above nHits; fitted iff 4 to 255 hits", 0., "")
+          .require(nFit == expectedFitSize(nHits) &&
+                       fit::isFitted(nHits) == (expectedFitSize(nHits) > 0 && nHits <= kMaxTrackHits) &&
+                       fit::isFitted(nHits) == (nHits >= 4 && nHits <= 255),
+                   label);
+      if (nFit == 0 || nHits > kMaxTrackHits)
+        continue;
+      std::vector<uint32_t> positions(nFit);
+      fit::fitHitPositions(nHits, nFit, positions.data());
+      bool increasing = positions.front() == 0 && positions.back() == nHits - 1;
+      for (uint32_t k = 1; k < nFit; ++k)
+        increasing = increasing && positions[k] > positions[k - 1];
+      checks("sizes: the stride of the pixel-track fit, increasing, first and last hit", 0., "")
+          .require(increasing && positions == referenceStride(nHits, nFit), label);
     }
     return checks.report();
   }

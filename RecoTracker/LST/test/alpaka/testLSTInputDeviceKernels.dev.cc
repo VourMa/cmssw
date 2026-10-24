@@ -1,18 +1,20 @@
 // Unit test of the kernels of the device LST input (RecoTracker/LST/plugins/alpaka/LSTInputDeviceKernels.h), run end
-// to end through their launchers in the order of LSTInputDeviceProducer: prepareTracks, the fits of 3 to 14 hits,
-// makePixelSegments, indexPixelSegments, fillLSTInput, fillSeedStates. The inputs are small synthetic events in the
-// producer's input formats: a pixel rechit SoA (positions relative to the beam spot), an OT rechit SoA, the CA's OT
-// module starts and the first OT rechit of each CA module, a pixel-track SoA with its hit offsets and hit indices, the
-// map to the EDM tracks, the module frames and a tilted beam spot. The tracks are noiseless helices (pixel only, pixel
-// plus OT, more than 14 hits, inner-tracker-only candidates with 3 and fewer inner-tracker hits), tracks without an
-// EDM track or with an unsupported hit count, and tracks made to fail each check of the fitted state.
+// to end through their launchers in the order of LSTInputDeviceProducer: prepareTracks, fitAllTracks (the
+// inner-tracker-only fits and the full fits of 4, 6, 8, 10, 12 and 14 hits), makePixelSegments, indexPixelSegments,
+// fillLSTInput, fillSeedStates. The inputs are small synthetic events in the producer's input formats: a pixel rechit
+// SoA (positions relative to the beam spot), an OT rechit SoA, the CA's OT module starts and the first OT rechit of
+// each CA module, a pixel-track SoA with its hit offsets and hit indices, the map to the EDM tracks, the module frames
+// and a tilted beam spot. The tracks are noiseless helices (pixel only, pixel plus OT, more than 14 hits,
+// inner-tracker-only candidates with 3 and fewer inner-tracker hits), tracks without an EDM track or with an
+// unsupported hit count, and tracks made to fail each check of the fitted state.
 //
-// Checked: the hit gathering against the input rows and a host computation of the covariances; the per-N lists; the
-// states against the noiseless truth and their statuses; the hit selection against the per-track functions run in a
-// test kernel on the same hits, and the states and pLS against them run on the gathered fit inputs (states with
-// identical bits, the closest approach within the tolerances of two compilations of it); the seed, pLS and hit
-// indices; the LST input and the seed-state product with every counter; events without pixel tracks, without OT
-// hits, and without any input; and the independence of every per-track result from the order of the tracks.
+// Checked: the hit gathering against the input rows and a host computation of the covariances; the size of each full
+// fit and its list, one list per fit size; the states against the noiseless truth and their statuses; the hit
+// selection against the per-track functions run in a test kernel on the same hits, and the states and pLS against
+// them run on the gathered fit inputs (states with identical bits, the closest approach within the tolerances of two
+// compilations of it); the seed, pLS and hit indices; the LST input and the seed-state product with every counter;
+// events without pixel tracks, without OT hits, and without any input; and the independence of every per-track
+// result from the order of the tracks.
 
 #include <Eigen/Core>  // before the SoA headers with Eigen columns
 
@@ -54,15 +56,10 @@
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceKernels.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit03.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit04.dev.cc"
-#include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit05.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit06.dev.cc"
-#include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit07.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit08.dev.cc"
-#include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit09.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit10.dev.cc"
-#include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit11.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit12.dev.cc"
-#include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit13.dev.cc"
 #include "RecoTracker/LST/plugins/alpaka/LSTInputDeviceFit14.dev.cc"
 
 using namespace ALPAKA_ACCELERATOR_NAMESPACE;
@@ -72,6 +69,7 @@ namespace {
   using namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest;
 
   using ::lstInputDevice::Counters;
+  using ::lstInputDevice::kITFitList;
   using ::lstInputDevice::kNumFitLists;
   using ::lstInputDevice::Totals;
 
@@ -94,6 +92,8 @@ namespace {
     // the statuses of the full fit and of the inner-tracker-only fit, when they run
     SeedStateStatus expectedStatus = SeedStateStatus::kOk;
     SeedStateStatus expectedITStatus = SeedStateStatus::kOk;
+    // expectedStatus holds only when every hit is fitted; with fewer, the status is the per-track functions'
+    bool statusOfAllHits = false;
   };
 
   // the prompt helix from the tilted beam line at z = beamSpotZ + dz
@@ -236,17 +236,21 @@ namespace {
     {
       // A zigzag: the three hits that set the fit's charge (first, middle, last) bend one way by 1 um, the two others
       // lie 50 um on the other side; with 100 um errors and the 20 GeV multiple scattering, the fitted curvature has
-      // the opposite sign.
+      // the opposite sign. The whole track is rotated about the beam axis by an azimuth that is no multiple of 45
+      // degrees, so that no fitted quantity the test compares bit for bit is an exact cancellation (a coordinate that
+      // is exactly 0 in a symmetric position has a rounding residue that depends on the compilation of the fit).
       EventTrack track;
       track.label = "zigzag";
       track.expectedStatus = SeedStateStatus::kChargeMismatch;
+      track.statusOfAllHits = true;
       const double xs[5] = {3., 7., 11., 15., 19.}, ys[5] = {0., -50e-4, 1e-4, -50e-4, 0.};
+      const double rotation = 0.6;  // rad, about 34.4 degrees
       for (int i = 0; i < 5; ++i) {
         TestHit hit{};
-        hit.x = xs[i];
-        hit.y = ys[i];
+        hit.x = std::cos(rotation) * xs[i] - std::sin(rotation) * ys[i];
+        hit.y = std::sin(rotation) * xs[i] + std::cos(rotation) * ys[i];
         hit.z = 0.1 * xs[i];
-        const double azimuth = std::atan2(ys[i], xs[i]);
+        const double azimuth = std::atan2(hit.y, hit.x);
         const float axes[9] = {float(-std::sin(azimuth)),
                                float(std::cos(azimuth)),
                                0.f,
@@ -659,29 +663,7 @@ namespace {
                          lists.data(),
                          counters.data());
     const float bField = settings.bField;
-    input::fitTracks<3>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<4>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<5>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<6>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<7>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<8>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<9>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<10>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<11>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<12>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<13>(
-        queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
-    input::fitTracks<14>(
+    input::fitAllTracks(
         queue, nTracks, inputs.data(), bField, lists.data(), counters.data(), states.data(), itStates.data());
     input::makePixelSegments(queue, nTracks, settings, states.data(), candidates.data(), counters.data());
     auto refitStates = cms::alpakatools::make_device_buffer<FittedState[]>(queue, nTracks);
@@ -817,8 +799,8 @@ namespace {
   Expected expectation(EventTrack const& track, Settings const& settings) {
     Expected e{};
     e.nHits = track.hits.size();
-    e.fitted = track.hasEdmTrack && fit::isFitted(e.nHits);
-    e.nFit = e.fitted ? std::min(e.nHits, kMaxFitHits) : 0;
+    e.fitted = track.hasEdmTrack && e.nHits <= kMaxTrackHits && expectedFitSize(e.nHits) > 0;
+    e.nFit = e.fitted ? expectedFitSize(e.nHits) : 0;
     e.lastIT = -1;
     for (uint32_t k = 0; k < e.nHits; ++k)
       if (!track.hits[k].isOT) {
@@ -986,6 +968,8 @@ namespace {
     std::vector<uint32_t> seedIndex(nTracks), segmentIndex(nTracks), hitOffset(nTracks);
     for (uint32_t t = 0; t < nTracks; ++t) {
       expected.push_back(expectation(tracks[order[t]], settings));
+      if (tracks[order[t]].statusOfAllHits && expected.back().fitted && expected.back().nFit < expected.back().nHits)
+        expected.back().status = static_cast<SeedStateStatus>(reference[order[t]].state.status);
       Expected const& e = expected.back();
       counts.nNotFitted += !e.fitted;
       counts.nNonFinite += e.status == SeedStateStatus::kNonFinite;
@@ -1012,6 +996,9 @@ namespace {
     }
 
     // ---- per track: gathering, lists, states, pLS
+    // the list of the inner-tracker-only fits, then one list per fit size
+    checks("lists: one per fit size and the inner-tracker-only list", 0., "")
+        .require(kNumFitLists == 1 + kExpectedFitSizes.size() && kITFitList == 0, event);
     std::vector<std::vector<int>> inList(nTracks, std::vector<int>(kNumFitLists, 0));
     for (uint32_t list = 0; list < kNumFitLists; ++list) {
       const uint32_t size = out.counters.listSize[list];
@@ -1035,10 +1022,10 @@ namespace {
       const std::string label = event + ": " + track.label;
 
       // lists: a fitted track in the list of its full fit only, and in the inner-tracker-only list iff it has that fit
-      bool lists = inList[t][0] == (e.itFit ? 1 : 0);
+      bool lists = inList[t][kITFitList] == (e.itFit ? 1 : 0);
       for (uint32_t list = 1; list < kNumFitLists; ++list)
-        lists = lists && inList[t][list] == (e.fitted && list == ::lstInputDevice::fitList(e.nFit) ? 1 : 0);
-      checks("lists: each fitted track once, in the list of min(nHits, 14); IT-only list iff 3 IT hits", 0., "")
+        lists = lists && inList[t][list] == (e.fitted && list == expectedFitList(e.nFit) ? 1 : 0);
+      checks("lists: each fitted track once, in the list of its fit size; IT-only list iff 3 IT hits", 0., "")
           .require(lists, label);
 
       checks("states: full-fit status as expected", 0., "")
@@ -1124,7 +1111,7 @@ namespace {
           .require(sameState(itState, out.refitITStates[t]), label);
 
       // the states
-      checks("states: nFit = min(nHits, 14), stateHit = last hit", 0., "")
+      checks("states: nFit = the largest fit size not above nHits, stateHit = last hit", 0., "")
           .require(state.nFit == e.nFit && state.stateHit == ::lst::encodeStateHitPixel(e.nHits - 1), label);
       checks("states: IT-only stateHit = last IT hit", 0., "")
           .require(itState.stateHit == (e.lastIT >= 0 ? ::lst::encodeStateHitPixel(e.lastIT) : ::lst::kInvalidU32Idx),
@@ -1472,7 +1459,10 @@ int main() {
     std::cout << "  over the events: " << summary.nTracks << " tracks, " << summary.nFitted << " fitted, "
               << summary.nOk << " kOk full fits, " << summary.nITFits << " IT-only fits, " << summary.nSegments
               << " pLS; closest approach failed for " << summary.nPCAFailures << " kOk fits ("
-              << summary.nPCAFailedSegments << " pLS)\n  list sizes in order (N = 3 to 14):";
+              << summary.nPCAFailedSegments << " pLS)\n  list sizes in order (IT-only, then N =";
+    for (uint32_t size : kExpectedFitSizes)
+      std::cout << " " << size;
+    std::cout << "):";
     for (uint32_t list = 0; list < kNumFitLists; ++list)
       std::cout << " " << inOrder.counters.listSize[list];
     std::cout << "\n";
