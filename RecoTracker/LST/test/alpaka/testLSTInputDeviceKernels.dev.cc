@@ -824,13 +824,21 @@ namespace {
     return result;
   }
 
+  // the same value: the same bits, or both NaN (a NaN computed on the device may have other bits than on the host)
+  bool sameValue(float a, float b) { return same(a, b) || (std::isnan(a) && std::isnan(b)); }
+
+  // Every finite value of the state bit for bit; two NaNs count as the same value. The fit of a track with a NaN hit
+  // returns NaN elements whose sign bit depends on the operand order: the compiler fuses products into multiply-adds
+  // differently in the kernel and in the per-track functions, an instruction with NaN operands returns the one chosen
+  // by its position, and the fit negates intermediates (e.g. -s in the Cholesky inversion), so either sign can reach
+  // the result.
   bool sameRow(::lst::BLFStateRow const& a, ::lst::BLFStateRow const& b) {
-    bool result = same(a.x, b.x) && same(a.y, b.y) && same(a.z, b.z) && same(a.phi, b.phi) &&
-                  same(a.cotTheta, b.cotTheta) && same(a.kappa, b.kappa) && a.charge == b.charge;
+    bool result = sameValue(a.x, b.x) && sameValue(a.y, b.y) && sameValue(a.z, b.z) && sameValue(a.phi, b.phi) &&
+                  sameValue(a.cotTheta, b.cotTheta) && sameValue(a.kappa, b.kappa) && a.charge == b.charge;
     for (int k = 0; k < 6; ++k)
-      result = result && same(a.covCircle[k], b.covCircle[k]);
+      result = result && sameValue(a.covCircle[k], b.covCircle[k]);
     for (int k = 0; k < 3; ++k)
-      result = result && same(a.covLine[k], b.covLine[k]);
+      result = result && sameValue(a.covLine[k], b.covLine[k]);
     return result;
   }
 
@@ -838,9 +846,6 @@ namespace {
     return sameRow(a.row, b.row) && a.stateHit == b.stateHit && a.status == b.status && a.nFit == b.nFit &&
            a.refFallback == b.refFallback;
   }
-
-  // the same value: the same bits, or both NaN (a NaN computed on the device may have other bits than on the host)
-  bool sameValue(float a, float b) { return same(a, b) || (std::isnan(a) && std::isnan(b)); }
 
   // the fields that prepareTrack sets; the slot covariances only if withCovariance
   bool samePreparation(PixelSegmentCandidate const& a, PixelSegmentCandidate const& b, bool withCovariance) {
