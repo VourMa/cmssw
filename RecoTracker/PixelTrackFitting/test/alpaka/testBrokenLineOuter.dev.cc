@@ -15,6 +15,8 @@
 
 #include <alpaka/alpaka.hpp>
 
+#include <Eigen/Cholesky>
+
 #define CATCH_CONFIG_MAIN
 #include <catch2/catch_all.hpp>
 
@@ -61,12 +63,18 @@ namespace {
     double relCovLine;
     double maxAbsUnresolvedLine;  // max |analytic - FD| over line elements below the FD resolution
     bool lineWithinResolution;    // every line element agrees to kTolFD relative or within the FD resolution
-    bool extractionMatchesCircle, extractionMatchesLine;
-    double extractionLineDevPar, extractionLineDevCov;  // information only: |l0 - ol| of the line state
+    bool extractionMatchesCircle, extractionMatchesLine;  // within the rounding tolerances below
+    bool extractionLineBitwise;                           // information only: l0 == ol bit for bit
+    double extractionLineDevPar, extractionLineDevCov;    // information only: |l0 - ol| of the line state
+    // largest |deviation| / tolerance of the comparisons with the upstream solve, and the largest tolerances
+    double ratioCircle, ratioLine, ratioKappa, ratioUpCot, ratioUpZ;
+    double tolPhi, tolPoint, tolKappa, tolCot, tolZ, tolUpCot, tolUpZ;
+    bool boundsCircle, boundsLine;  // the Cholesky factorization of the rounding tolerances succeeded
     double rhatBU;
     double nlPhi, nlPos, nlKappaRel, nlCot, nlZ, wrongSignShift, nlCotUpstream;
     double upCot, upZ;  // |cot_out - cot_upstream| and |z_e - (zip_upstream + cot_upstream * s_e)|
-    bool dataUnchanged, upstreamIdentical, kappaIdentical;
+    bool dataUnchanged, upstreamIdentical, kappaWithinRounding;
+    bool kappaBitwise;  // information only
     bool orderDependent;
     double orderDPhi, orderDZ;
   };
@@ -76,6 +84,43 @@ namespace {
   }
 
   double wrapPhi(double d) { return std::remainder(d, 2 * M_PI); }
+
+  // |deviation| / tolerance: 0 for identical values; infinite for a NaN deviation or tolerance, or a deviation where
+  // the tolerance is 0, so that the ratio fails the check and survives std::max (which drops a NaN second argument)
+  double devRatio(double dev, double tol) {
+    if (dev == 0)
+      return 0;
+    if (std::isnan(dev) || !(tol > 0))
+      return std::numeric_limits<double>::infinity();
+    return dev / tol;
+  }
+
+  // Rounding tolerances for comparing two double evaluations of the Broken Line solve x = A^-1 b, with the inverse
+  // from math::cholesky::invert() (or its in-place copy in the outer fits), that perform the same operations in the
+  // same order but differ in which products the compiler fuses into multiply-adds (GCC contracts a * b + c into an FMA
+  // depending on the surrounding code). Each such difference is one rounding more or less of one product, so both
+  // evaluations stay within the rounding errors of the algorithm, and their difference within the sum of the two.
+  // The tolerance is a first-order estimate of those errors, with derived (not fitted) constants. The factorization
+  // has the componentwise backward error |dA| <= gamma_{d+1} |R^T| |R| (Higham, Accuracy and Stability of Numerical
+  // Algorithms, 2nd ed., Theorem 10.3), which moves the inverse by |A^-1| |dA| |A^-1| to first order; the inversion of
+  // R and the product of the two triangular inverses are counted as two more first-order terms of the same form,
+  // gamma_d each (an estimate: their errors are not bounded entrywise in that form), and the product X b adds
+  // gamma_d |X| |b|. With u = eps / 2 and two evaluations, elementwise:
+  //   |dX| <= (3d + 1) eps |X| |L| |L^T| |X|,  |dx| <= |dX| |b| + d eps |X| |b|,
+  // with L = R^T from Eigen's LLT of A and X the test's own inverse in place of A^-1. Returns false if the LLT fails.
+  // The conditioning enters through |X| |L| |L^T| |X|: for the short or unevenly spaced layouts the elements of X
+  // differ between two such evaluations by up to ~1e-7 relative, so no fixed number of ulp of X or x would do.
+  template <typename M, typename V>
+  bool solveRoundingBounds(const M& a, const M& inv, const V& b, M& tolInv, V& tolSol) {
+    constexpr int d = M::ColsAtCompileTime;
+    constexpr double eps = std::numeric_limits<double>::epsilon();
+    const Eigen::LLT<M> llt(a);
+    const M l = llt.matrixL();
+    const M absInv = inv.cwiseAbs();
+    tolInv = (3 * d + 1) * eps * (absInv * (l.cwiseAbs() * l.cwiseAbs().transpose()) * absInv);
+    tolSol = tolInv * b.cwiseAbs() + d * eps * (absInv * b.cwiseAbs());
+    return llt.info() == Eigen::Success;
+  }
 
   // helix at transverse arc length s; q > 0 bends clockwise for Bz > 0
   void helixAt(double s,
@@ -227,7 +272,7 @@ namespace {
                             !std::memcmp(l1.par.data(), l2.par.data(), sizeof(double) * 2) &&
                             !std::memcmp(l1.cov.data(), l2.cov.data(), sizeof(double) * 4) &&
                             !std::memcmp(&l1.chi2, &l2.chi2, sizeof(l1.chi2));
-    res.kappaIdentical = !std::memcmp(&oc.par(2), &c2.par(2), sizeof(double));
+    res.kappaBitwise = !std::memcmp(&oc.par(2), &c2.par(2), sizeof(double));
 
     // ---- information only: the precondition, i.e. the new functions called AFTER upstream circleFit
     {
@@ -295,10 +340,45 @@ namespace {
     bl::OuterCircleState s0;
     ::riemannFit::Matrix3d jAn;
     extract(u(m), u(N - 1), u(N), s0, jAn);
-    res.extractionMatchesCircle = s0.par == oc.par && s0.point == oc.point;
     const ::riemannFit::Vector2d chordVec = s0.point - (hitA + (u(m) - zA) * rhatA);
     res.chord = chordVec.norm();
     res.rhatBU = jAn(1, 1);
+
+    // circleFitOuter() solves the same system as the solve above, with the same operations but compiled in another
+    // context (see solveRoundingBounds), so its state is compared with the extraction at this solution within the
+    // propagated rounding of the solve plus the rounding of the extraction itself, which can also fuse differently:
+    // - eB = hit_b + (u_b - z_b) rhat_b: one fusable product per component, |d eB_c| <= eps |(u_b - z_b) rhat_b,c|;
+    // - kappa = q (1 / R + u_n): no fusable product, so only the solve enters;
+    // - phi_e = atan2(eB - dA) - asin(kappa L / 2): eB and dA move by at most dE = eps (|z_a - u_a| + |z_b - u_b|),
+    //   which turns the chord direction by dE / L and changes L by dE plus eps / 2 relative (the fusable sum of
+    //   squares under the square root), hence asin by |kappa L / 2| (dE / L + eps / 2) / sqrt(1 - (kappa L / 2)^2).
+    {
+      constexpr double eps = std::numeric_limits<double>::epsilon();
+      ::riemannFit::MatrixNplusONEd<N> tolInv;
+      ::riemannFit::VectorNplusONEd<N> tolU;
+      res.boundsCircle = solveRoundingBounds(c_u, iMat, r_u, tolInv, tolU);
+      const double tolUm = tolU(m), tolUb = tolU(N - 1), tolUn = tolU(N);
+      const double dE = eps * (std::abs(zA - u(m)) + std::abs(zB - u(N - 1)));
+      const double halfSine = 0.5 * s0.par(2) * res.chord;
+      const double tolPhi = std::abs(jAn(0, 0)) * tolUm + std::abs(jAn(0, 1)) * tolUb + std::abs(jAn(0, 2)) * tolUn +
+                            dE / res.chord +
+                            std::abs(halfSine) * (dE / res.chord + 0.5 * eps) / std::sqrt(1. - halfSine * halfSine);
+      double ratio = devRatio(std::abs(s0.par(0) - oc.par(0)), tolPhi);
+      res.tolPoint = 0;
+      for (int c = 0; c < 2; ++c) {
+        const double tolPoint = std::abs(rhatB(c)) * tolUb + eps * std::abs((u(N - 1) - zB) * rhatB(c));
+        ratio = std::max(ratio, devRatio(std::abs(s0.point(c) - oc.point(c)), tolPoint));
+        res.tolPoint = std::max(res.tolPoint, tolPoint);
+      }
+      ratio = std::max(ratio, devRatio(std::abs(s0.par(2) - oc.par(2)), tolUn));
+      res.ratioCircle = ratio;
+      res.tolPhi = tolPhi;
+      res.extractionMatchesCircle = ratio <= 1 && s0.par(1) == oc.par(1);
+      // upstream circleFit() returns kappa = q (1 / R + u_n) from its own solve: the same bound on u_n
+      res.tolKappa = tolUn;
+      res.ratioKappa = devRatio(std::abs(oc.par(2) - c2.par(2)), tolUn);
+      res.kappaWithinRounding = res.ratioKappa <= 1;
+    }
 
     // ---- circle Jacobian: central finite differences in (u_m, u_{n-1}, u_n)
     const ::riemannFit::Vector2d normalU(-std::sin(s0.par(0)), std::cos(s0.par(0)));
@@ -374,7 +454,7 @@ namespace {
     auto extractLine = [&](double uA, double uB, bl::OuterLineState& s) {
       bl::outerLineExtraction(acc, uA, uB, iBlockL, sA, sB, sE, rotMatL, msVar, s);
     };
-    // The state compared bitwise with lineFitOuter() is extracted as lineFitOuter() does it: here, where the library
+    // The state compared with lineFitOuter() is extracted as lineFitOuter() does it: here, where the library
     // code is inlined too, with the multScatt() call itself as the argument. With floating-point contraction (GCC's
     // default for C++, with the FMA of -march=x86-64-v3) the compiler fuses one of the two products of
     // cov(0, 0) = (...) * idiff^2 + multScatt(...) into the addition: the m.s. one when its last multiplication is
@@ -391,12 +471,13 @@ namespace {
                             rotMatL,
                             bl::multScatt(acc, sB - sA, kBField, fast_fit(2), N, slope),
                             l0);
-    res.extractionMatchesLine = l0.par == ol.par && l0.cov == ol.cov;
+    res.extractionLineBitwise = l0.par == ol.par && l0.cov == ol.cov;
     res.extractionLineDevPar = (l0.par - ol.par).cwiseAbs().maxCoeff();
     res.extractionLineDevCov = (l0.cov - ol.cov).cwiseAbs().maxCoeff();
 
     // ---- line Jacobian: central finite differences in (u_m, u_{n-1}) vs the chain of the three linear steps
     ::riemannFit::Matrix2d jFDL;
+    ::riemannFit::Matrix2d dCovL[2];  // d cov / d(u_m, u_{n-1}), for the rounding tolerances below
     for (int k = 0; k < 2; ++k) {
       double up[2] = {uL(m), uL(N - 1)}, dn[2] = {uL(m), uL(N - 1)};
       up[k] += kStepU;
@@ -405,6 +486,7 @@ namespace {
       extractLine(up[0], up[1], sp);
       extractLine(dn[0], dn[1], sm);
       jFDL.col(k) = (sp.par - sm.par) / (2 * kStepU);
+      dCovL[k] = (sp.cov - sm.cov) / (2 * kStepU);
     }
     const double chordS = sB - sA;
     const double slopeRot = (uL(N - 1) - uL(m)) / chordS, zipRot = uL(N - 1) - slopeRot * sB;
@@ -415,6 +497,81 @@ namespace {
     jRot << 1. / (tmpRot * tmpRot), 0, zipRot * rotMatL(0, 1) / (tmpRot * tmpRot), 1. / tmpRot;
     jShift << 1, 0, sE, 1;
     const ::riemannFit::Matrix2d jAnL = jShift * jRot * jTrans * jPair;
+
+    // lineFitOuter() solves the same system as the solve above, compiled in another context (see
+    // solveRoundingBounds), so its state is compared with the extraction at this solution within the propagated
+    // rounding of the solve plus the rounding of outerLineExtraction() itself, which can also fuse differently. Its
+    // fusable products, each one rounding (eps for two evaluations) of the product:
+    // - translation zip -= slope S_b: d zip = eps |slope S_b|;
+    // - tmp = r00 - slope r01: d tmp = eps |slope r01|, so d(1 / tmp) = d tmp / tmp^2 (as a change of the slope by
+    //   eps |slope| for the covariance);
+    // - cot = (r01 + slope r00) / tmp: eps |slope r00 / tmp| plus |r01 + slope r00| d(1 / tmp);
+    // - z_e = zip / tmp + cot s_e: |zip| d(1 / tmp) + d zip / |tmp| + |s_e| d cot + eps |cot s_e|.
+    // The covariance goes through the m.s. sum ((...) idiff^2 + m.s., one fusable product) and three congruences
+    // J C J^T, each two levels of 2x2 products with one fusable product per element: 7 levels, each at most one
+    // rounding of the absolute value of what it adds up, so 7 eps |J_shift| |J_rot| |J_trans| |C_0| (...)^T with
+    // |C_0| = |J_pair| |uCov| |J_pair|^T + m.s. The inverse block uCov enters linearly through the Jacobian of the
+    // state, and u_m, u_{n-1} through the dependence of that Jacobian on the slope and intercept (finite differences).
+    {
+      constexpr double eps = std::numeric_limits<double>::epsilon();
+      ::riemannFit::MatrixNd<N> tolInvL;
+      ::riemannFit::VectorNd<N> tolUL;
+      res.boundsLine = solveRoundingBounds(
+          bl::matrixC_u(acc, weightsL, dataOrig.sTotal, dataOrig.varBeta), iMatL, r_uL, tolInvL, tolUL);
+      const double tolUm = tolUL(m), tolUb = tolUL(N - 1);
+      const double r00 = rotMatL(0, 0), r01 = rotMatL(0, 1), invTmp = 1. / tmpRot;
+      const double cotOut = (r01 + slopeRot * r00) * invTmp;
+      const double dZipRot = eps * std::abs(slopeRot * sB);
+      const double dInvTmp = eps * std::abs(slopeRot * r01) * invTmp * invTmp;
+      const double dCot = eps * std::abs(slopeRot * r00 * invTmp) + std::abs(r01 + slopeRot * r00) * dInvTmp;
+      const double dZe =
+          std::abs(zipRot) * dInvTmp + dZipRot * std::abs(invTmp) + std::abs(sE) * dCot + eps * std::abs(cotOut * sE);
+      const ::riemannFit::Matrix2d absJ = jAnL.cwiseAbs();
+      const double tolPar[2] = {absJ(0, 0) * tolUm + absJ(0, 1) * tolUb + dCot,
+                                absJ(1, 0) * tolUm + absJ(1, 1) * tolUb + dZe};
+      ::riemannFit::Matrix2d tolB;
+      tolB << tolInvL(m, m), tolInvL(m, N - 1), tolInvL(N - 1, m), tolInvL(N - 1, N - 1);
+      // d cov / d slope and d cov / d zip at fixed zip and slope: u_a = zip + slope S_a, u_b = zip + slope S_b
+      const ::riemannFit::Matrix2d dCovSlope = sA * dCovL[0] + sB * dCovL[1], dCovZip = dCovL[0] + dCovL[1];
+      const ::riemannFit::Matrix2d absChain = jShift.cwiseAbs() * jRot.cwiseAbs() * jTrans.cwiseAbs();
+      ::riemannFit::Matrix2d c0Abs = jPair.cwiseAbs() * iBlockL.cwiseAbs() * jPair.cwiseAbs().transpose();
+      c0Abs(0, 0) += msVar;
+      const ::riemannFit::Matrix2d tolCov =
+          absJ * tolB * absJ.transpose() + dCovL[0].cwiseAbs() * tolUm + dCovL[1].cwiseAbs() * tolUb +
+          dCovSlope.cwiseAbs() * (eps * std::abs(slopeRot)) + dCovZip.cwiseAbs() * dZipRot +
+          7 * eps * (absChain * c0Abs * absChain.transpose());
+      double ratio = 0;
+      for (int i = 0; i < 2; ++i) {
+        ratio = std::max(ratio, devRatio(std::abs(l0.par(i) - ol.par(i)), tolPar[i]));
+        for (int k = 0; k < 2; ++k)
+          ratio = std::max(ratio, devRatio(std::abs(l0.cov(i, k) - ol.cov(i, k)), tolCov(i, k)));
+      }
+      res.ratioLine = ratio;
+      res.extractionMatchesLine = ratio <= 1;
+      res.tolCot = tolPar[0];
+      res.tolZ = tolPar[1];
+
+      // Upstream lineFit() takes the line of nodes (0, 1) from its own solve, the outer fit that of nodes
+      // (m, n-1): with exact hits both are the truth up to rounding, and each deviates from the exact solution of
+      // the double system by at most half the two-evaluation bound, propagated through its own Jacobian. This
+      // rounding term is added to kTolNoiseless only on the fallback layout: its 1.2 cm span (0.16 cm between
+      // nodes 0 and 1) makes the line solve ill-conditioned, so that upstream lineFit() alone misses the true
+      // cot(theta) by more than kTolNoiseless (the reason the truth checks exempt that layout), and two solves
+      // that round differently disagree by as much. On every other layout kTolNoiseless holds as it is.
+      const double sU0 = dataOrig.sTotal(0), sU1 = dataOrig.sTotal(1), chordU = sU1 - sU0;
+      const double slopeU = (uL(1) - uL(0)) / chordU, zipU = uL(1) - slopeU * sU1;
+      const double tmpU = rotMatL(0, 0) - slopeU * rotMatL(0, 1);
+      ::riemannFit::Matrix2d jPairU, jTransU, jRotU;
+      jPairU << -1. / chordU, 1. / chordU, 0, 1;
+      jTransU << 1, 0, -sU1, 1;
+      jRotU << 1. / (tmpU * tmpU), 0, zipU * rotMatL(0, 1) / (tmpU * tmpU), 1. / tmpU;
+      const ::riemannFit::Matrix2d absJU = (jShift * jRotU * jTransU * jPairU).cwiseAbs();
+      for (int i = 0; i < 2; ++i) {
+        const double rounding =
+            0.5 * (absJ(i, 0) * tolUm + absJ(i, 1) * tolUb + absJU(i, 0) * tolUL(0) + absJU(i, 1) * tolUL(1));
+        (i == 0 ? res.tolUpCot : res.tolUpZ) = kTolNoiseless + (expectFallback ? rounding : 0.);
+      }
+    }
     // FD resolution of the line map: (cot, z_e) are evaluated with a rounding of a few ulp of the larger of the two
     // (|z_e| up to ~2e2 cm), so a central difference cannot resolve derivatives below ~16 eps max|par| / h. The
     // element dz_e/du_m falls below that: it is proportional to the residual at node n-1 (exactly 0 for exact hits),
@@ -456,6 +613,8 @@ namespace {
     const double sOuter = dataOrig.sTransverse(N - 1);
     res.upCot = std::abs(ol.par(0) - l2.par(0));
     res.upZ = std::abs(ol.par(1) - (l2.par(1) + l2.par(0) * sOuter));
+    res.ratioUpCot = res.upCot / res.tolUpCot;
+    res.ratioUpZ = res.upZ / res.tolUpZ;
     // the tangent with the opposite bending sign
     const double phiWrong = std::atan2(chordVec(1), chordVec(0)) + std::asin(0.5 * oc.par(2) * chordVec.norm());
     res.wrongSignShift = std::abs(wrapPhi(phiWrong - truePhi));
@@ -555,6 +714,11 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
   double maxNlCot[2] = {0, 0}, maxNlZ[2] = {0, 0}, maxNlCotUpstream[2] = {0, 0}, maxUpCot[2] = {0, 0},
          maxUpZ[2] = {0, 0};
   int nFallback = 0, nOrderDependent = 0, nChargeFlips = 0, nLineExtractionDiffers = 0;
+  int nCircleExtractionDiffers = 0, nKappaDiffers = 0;
+  // largest |deviation| / tolerance and largest tolerance of the rounding-toleranced comparisons
+  double maxRatioCircle = 0, maxRatioLine = 0, maxRatioKappa = 0, maxRatioUpCot[2] = {0, 0}, maxRatioUpZ[2] = {0, 0};
+  double maxTolPhi = 0, maxTolPoint = 0, maxTolKappa = 0, maxTolCot = 0, maxTolZ = 0, maxTolUpCot[2] = {0, 0},
+         maxTolUpZ[2] = {0, 0};
   double maxLineExtractionDevPar = 0, maxLineExtractionDevCov = 0;
   // per number of fitted hits N (index N): number of cases and the largest deviations over every layout of that N
   struct PerN {
@@ -590,11 +754,18 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
       CHECK(r.fallbackLine == r.expectFallback);
     }
     {
-      INFO("outerCircleExtraction at the solution differs from circleFitOuter");
+      INFO("Cholesky factorization of the rounding tolerances failed: circle " << !r.boundsCircle << " line "
+                                                                               << !r.boundsLine);
+      CHECK((r.boundsCircle && r.boundsLine));
+    }
+    {
+      INFO("outerCircleExtraction at the solution differs from circleFitOuter beyond rounding, |dev| / tol "
+           << r.ratioCircle);
       CHECK(r.extractionMatchesCircle);
     }
     {
-      INFO("outerLineExtraction at the solution differs from lineFitOuter");
+      INFO("outerLineExtraction at the solution differs from lineFitOuter beyond rounding, |dev| / tol "
+           << r.ratioLine);
       CHECK(r.extractionMatchesLine);
     }
     for (int k = 0; k < 3; ++k) {
@@ -643,8 +814,8 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
       CHECK(r.upstreamIdentical);
     }
     {
-      INFO("circleFitOuter kappa is not bit-identical to circleFit kappa");
-      CHECK(r.kappaIdentical);
+      INFO("circleFitOuter kappa differs from circleFit kappa beyond rounding, |dev| / tol " << r.ratioKappa);
+      CHECK(r.kappaWithinRounding);
     }
     if (r.noiseless) {
       INFO("noiseless residuals: phi " << r.nlPhi << " pos " << r.nlPos << " kappa(rel) " << r.nlKappaRel << " cot "
@@ -673,15 +844,17 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
           CHECK(r.nlZ < kTolNoiseless);
         }
       }
-      // On every layout the outer line must agree with upstream lineFit on the same inputs.
-      INFO("upstream agreement: |d cot| " << r.upCot << " |d z_e| " << r.upZ);
+      // On every layout the outer line must agree with upstream lineFit on the same inputs, within kTolNoiseless,
+      // plus the rounding of the two solves on the ill-conditioned fallback layout (see runCase).
+      INFO("upstream agreement: |d cot| " << r.upCot << " (tol " << r.tolUpCot << ") |d z_e| " << r.upZ << " (tol "
+                                          << r.tolUpZ << ")");
       {
         INFO("cot_out differs from upstream lineFit cot(theta)");
-        CHECK(r.upCot < kTolNoiseless);
+        CHECK(r.upCot < r.tolUpCot);
       }
       {
         INFO("z_e differs from upstream lineFit Zip + cot(theta) * sTransverse(n-1)");
-        CHECK(r.upZ < kTolNoiseless);
+        CHECK(r.upZ < r.tolUpZ);
       }
       {
         INFO("the opposite bending sign also matches the truth");
@@ -696,6 +869,10 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
       maxNlZ[fb] = std::max(maxNlZ[fb], r.nlZ);
       maxUpCot[fb] = std::max(maxUpCot[fb], r.upCot);
       maxUpZ[fb] = std::max(maxUpZ[fb], r.upZ);
+      maxRatioUpCot[fb] = std::max(maxRatioUpCot[fb], r.ratioUpCot);
+      maxRatioUpZ[fb] = std::max(maxRatioUpZ[fb], r.ratioUpZ);
+      maxTolUpCot[fb] = std::max(maxTolUpCot[fb], r.tolUpCot);
+      maxTolUpZ[fb] = std::max(maxTolUpZ[fb], r.tolUpZ);
       minWrongShift = std::min(minWrongShift, r.wrongSignShift);
     }
     {
@@ -729,7 +906,17 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
     minQRhatBU = std::min(minQRhatBU, r.qFit * r.rhatBU);
     maxUnresolvedLine = std::max(maxUnresolvedLine, r.maxAbsUnresolvedLine);
     nChargeFlips += (r.qFit != r.q);
-    nLineExtractionDiffers += !r.extractionMatchesLine;
+    nLineExtractionDiffers += !r.extractionLineBitwise;
+    nCircleExtractionDiffers += !(r.ratioCircle == 0);
+    nKappaDiffers += !r.kappaBitwise;
+    maxRatioCircle = std::max(maxRatioCircle, r.ratioCircle);
+    maxRatioLine = std::max(maxRatioLine, r.ratioLine);
+    maxRatioKappa = std::max(maxRatioKappa, r.ratioKappa);
+    maxTolPhi = std::max(maxTolPhi, r.tolPhi);
+    maxTolPoint = std::max(maxTolPoint, r.tolPoint);
+    maxTolKappa = std::max(maxTolKappa, r.tolKappa);
+    maxTolCot = std::max(maxTolCot, r.tolCot);
+    maxTolZ = std::max(maxTolZ, r.tolZ);
     maxLineExtractionDevPar = std::max(maxLineExtractionDevPar, r.extractionLineDevPar);
     maxLineExtractionDevCov = std::max(maxLineExtractionDevCov, r.extractionLineDevCov);
     nFallback += r.fallbackCircle;
@@ -759,9 +946,18 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
             << "  information only: results differ when called after upstream circleFit in " << nOrderDependent
             << " of " << results.size() << " cases (max |d phi_e| " << maxOrderDPhi << " rad, max |d z_e| "
             << maxOrderDZ << " cm)\n"
-            << "  checked, must be 0: outerLineExtraction at the solution differs bitwise from lineFitOuter in "
+            << "  information only: outerLineExtraction at the solution differs bitwise from lineFitOuter in "
             << nLineExtractionDiffers << " cases (max |d par| " << maxLineExtractionDevPar << ", max |d cov| "
-            << maxLineExtractionDevCov << ")\n"
+            << maxLineExtractionDevCov << "), outerCircleExtraction from circleFitOuter in " << nCircleExtractionDiffers
+            << ", circleFitOuter kappa from circleFit kappa in " << nKappaDiffers << '\n'
+            << "  checked, must be <= 1: max |deviation| / rounding tolerance: circle extraction " << maxRatioCircle
+            << ", line extraction " << maxRatioLine << ", kappa vs circleFit " << maxRatioKappa
+            << "; noiseless vs upstream lineFit (non-fallback / fallback) cot " << maxRatioUpCot[0] << " / "
+            << maxRatioUpCot[1] << ", z_e " << maxRatioUpZ[0] << " / " << maxRatioUpZ[1] << '\n'
+            << "  largest rounding tolerances: phi_e " << maxTolPhi << " rad, eB " << maxTolPoint << " cm, kappa "
+            << maxTolKappa << " 1/cm, cot " << maxTolCot << ", z_e " << maxTolZ
+            << " cm; vs upstream lineFit (non-fallback / fallback) cot " << maxTolUpCot[0] << " / " << maxTolUpCot[1]
+            << ", z_e " << maxTolUpZ[0] << " / " << maxTolUpZ[1] << " cm\n"
             << "  per N (tolerances: Jacobians and covariances " << kTolFD << ", noiseless residuals " << kTolNoiseless
             << "):\n";
   for (int n = 0; n <= kLadderMaxN; ++n) {
