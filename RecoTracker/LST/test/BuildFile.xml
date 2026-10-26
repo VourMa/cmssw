@@ -105,7 +105,9 @@
 <bin file="alpaka/testTCSeedStateSelection.dev.cc" name="testTCSeedStateSelection">
   <use name="alpaka"/>
   <use name="eigen"/>
+  <use name="DataFormats/GeometrySurface"/>
   <use name="DataFormats/Portable"/>
+  <use name="DataFormats/TrackingRecHitSoA"/>
   <use name="FWCore/Utilities"/>
   <use name="HeterogeneousCore/AlpakaInterface"/>
   <use name="HeterogeneousCore/AlpakaMath"/>

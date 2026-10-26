@@ -2,8 +2,9 @@
 // run end to end through its launcher on every device of the backend, on a synthetic event: noiseless helices in a
 // uniform 3.8 T field (T5, T4, pT3, pT5 of 8 to 18 hits, and edge cases) and candidates made to end in every status.
 // Checked: rows, statuses, fitted-hit counts and state hits against expectations; the kOk states against the truth
-// with the tolerances of LSTInputDeviceTestTracks.h; the counters; rows independent of the candidate order and of
-// junk rows beyond the candidate count.
+// with the tolerances of LSTInputDeviceTestTracks.h; the covariances of the fitted OT hits, which the fit computes from
+// the OT rechits and the module frames, against the host; the counters; rows independent of the candidate order and
+// of junk rows beyond the candidate count.
 
 #include <Eigen/Core>  // before the SoA headers with Eigen columns
 
@@ -13,17 +14,21 @@
 #include <cstdlib>
 #include <iostream>
 #include <limits>
+#include <map>
 #include <numeric>
 #include <random>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include <alpaka/alpaka.hpp>
 
+#include "DataFormats/TrackingRecHitSoA/interface/alpaka/Phase2OTRecHitsSoACollection.h"
 #include "FWCore/Utilities/interface/stringize.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
+#include "RecoTracker/LSTCore/interface/OTHitCovariance.h"
 #include "RecoTracker/LSTCore/interface/TCSeedStatesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LST.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LSTInputDeviceCollection.h"
@@ -69,6 +74,7 @@ namespace {
     std::vector<GeneratedTrack> tracks;
     std::vector<Expected> expected;  // one per candidate
     std::vector<std::string> incomplete;
+    std::map<std::pair<bool, double>, TestHit> moduleFrames;  // the first hit on each OT surface (barrel, radius or z)
 
     // a row from a hit of a generated track: its position and its global covariance from its module frame
     static Row rowOf(TestHit const& hit, uint32_t detId, uint32_t idx) {
@@ -77,8 +83,13 @@ namespace {
       return row;
     }
 
+    // an OT row, with the local variances and the module frame from which the fit computes its covariance
     Ref addOT(TestHit const& hit) {
-      event.ot.push_back(rowOf(hit, 0x10000000u + event.nOT(), 0));
+      Row row = rowOf(hit, 0x10000000u + event.nOT(), 0);
+      row.varX = hit.varX;
+      row.varY = hit.varY;
+      row.module = event.moduleOf(frameOf(hit));
+      event.ot.push_back(row);
       return {false, event.nOT() - 1};
     }
 
@@ -101,6 +112,18 @@ namespace {
 
     int generateTrack(std::string const& label, Helix const& helix, std::vector<Surface> const& surfaces) {
       tracks.push_back(generate(helix, surfaces, bField, nullptr));
+      // the OT hits on a surface that an earlier track crossed sit on the module of that surface and take its frame, so
+      // that the rows of different tracks share a module
+      for (std::size_t i = 0; i < tracks.back().hits.size(); ++i) {
+        if (!surfaces[i].isOT)
+          continue;
+        TestHit& hit = tracks.back().hits[i];
+        auto const [module, isNew] = moduleFrames.try_emplace({surfaces[i].barrel, surfaces[i].value}, hit);
+        if (!isNew) {
+          std::copy(module->second.origin, module->second.origin + 3, hit.origin);
+          std::copy(module->second.rotation, module->second.rotation + 9, hit.rotation);
+        }
+      }
       if (!tracks.back().complete)
         incomplete.push_back(label);
       return tracks.size() - 1;
@@ -177,7 +200,7 @@ namespace {
   Helix helix(double pt, int charge, double phi0, double cot) { return {{0.02, -0.01, 0.5}, phi0, pt, cot, charge}; }
 
   Builder buildEvent(float bField) {
-    Builder builder{bField, {}, {}, {}, {}};
+    Builder builder{bField, {}, {}, {}, {}, {}};
     Event& event = builder.event;
 
     // every hit fitted, T5 and T4 of 8 to 14 hits, central and forward, both charges
@@ -331,9 +354,13 @@ namespace {
       builder.addHelixCandidate(
           "T5, negative hit variances", LSTObjType::T5, helix(20., 1, -0.7, -0.2), barrelModules(radii(5)), 0, 0, 10);
       for (int slot = 2; slot <= 6; ++slot)
-        for (int k = 0; k < 2; ++k)
-          for (float& value : event.ot[event.candidates.back().slots[slot][k].row].cov)
+        for (int k = 0; k < 2; ++k) {
+          Row& row = event.ot[event.candidates.back().slots[slot][k].row];
+          for (float& value : row.cov)
             value = -value;
+          row.varX = -row.varX;
+          row.varY = -row.varY;
+        }
       builder.expected.back().status = SeedStateStatus::kNonPositiveVariance;
     }
     {
@@ -411,20 +438,29 @@ namespace {
     return out;
   }
 
+  // with fitInputs, also the hits of each candidate's fit as the fit read them, in candidate order
   ::lst::TCSeedStatesHostCollection runFit(Queue& queue,
                                            Event const& event,
                                            std::vector<uint32_t> const& order,
                                            float bField,
                                            uint32_t nSpare = 0,
-                                           uint32_t nanHit = ::lst::kTCEmptyHitIdx) {
+                                           uint32_t nanHit = ::lst::kTCEmptyHitIdx,
+                                           std::vector<tc::FitInput>* fitInputs = nullptr) {
     const auto inputHost = tcSeedStateTest::makeInput(event, bField);
+    const auto otRecHitsHost = tcSeedStateTest::makeOTRecHits(event);
     const uint32_t nOT = event.nOT(), nIT = event.it.size(), nPLS = event.pixelTracks.size();
+    const auto framesHost = event.frameTable();
+    const uint32_t nFrames = framesHost.size();
     const uint32_t nTCs = order.size();
     const auto candidatesHost =
         nSpare == 0 ? tcSeedStateTest::makeCandidates(event, order)
                     : withSpareRows(tcSeedStateTest::makeCandidates(event, order), nSpare, nanHit, nOT + nIT);
     ALPAKA_ACCELERATOR_NAMESPACE::lst::LSTInputDeviceCollection input(queue, nOT + nIT, nPLS, nIT);
     alpaka::memcpy(queue, input.buffer(), inputHost.buffer());
+    ALPAKA_ACCELERATOR_NAMESPACE::reco::Phase2OTRecHitsSoACollection otRecHits(queue, nOT);
+    alpaka::memcpy(queue, otRecHits.buffer(), otRecHitsHost.buffer());
+    auto frames = cms::alpakatools::make_device_buffer<SOAFrame<float>[]>(queue, nFrames);
+    alpaka::memcpy(queue, frames, cms::alpakatools::make_host_view(framesHost.data(), nFrames));
     ALPAKA_ACCELERATOR_NAMESPACE::lst::TrackCandidatesBaseDeviceCollection candidates(queue, nTCs + nSpare);
     alpaka::memcpy(queue, candidates.buffer(), candidatesHost.buffer());
 
@@ -435,14 +471,52 @@ namespace {
     auto counters = cms::alpakatools::make_device_buffer<tc::Counters>(queue);
     tc::fitSeedStates(queue,
                       input.const_view(),
+                      ::lst::OTHitCovarianceInputs{otRecHits.const_view(), frames.data()},
                       candidates.const_view(),
                       nTCs,
                       seedStates.view(),
                       {inputs.data(), states.data(), lists.data(), counters.data()});
     ::lst::TCSeedStatesHostCollection host(cms::alpakatools::host(), nTCs, nTCs);
     alpaka::memcpy(queue, host.buffer(), seedStates.buffer());
+    if (fitInputs != nullptr) {
+      fitInputs->resize(nTCs);
+      alpaka::memcpy(queue, cms::alpakatools::make_host_view(fitInputs->data(), nTCs), inputs);
+    }
     alpaka::wait(queue);
     return host;
+  }
+
+  // The covariance of every fitted OT hit, which the fit computes from the OT rechit of its row and the module frame,
+  // against the host computation of its row (Builder::rowOf). A fitted hit is an OT row's if its position is that
+  // row's, bit for bit; hits of NaN position are left out.
+  void checkOTCovariances(Checks& checks,
+                          Builder const& builder,
+                          std::vector<uint32_t> const& order,
+                          std::vector<tc::FitInput> const& fitInputs,
+                          ::lst::TCSeedStatesHostCollection const& result) {
+    auto const state = result.const_view().state();
+    for (uint32_t i = 0; i < order.size(); ++i) {
+      const std::string& label = builder.event.candidates[order[i]].label;
+      for (uint32_t k = 0; k < state[i].nFit(); ++k) {
+        ::lst::FitHit const& hit = fitInputs[i].hits[k];
+        if (std::isnan(hit.x) || std::isnan(hit.y) || std::isnan(hit.z))
+          continue;
+        for (Row const& row : builder.event.ot) {
+          if (!(sameBits(hit.x, row.x) && sameBits(hit.y, row.y) && sameBits(hit.z, row.z)))
+            continue;
+          const double scale =
+              std::max({std::abs(double(row.cov[0])), std::abs(double(row.cov[2])), std::abs(double(row.cov[5]))});
+          double deviation = 0.;
+          for (int c = 0; c < 6; ++c)
+            deviation = std::max(deviation, std::abs(double(hit.cov[c]) - row.cov[c]) / scale);
+          checks("fit inputs: OT-hit covariance from the OT rechit and the module frame, host vs kernel",
+                 kHitCovariance,
+                 "rel")
+              .add(deviation, label);
+          break;
+        }
+      }
+    }
   }
 
   // a row as the fit's state
@@ -616,8 +690,10 @@ int main() {
     Queue queue(device);
     std::cout << EDM_STRINGIZE(ALPAKA_ACCELERATOR_NAMESPACE) " " << alpaka::getName(device) << "\n";
     Checks checks;
-    const auto inOrder = runFit(queue, builder.event, order, bField);
+    std::vector<tc::FitInput> fitInputs;
+    const auto inOrder = runFit(queue, builder.event, order, bField, 0, ::lst::kTCEmptyHitIdx, &fitInputs);
     const Counts counts = evaluate(checks, "", builder, order, inOrder);
+    checkOTCovariances(checks, builder, order, fitInputs, inOrder);
     const auto inPermutedOrder = runFit(queue, builder.event, permuted, bField);
     evaluate(checks, "permuted: ", builder, permuted, inPermutedOrder);
     for (uint32_t i = 0; i < nCandidates; ++i)
@@ -632,7 +708,8 @@ int main() {
       constexpr uint32_t kSpareRows = 37;
       tcSeedStateTest::Event event = builder.event;
       const uint32_t nanHit = event.nOT();
-      event.ot.push_back({kNaN, kNaN, kNaN, {kNaN, kNaN, kNaN, kNaN, kNaN, kNaN}, 0x10000000u + nanHit, 0});
+      event.ot.push_back(
+          {kNaN, kNaN, kNaN, {kNaN, kNaN, kNaN, kNaN, kNaN, kNaN}, 0x10000000u + nanHit, 0, kNaN, kNaN, 0});
       const auto plain = runFit(queue, event, order, bField);
       const auto spare = runFit(queue, event, order, bField, kSpareRows, nanHit);
       checks("spare rows: nTCs rows", 0., "")
