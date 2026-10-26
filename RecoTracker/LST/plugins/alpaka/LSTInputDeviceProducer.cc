@@ -201,7 +201,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
       auto const& totals = *totals_->data();
       auto const& otRecHitsSoA = iEvent.get(otRecHitsSoAToken_);
       const uint32_t nOTHits = otRecHitsSoA.const_view().metadata().size();
-      auto const modules = iSetup.getData(modulesToken_).const_view();
 
       lst::LSTInputDeviceCollection lstInput(
           queue, nOTHits + totals.nSegmentHits, totals.nSegments, totals.nSegmentHits);
@@ -209,7 +208,6 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE {
                                    lstInput.view(),
                                    otRecHitsSoA.const_view(),
                                    nOTHits,
-                                   modules,
                                    bField_,
                                    candidates_->data(),
                                    nTracks_,

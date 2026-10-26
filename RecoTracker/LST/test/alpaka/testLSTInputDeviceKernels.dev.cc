@@ -709,7 +709,6 @@ namespace {
                         lstInput.view(),
                         otDevice.const_view(),
                         nOTHits,
-                        modulesDevice.const_view(),
                         bField,
                         candidates.data(),
                         nTracks,
@@ -1223,19 +1222,11 @@ namespace {
     checks("LST input: nHitsOT, B", 0., "")
         .require(lstHits.nHitsOT() == nOTHits && lstHits.B() == settings.bField, event);
     for (uint32_t row = 0; row < nOTHits; ++row) {
-      TestHit hit = hits.otRows[row];
+      TestHit const& hit = hits.otRows[row];
       checks("LST input: OT rows xs, ys, zs, detid, clustsize equal to the OT rechits", 0., "")
           .require(same(lstHits[row].xs(), hit.x) && same(lstHits[row].ys(), hit.y) && same(lstHits[row].zs(), hit.z) &&
                        lstHits[row].detid() == hit.detId && lstHits[row].clustsize() == hit.clusterSize,
                    event + " OT row " + std::to_string(row));
-      TestHit const& frame = hits.moduleFrames[hits.otModule[row]];
-      std::copy(frame.origin, frame.origin + 3, hit.origin);
-      std::copy(frame.rotation, frame.rotation + 9, hit.rotation);
-      float cov[6];
-      for (int k = 0; k < 6; ++k)
-        cov[k] = lstHits.cov()[row][k];
-      checks("LST input: OT-row covariance from the module frame, host vs kernel", kHitCovariance, "rel")
-          .add(covarianceDeviation(cov, hit), event + " OT row " + std::to_string(row));
     }
     for (uint32_t t = 0; t < nTracks; ++t) {
       PixelSegmentCandidate const& candidate = out.candidates[t];
@@ -1252,13 +1243,10 @@ namespace {
         const uint32_t itRow = hitOffset[t] + slot;
         float x, y, z;
         ::lst::pixelSegmentHitColumns(candidate.kinematics, slot, x, y, z);
-        bool nanCov = true;
-        for (int k = 0; k < 6; ++k)
-          nanCov = nanCov && std::isnan(lstHits.cov()[row][k]);
-        checks("LST input: pLS-hit rows: packed kinematics, slot detid and clustsize, NaN cov", 0., "")
+        checks("LST input: pLS-hit rows: packed kinematics, slot detid and clustsize", 0., "")
             .require(same(lstHits[row].xs(), x) && same(lstHits[row].ys(), y) && same(lstHits[row].zs(), z) &&
                          lstHits[row].detid() == candidate.slotDetId[slot] &&
-                         lstHits[row].clustsize() == candidate.slotClusterSize[slot] && nanCov,
+                         lstHits[row].clustsize() == candidate.slotClusterSize[slot],
                      label);
         // the slot hit with the values of the fit: the fit input itself when the hit is fitted, else computed alike
         // (its covariance against the host above)

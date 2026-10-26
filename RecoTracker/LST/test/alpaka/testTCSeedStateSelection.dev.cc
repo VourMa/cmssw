@@ -3,7 +3,8 @@
 // fitted, and on which hit the state sits. Run in a kernel on every device of the backend on a synthetic LST input and
 // synthetic candidates: hand-built cases against their expected hits, then random candidates against the properties
 // every selection must have. The hits-block rows behind the pixel slots hold junk, so that reading them would change
-// the order and the fit inputs. Every check is exact: the selection only moves and compares values.
+// the order and the fit inputs. Every check is exact: the selection only moves and compares values, and the global
+// covariance it computes for an OT hit from the OT rechit and the module frame is exact for the frames used here.
 
 #include <Eigen/Core>  // before the SoA headers with Eigen columns
 
@@ -22,12 +23,14 @@
 
 #include "DataFormats/Portable/interface/PortableHostCollection.h"
 #include "DataFormats/Portable/interface/alpaka/PortableCollection.h"
+#include "DataFormats/TrackingRecHitSoA/interface/alpaka/Phase2OTRecHitsSoACollection.h"
 #include "FWCore/Utilities/interface/stringize.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/config.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/devices.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/memory.h"
 #include "HeterogeneousCore/AlpakaInterface/interface/workdivision.h"
 #include "RecoTracker/LSTCore/interface/LSTInputHostCollection.h"
+#include "RecoTracker/LSTCore/interface/OTHitCovariance.h"
 #include "RecoTracker/LSTCore/interface/TrackCandidatesHostCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/LSTInputDeviceCollection.h"
 #include "RecoTracker/LSTCore/interface/alpaka/TCSeedStateSelection.h"
@@ -49,6 +52,7 @@ namespace {
   using tcSeedStateTest::kLayers;
   using tcSeedStateTest::makeCandidates;
   using tcSeedStateTest::makeInput;
+  using tcSeedStateTest::makeOTRecHits;
   using tcSeedStateTest::otIndex;
   using tcSeedStateTest::PixelTrack;
   using tcSeedStateTest::Ref;
@@ -64,11 +68,28 @@ namespace {
       row.cov[k] = 1e-4f * (serial + 1) + 1e-6f * k;
   }
 
+  // The OT rows sit on kModules modules, row r on module r % kModules, so that rows share a module and share its frame;
+  // the table of the frames lists the modules in an order different from that of the rows (Event::moduleOf). The
+  // rotation of a module only permutes and flips the axes: the global covariance from the local variances is then
+  // exact, whatever fused multiply-adds the compilers of the host and of the device form, and the fit computes cov of
+  // the row bit for bit. The four rotations (rows: the local axes in the global frame) and local variances unique to
+  // every row show a mix-up of rows, of modules or of the two variances.
+  constexpr uint32_t kModules = 6;
+  constexpr float kRotations[4][9] = {{1.f, 0.f, 0.f, 0.f, 1.f, 0.f, 0.f, 0.f, 1.f},
+                                      {0.f, 1.f, 0.f, 0.f, 0.f, 1.f, 1.f, 0.f, 0.f},
+                                      {0.f, 0.f, 1.f, 1.f, 0.f, 0.f, 0.f, 1.f, 0.f},
+                                      {-1.f, 0.f, 0.f, 0.f, 0.f, 1.f, 0.f, 1.f, 0.f}};
+
   Ref addOT(Event& event, float x, float y, float z) {
-    Row row{x, y, z, {}, 0x10000000u + event.nOT(), 0};
-    fillCovariance(row, event.ot.size());
+    const uint32_t serial = event.ot.size();
+    Row row{x, y, z, {}, 0x10000000u + serial, 0};
+    row.varX = 1e-4f * (serial + 1);
+    row.varY = 1e-4f * (serial + 1) + 3e-6f;
+    const uint32_t module = serial % kModules;
+    row.module = event.moduleOf(SOAFrame<float>(float(module), 0.f, 0.f, SOARotation<float>(kRotations[module % 4])));
+    tcSeedStateTest::setOTCovariance(event, row);
     event.ot.push_back(row);
-    return {false, static_cast<uint32_t>(event.ot.size() - 1)};
+    return {false, serial};
   }
 
   // an OT module at radius r: the inner hit at (r, 1, r / 2), the outer one at (r + dx, 1 + dy, r / 2 + dz)
@@ -134,10 +155,11 @@ namespace {
   struct SelectionKernel {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   ::lst::LSTInputConstView input,
+                                  ::lst::OTHitCovarianceInputs otHits,
                                   ::lst::TrackCandidatesBaseConst candidates,
                                   uint32_t nCandidates,
                                   Output* outputs) const {
-      const tc::InputHits hits{input.hits(), input.hitsIT(), input.pixelSeeds(), input.hits().nHitsOT()};
+      const tc::InputHits hits{input.hits(), input.hitsIT(), input.pixelSeeds(), input.hits().nHitsOT(), otHits};
       for (uint32_t i : cms::alpakatools::uniform_elements(acc, nCandidates)) {
         Output& out = outputs[i];
         const LSTObjType type = candidates.trackCandidateType()[i];
@@ -159,6 +181,13 @@ namespace {
 
     ALPAKA_ACCELERATOR_NAMESPACE::lst::LSTInputDeviceCollection inputDevice(queue, nOT + nIT, nPLS, nIT);
     alpaka::memcpy(queue, inputDevice.buffer(), inputHost.buffer());
+    const auto otRecHitsHost = makeOTRecHits(event);
+    ALPAKA_ACCELERATOR_NAMESPACE::reco::Phase2OTRecHitsSoACollection otRecHitsDevice(queue, nOT);
+    alpaka::memcpy(queue, otRecHitsDevice.buffer(), otRecHitsHost.buffer());
+    const auto framesHost = event.frameTable();
+    const uint32_t nFrames = framesHost.size();
+    auto framesDevice = cms::alpakatools::make_device_buffer<SOAFrame<float>[]>(queue, nFrames);
+    alpaka::memcpy(queue, framesDevice, cms::alpakatools::make_host_view(framesHost.data(), nFrames));
     ALPAKA_ACCELERATOR_NAMESPACE::lst::TrackCandidatesBaseDeviceCollection candidatesDevice(queue, nCandidates);
     alpaka::memcpy(queue, candidatesDevice.buffer(), candidatesHost.buffer());
     auto outputs = cms::alpakatools::make_device_buffer<Output[]>(queue, nCandidates);
@@ -168,6 +197,7 @@ namespace {
         cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nCandidates, kThreads), kThreads),
         SelectionKernel{},
         inputDevice.const_view(),
+        ::lst::OTHitCovarianceInputs{otRecHitsDevice.const_view(), framesDevice.data()},
         candidatesDevice.const_view(),
         nCandidates,
         outputs.data());
