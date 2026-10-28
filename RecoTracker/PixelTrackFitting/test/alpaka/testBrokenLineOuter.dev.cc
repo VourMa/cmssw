@@ -47,6 +47,10 @@ namespace {
   // The opposite bending sign moves phi_e by 2 asin(kappa L / 2) >= L / R: >= 6.8e-4 rad for the shortest chord
   // (1.2 cm) at the largest radius (20 GeV) used here.
   constexpr double kMinWrongSignShift = 1e-5;
+  // The overloads of the outer fits that take their work array are run on a buffer in block-shared memory, as the fit
+  // kernels pass it, sized for the largest N of the cases below.
+  constexpr int kWorkMaxN = 14;
+  constexpr int kWorkCapacity = (kWorkMaxN + 1) * (kWorkMaxN + 1);
 
   struct CaseResult {
     char label[192];
@@ -73,8 +77,10 @@ namespace {
     double rhatBU;
     double nlPhi, nlPos, nlKappaRel, nlCot, nlZ, wrongSignShift, nlCotUpstream;
     double upCot, upZ;  // |cot_out - cot_upstream| and |z_e - (zip_upstream + cot_upstream * s_e)|
-    bool dataUnchanged, upstreamIdentical, kappaWithinRounding;
+    bool dataUnchanged, upstreamIdentical, kappaWithinRounding, workOverloadBitwise;
     bool kappaBitwise;  // information only
+    // information only: largest relative deviation of the shared-memory from the stack work array
+    double workDevCircle, workDevLine;
     bool orderDependent;
     double orderDPhi, orderDZ;
   };
@@ -139,6 +145,40 @@ namespace {
     x = x0 + (radius / q) * (std::sin(phi0) - std::sin(phi));
     y = y0 + (radius / q) * (std::cos(phi) - std::cos(phi0));
     z = z0 + cot * s;
+  }
+
+  bool sameBits(const bl::OuterCircleState& a, const bl::OuterCircleState& b) {
+    return !std::memcmp(a.point.data(), b.point.data(), sizeof(double) * 2) &&
+           !std::memcmp(a.par.data(), b.par.data(), sizeof(double) * 3) &&
+           !std::memcmp(a.cov.data(), b.cov.data(), sizeof(double) * 9) && a.qCharge == b.qCharge && a.mRef == b.mRef &&
+           a.refFallback == b.refFallback;
+  }
+
+  bool sameBits(const bl::OuterLineState& a, const bl::OuterLineState& b) {
+    return !std::memcmp(a.par.data(), b.par.data(), sizeof(double) * 2) &&
+           !std::memcmp(a.cov.data(), b.cov.data(), sizeof(double) * 4) && a.mRef == b.mRef &&
+           a.refFallback == b.refFallback;
+  }
+
+  // largest element-wise relative deviation of a from b over the point, par and cov (circle) or par and cov (line)
+  double relDev(const bl::OuterCircleState& a, const bl::OuterCircleState& b) {
+    double d = 0;
+    for (int i = 0; i < 2; ++i)
+      d = std::max(d, relErr(a.point(i), b.point(i), 0.));
+    for (int i = 0; i < 3; ++i)
+      d = std::max(d, relErr(a.par(i), b.par(i), 0.));
+    for (int i = 0; i < 9; ++i)
+      d = std::max(d, relErr(a.cov.data()[i], b.cov.data()[i], 0.));
+    return d;
+  }
+
+  double relDev(const bl::OuterLineState& a, const bl::OuterLineState& b) {
+    double d = 0;
+    for (int i = 0; i < 2; ++i)
+      d = std::max(d, relErr(a.par(i), b.par(i), 0.));
+    for (int i = 0; i < 4; ++i)
+      d = std::max(d, relErr(a.cov.data()[i], b.cov.data()[i], 0.));
+    return d;
   }
 
   template <int N>
@@ -255,6 +295,21 @@ namespace {
     bl::circleFitOuter(acc, hits, hits_ge, fast_fit, kBField, data, oc);
     bl::lineFitOuter(acc, hits, hits_ge, fast_fit, kBField, data, ol);
     res.dataUnchanged = sameData(data, dataOrig);
+
+    // ---- the overloads that take the work array, on a buffer in block-shared memory, in the order of the fit kernels
+    // (line first, one work array for both). Information only: the same operations on another storage can be
+    // contracted differently by the CPU compiler, so the last bits may differ.
+    {
+      static_assert((N + 1) * (N + 1) <= kWorkCapacity, "the work buffer is too small for this N");
+      double* work = alpaka::declareSharedVar<double[kWorkCapacity], __COUNTER__>(acc);
+      bl::OuterLineState olWork;
+      bl::OuterCircleState ocWork;
+      bl::lineFitOuter(acc, hits, hits_ge, fast_fit, kBField, data, olWork, work);
+      bl::circleFitOuter(acc, hits, hits_ge, fast_fit, kBField, data, ocWork, work);
+      res.workOverloadBitwise = sameBits(oc, ocWork) && sameBits(ol, olWork);
+      res.workDevCircle = relDev(oc, ocWork);
+      res.workDevLine = relDev(ol, olWork);
+    }
     res.qFit = oc.qCharge;
     res.mCircle = oc.mRef;
     res.mLine = ol.mRef;
@@ -714,7 +769,8 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
   double maxNlCot[2] = {0, 0}, maxNlZ[2] = {0, 0}, maxNlCotUpstream[2] = {0, 0}, maxUpCot[2] = {0, 0},
          maxUpZ[2] = {0, 0};
   int nFallback = 0, nOrderDependent = 0, nChargeFlips = 0, nLineExtractionDiffers = 0;
-  int nCircleExtractionDiffers = 0, nKappaDiffers = 0;
+  int nCircleExtractionDiffers = 0, nKappaDiffers = 0, nWorkOverloadDiffers = 0;
+  double maxWorkDevCircle = 0, maxWorkDevLine = 0;
   // largest |deviation| / tolerance and largest tolerance of the rounding-toleranced comparisons
   double maxRatioCircle = 0, maxRatioLine = 0, maxRatioKappa = 0, maxRatioUpCot[2] = {0, 0}, maxRatioUpZ[2] = {0, 0};
   double maxTolPhi = 0, maxTolPoint = 0, maxTolKappa = 0, maxTolCot = 0, maxTolZ = 0, maxTolUpCot[2] = {0, 0},
@@ -909,6 +965,9 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
     nLineExtractionDiffers += !r.extractionLineBitwise;
     nCircleExtractionDiffers += !(r.ratioCircle == 0);
     nKappaDiffers += !r.kappaBitwise;
+    nWorkOverloadDiffers += !r.workOverloadBitwise;
+    maxWorkDevCircle = std::max(maxWorkDevCircle, r.workDevCircle);
+    maxWorkDevLine = std::max(maxWorkDevLine, r.workDevLine);
     maxRatioCircle = std::max(maxRatioCircle, r.ratioCircle);
     maxRatioLine = std::max(maxRatioLine, r.ratioLine);
     maxRatioKappa = std::max(maxRatioKappa, r.ratioKappa);
@@ -943,6 +1002,10 @@ TEST_CASE("Broken Line state at the outermost node: " EDM_STRINGIZE(ALPAKA_ACCEL
             << "  min q * (rhat_b . U) " << minQRhatBU << "; chord range " << minChord << " - " << maxChord << " cm\n"
             << "  fallback (m = 0) cases " << nFallback << "; smeared cases with a flipped fitted charge "
             << nChargeFlips << '\n'
+            << "  information only: outer fits with the work array in block-shared memory differ bitwise from those "
+            << "with it on the stack in " << nWorkOverloadDiffers << " of " << results.size()
+            << " cases (max relative deviation, circle point/par/cov " << maxWorkDevCircle << ", line par/cov "
+            << maxWorkDevLine << ")\n"
             << "  information only: results differ when called after upstream circleFit in " << nOrderDependent
             << " of " << results.size() << " cases (max |d phi_e| " << maxOrderDPhi << " rad, max |d z_e| "
             << maxOrderDZ << " cm)\n"

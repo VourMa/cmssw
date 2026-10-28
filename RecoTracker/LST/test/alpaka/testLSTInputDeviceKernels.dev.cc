@@ -497,7 +497,12 @@ namespace {
   // inner-tracker-only fit of the sizes the producer chose (nFit of its states), and the pLS of a full state of status
   // kOk. The states start as copies of the producer's, so that stateHit is kept. Starting from the gathered inputs
   // makes the comparison exact: the hit covariances computed in two different kernels may differ in the last bits,
-  // the same float expression being contracted to fused multiply-adds differently.
+  // the same float expression being contracted to fused multiply-adds differently. For the same reason the fits' work
+  // array is where the producer's fit kernels keep it, one slice of block-shared memory per thread, sized for the
+  // largest fit; the launch uses kRefitThreads threads per block.
+  constexpr uint32_t kRefitWork = ALPAKA_ACCELERATOR_NAMESPACE::lst::fitWorkSize(kMaxFitHits);
+  constexpr uint32_t kRefitThreads = ALPAKA_ACCELERATOR_NAMESPACE::lst::fitThreadsPerBlock(kMaxFitHits);
+
   struct RefitKernel {
     ALPAKA_FN_ACC void operator()(Acc1D const& acc,
                                   ::lstInputDevice::FitInput const* inputs,
@@ -506,11 +511,15 @@ namespace {
                                   FittedState* states,
                                   FittedState* itStates,
                                   PixelSegmentCandidate* candidates) const {
+      constexpr uint32_t kSlots = cms::alpakatools::requires_single_thread_per_block_v<Acc1D> ? 1 : kRefitThreads;
+      ALPAKA_ASSERT_ACC((alpaka::getWorkDiv<alpaka::Block, alpaka::Threads>(acc)[0u] <= kSlots));
+      auto& workArrays = alpaka::declareSharedVar<double[kSlots * kRefitWork], __COUNTER__>(acc);
+      double* work = workArrays + alpaka::getIdx<alpaka::Block, alpaka::Threads>(acc)[0u] * kRefitWork;
       for (uint32_t t : cms::alpakatools::uniform_elements(acc, nTracks)) {
         if (states[t].nFit > 0)
-          fitFull(acc, states[t].nFit, inputs[t].hits, settings.bField, states[t]);
+          fitFull(acc, states[t].nFit, inputs[t].hits, settings.bField, states[t], work);
         if (itStates[t].nFit == kITFitHits)
-          fit::fitState<kITFitHits>(acc, inputs[t].itHits, settings.bField, itStates[t]);
+          fit::fitState<kITFitHits>(acc, inputs[t].itHits, settings.bField, itStates[t], work);
         if (states[t].status == static_cast<uint8_t>(SeedStateStatus::kOk))
           fit::makePixelSegment(states[t], settings, candidates[t]);
       }
@@ -673,10 +682,9 @@ namespace {
       alpaka::memcpy(queue, refitStates, states);
       alpaka::memcpy(queue, refitITStates, itStates);
       alpaka::memcpy(queue, refitCandidates, candidates);
-      constexpr uint32_t kThreads = 64;
       alpaka::exec<Acc1D>(
           queue,
-          cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nTracks, kThreads), kThreads),
+          cms::alpakatools::make_workdiv<Acc1D>(cms::alpakatools::divide_up_by(nTracks, kRefitThreads), kRefitThreads),
           RefitKernel{},
           inputs.data(),
           settings,

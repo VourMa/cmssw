@@ -140,26 +140,28 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest {
     uint8_t prepared, itCandidate, itFit;
   };
 
+  // work: the fit's work array, ALPAKA_ACCELERATOR_NAMESPACE::lst::fitWorkSize(kMaxFitHits) doubles
   template <typename TAcc>
-  ALPAKA_FN_ACC void fitFull(TAcc const& acc, uint32_t nFit, FitHit const* hits, float bField, FittedState& state) {
+  ALPAKA_FN_ACC void fitFull(
+      TAcc const& acc, uint32_t nFit, FitHit const* hits, float bField, FittedState& state, double* work) {
     switch (nFit) {
       case 4:
-        fit::fitState<4>(acc, hits, bField, state);
+        fit::fitState<4>(acc, hits, bField, state, work);
         break;
       case 6:
-        fit::fitState<6>(acc, hits, bField, state);
+        fit::fitState<6>(acc, hits, bField, state, work);
         break;
       case 8:
-        fit::fitState<8>(acc, hits, bField, state);
+        fit::fitState<8>(acc, hits, bField, state, work);
         break;
       case 10:
-        fit::fitState<10>(acc, hits, bField, state);
+        fit::fitState<10>(acc, hits, bField, state, work);
         break;
       case 12:
-        fit::fitState<12>(acc, hits, bField, state);
+        fit::fitState<12>(acc, hits, bField, state, work);
         break;
       case 14:
-        fit::fitState<14>(acc, hits, bField, state);
+        fit::fitState<14>(acc, hits, bField, state, work);
         break;
       default:
         break;
@@ -174,6 +176,8 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest {
                                   float bField,
                                   TestOutput* outputs,
                                   uint32_t nTracks) const {
+      // the fits' work array, on the stack of the thread (the producer's fit kernels keep it in block-shared memory)
+      double work[ALPAKA_ACCELERATOR_NAMESPACE::lst::fitWorkSize(kMaxFitHits)];
       for (uint32_t t : cms::alpakatools::uniform_elements(acc, nTracks)) {
         TestTrack const& track = tracks[t];
         TestOutput& out = outputs[t];
@@ -197,9 +201,9 @@ namespace ALPAKA_ACCELERATOR_NAMESPACE::lstInputDeviceTest {
         out.nITHits = preparation.nITHits;
         out.itCandidate = preparation.itCandidate;
         out.itFit = preparation.itFit;
-        fitFull(acc, preparation.nFit, out.input.hits, bField, out.state);
+        fitFull(acc, preparation.nFit, out.input.hits, bField, out.state, work);
         if (preparation.itFit)
-          fit::fitState<kITFitHits>(acc, out.input.itHits, bField, out.itState);
+          fit::fitState<kITFitHits>(acc, out.input.itHits, bField, out.itState, work);
         if (out.state.status == static_cast<uint8_t>(SeedStateStatus::kOk))
           fit::makePixelSegment(out.state, track.settings, out.candidate);
       }
